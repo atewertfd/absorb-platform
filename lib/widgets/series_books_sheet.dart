@@ -5,6 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:palette_generator/palette_generator.dart';
 import '../utils/cover_accent.dart';
 import 'overlay_toast.dart';
+import 'absorb_placement.dart';
 import 'swipe_action.dart';
 import 'card_buttons.dart' show showErrorToast;
 import '../main.dart' show rootNavigatorKey;
@@ -1570,12 +1571,9 @@ class _SeriesBooksSheetState extends State<SeriesBooksSheet> {
                 icon: Icons.add_circle_outline_rounded,
                 color: cs.primary,
                 onTrigger: () async {
-                  await lib.addToAbsorbingQueue(bookId);
-                  lib.absorbingItemCache[bookId] = Map<String, dynamic>.from(book);
-                  if (context.mounted) {
-                    HapticFeedback.mediumImpact();
-                    showOverlayToast(context, Wording.of(context).episodeListAddedToAbsorbing(bookTitle), icon: Icons.add_circle_outline_rounded);
-                  }
+                  await addToAbsorbingWithPicker(context, bookId,
+                      item: book,
+                      addedToast: Wording.of(context).episodeListAddedToAbsorbing(bookTitle));
                 },
               ),
         child: Card(

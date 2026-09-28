@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'overlay_toast.dart';
+import 'absorb_placement.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:palette_generator/palette_generator.dart';
 import '../utils/cover_accent.dart';
@@ -1410,14 +1411,8 @@ class _BookDetailSheetContentState extends State<_BookDetailSheetContent> {
               HapticFeedback.mediumImpact();
               if (context.mounted) showOverlayToast(context, Wording.of(context).removedFromAbsorbing, icon: Icons.remove_circle_outline_rounded);
             } else {
-              await lib.addToAbsorbingQueue(widget.itemId);
-              if (_item != null) {
-                final cached = Map<String, dynamic>.from(_item!);
-                cached['_absorbingKey'] = widget.itemId;
-                lib.absorbingItemCache[widget.itemId] = cached;
-              }
-              HapticFeedback.mediumImpact();
-              if (context.mounted) showOverlayToast(context, Wording.of(context).addedToAbsorbing, icon: Icons.add_circle_outline_rounded);
+              await addToAbsorbingWithPicker(context, widget.itemId,
+                  item: _item, addedToast: Wording.of(context).addedToAbsorbing);
             }
           });
         if (!lib.isOffline) {
@@ -2577,6 +2572,7 @@ class _BookDetailSheetContentState extends State<_BookDetailSheetContent> {
       final ctx = rootNavigatorKey.currentContext;
       if (ctx != null) showErrorToast(ctx, error);
     } else {
+      unawaited(lib.rememberStartedInAbsorbing(widget.itemId, _item));
       unawaited(lib.syncQueueAutoDownloads());
     }
     lib.refreshLocalProgress();

@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../l10n/app_localizations.dart';
@@ -12,7 +11,7 @@ import '../services/download_service.dart';
 import 'book_detail_sheet.dart';
 import 'books_sheet_shared.dart' show coverGridCount;
 import 'episode_detail_sheet.dart';
-import 'overlay_toast.dart';
+import 'absorb_placement.dart';
 import 'swipe_action.dart';
 import 'stackable_sheet.dart';
 
@@ -228,13 +227,9 @@ class _SectionDetailSheetState extends State<SectionDetailSheet> {
                   icon: Icons.add_circle_outline_rounded,
                   color: cs.primary,
                   onTrigger: () async {
-                    await lib.addToAbsorbingQueue(itemId);
-                    lib.absorbingItemCache[itemId] = Map<String, dynamic>.from(item);
-                    HapticFeedback.mediumImpact();
-                    if (context.mounted) {
-                      showOverlayToast(context, Wording.of(context).sectionDetailAddedToAbsorbing(title),
-                          icon: Icons.add_circle_outline_rounded);
-                    }
+                    await addToAbsorbingWithPicker(context, itemId,
+                        item: item,
+                        addedToast: Wording.of(context).sectionDetailAddedToAbsorbing(title));
                   },
                 ),
           child: card,

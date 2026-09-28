@@ -22,6 +22,14 @@
   "off": "Off",
   "disabled": "Disabled",
   "later": "Later",
+  "whatsNewTitle": "Absorb was updated",
+  "whatsNewContent": "You're now on {version}.",
+  "@whatsNewContent": {
+    "placeholders": {
+      "version": {"type": "String"}
+    }
+  },
+  "whatsNewButton": "See what's new",
   "gotIt": "Got it",
   "preview": "Preview",
   "or": "or",
@@ -443,6 +451,17 @@
   "bookmarksSortedByPosition": "Sorted by position",
   "bookmarksSelect": "Select",
   "bookmarksNoBookmarks": "No bookmarks yet",
+  "bookmarksSearchHint": "Search bookmarks",
+  "bookmarksNoMatches": "No bookmarks match your search",
+  "batchDownloadQueued": "{count, plural, =1{Downloading 1 book} other{Downloading {count} books}}",
+  "@batchDownloadQueued": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "batchDownloadNothingNew": "Already downloaded",
   "bookmarksDeleteCount": "Delete {count} bookmark(s)?",
   "@bookmarksDeleteCount": {
     "placeholders": {
@@ -1485,6 +1504,11 @@
   "fullyAbsorbAction": "Fully Absorb",
   "removeFromAbsorbing": "Remove from Absorbing",
   "addToAbsorbing": "Add to Absorbing",
+  "absorbNext": "Absorb Next",
+  "absorbNextAdded": "Up next in Absorbing",
+  "absorbLast": "Absorb Last",
+  "absorbNextHint": "Right after what's playing now",
+  "absorbLastHint": "At the end of the list",
   "removedFromAbsorbing": "Removed from Absorbing",
   "addedToAbsorbing": "Added to Absorbing",
   "removeFromContinueListening": "Remove from Continue Listening",

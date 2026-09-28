@@ -412,18 +412,76 @@ mixin _AbsorbingMixin on ChangeNotifier, _StateMixin, _CoreMixin {
     unawaited(_catchUpQueueAutoDownloads());
   }
 
-  Future<void> addToAbsorbingQueue(String itemId) async {
-    _manualAbsorbAdds.add(itemId);
-    if ((this as LibraryProvider).isItemFinishedByKey(itemId)) {
-      _finishedManualAbsorbAdds.add(itemId);
+  /// Protect [key] from the sweep that drops entries with no progress yet,
+  /// and give it a card. [item] goes in before the save: callers used to set
+  /// it afterwards, and a kill before the next save left an invisible entry.
+  void _keepInAbsorbing(String key, Map<String, dynamic>? item) {
+    _manualAbsorbAdds.add(key);
+    if ((this as LibraryProvider).isItemFinishedByKey(key)) {
+      _finishedManualAbsorbAdds.add(key);
     } else {
-      _finishedManualAbsorbAdds.remove(itemId);
+      _finishedManualAbsorbAdds.remove(key);
     }
-    _manualAbsorbRemoves.remove(itemId);
+    _manualAbsorbRemoves.remove(key);
+    if (item != null) {
+      _absorbingItemCache[key] = {...item, '_absorbingKey': key};
+    }
+  }
+
+  Future<void> addToAbsorbingQueue(String itemId,
+      {Map<String, dynamic>? item}) async {
+    _keepInAbsorbing(itemId, item);
     _absorbingIdsAdd(itemId, atFront: false);
     await _saveManualAbsorbing();
     notifyListeners();
     unawaited(_catchUpQueueAutoDownloads());
+  }
+
+  /// Put [key] straight after what's playing. Manual queue plays in card
+  /// order once the playing card finishes and moves to the front, so this
+  /// is the next one it picks. Other queue modes follow their own source,
+  /// so there it only moves the card.
+  Future<void> playNextInAbsorbing(String key,
+      {Map<String, dynamic>? item}) async {
+    final player = AudioPlayerService();
+    final activeKey = player.currentItemId == null
+        ? null
+        : player.currentEpisodeId == null
+            ? player.currentItemId
+            : '${player.currentItemId}-${player.currentEpisodeId}';
+    _keepInAbsorbing(key, item);
+    _absorbingBookIds.remove(key);
+    final activeIdx =
+        activeKey == null ? -1 : _absorbingBookIds.indexOf(activeKey);
+    if (activeIdx >= 0) {
+      _absorbingIdsAdd(key, afterKey: activeKey);
+    } else {
+      // Nothing loaded: the front card is the one last played.
+      _absorbingIdsAdd(key, atIndex: _absorbingBookIds.isEmpty ? 0 : 1);
+    }
+    setFreshQueuedFront(null);
+    await _saveManualAbsorbing();
+    notifyListeners();
+    unawaited(_catchUpQueueAutoDownloads());
+  }
+
+  /// A book started from its sheet with no progress yet isn't on any server
+  /// shelf, so it had no card and nothing protecting it: the next refresh
+  /// dropped it, and starting another book looked like it replaced the
+  /// first one in the queue.
+  Future<void> rememberStartedInAbsorbing(
+      String key, Map<String, dynamic>? item) async {
+    if (_manualAbsorbAdds.contains(key) && _absorbingItemCache.containsKey(key)) {
+      return;
+    }
+    _manualAbsorbAdds.add(key);
+    _manualAbsorbRemoves.remove(key);
+    if (item != null && !_absorbingItemCache.containsKey(key)) {
+      _absorbingItemCache[key] = {...item, '_absorbingKey': key};
+    }
+    _absorbingIdsAdd(key);
+    await _saveManualAbsorbing();
+    notifyListeners();
   }
 
   Future<void> reorderAbsorbing(List<String> newOrder) async {

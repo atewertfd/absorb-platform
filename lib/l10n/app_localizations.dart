@@ -250,6 +250,24 @@ abstract class AppLocalizations {
   /// **'Later'**
   String get later;
 
+  /// No description provided for @whatsNewTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Absorb was updated'**
+  String get whatsNewTitle;
+
+  /// No description provided for @whatsNewContent.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re now on {version}.'**
+  String whatsNewContent(String version);
+
+  /// No description provided for @whatsNewButton.
+  ///
+  /// In en, this message translates to:
+  /// **'See what\'s new'**
+  String get whatsNewButton;
+
   /// No description provided for @gotIt.
   ///
   /// In en, this message translates to:
@@ -1677,6 +1695,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No bookmarks yet'**
   String get bookmarksNoBookmarks;
+
+  /// No description provided for @bookmarksSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search bookmarks'**
+  String get bookmarksSearchHint;
+
+  /// No description provided for @bookmarksNoMatches.
+  ///
+  /// In en, this message translates to:
+  /// **'No bookmarks match your search'**
+  String get bookmarksNoMatches;
+
+  /// No description provided for @batchDownloadQueued.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Downloading 1 book} other{Downloading {count} books}}'**
+  String batchDownloadQueued(int count);
+
+  /// No description provided for @batchDownloadNothingNew.
+  ///
+  /// In en, this message translates to:
+  /// **'Already downloaded'**
+  String get batchDownloadNothingNew;
 
   /// No description provided for @bookmarksDeleteCount.
   ///
@@ -5427,6 +5469,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Add to Absorbing'**
   String get addToAbsorbing;
+
+  /// No description provided for @absorbNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Absorb Next'**
+  String get absorbNext;
+
+  /// No description provided for @absorbNextAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'Up next in Absorbing'**
+  String get absorbNextAdded;
+
+  /// No description provided for @absorbLast.
+  ///
+  /// In en, this message translates to:
+  /// **'Absorb Last'**
+  String get absorbLast;
+
+  /// No description provided for @absorbNextHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Right after what\'s playing now'**
+  String get absorbNextHint;
+
+  /// No description provided for @absorbLastHint.
+  ///
+  /// In en, this message translates to:
+  /// **'At the end of the list'**
+  String get absorbLastHint;
 
   /// No description provided for @removedFromAbsorbing.
   ///

@@ -77,6 +77,17 @@ class AppLocalizationsJa extends AppLocalizations {
   String get later => 'Later';
 
   @override
+  String get whatsNewTitle => 'Absorb was updated';
+
+  @override
+  String whatsNewContent(String version) {
+    return 'You\'re now on $version.';
+  }
+
+  @override
+  String get whatsNewButton => 'See what\'s new';
+
+  @override
   String get gotIt => 'Got it';
 
   @override
@@ -868,6 +879,26 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get bookmarksNoBookmarks => 'No bookmarks yet';
+
+  @override
+  String get bookmarksSearchHint => 'Search bookmarks';
+
+  @override
+  String get bookmarksNoMatches => 'No bookmarks match your search';
+
+  @override
+  String batchDownloadQueued(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Downloading $count books',
+      one: 'Downloading 1 book',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get batchDownloadNothingNew => 'Already downloaded';
 
   @override
   String bookmarksDeleteCount(int count) {
@@ -2983,6 +3014,21 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get addToAbsorbing => 'Add to Absorbing';
+
+  @override
+  String get absorbNext => 'Absorb Next';
+
+  @override
+  String get absorbNextAdded => 'Up next in Absorbing';
+
+  @override
+  String get absorbLast => 'Absorb Last';
+
+  @override
+  String get absorbNextHint => 'Right after what\'s playing now';
+
+  @override
+  String get absorbLastHint => 'At the end of the list';
 
   @override
   String get removedFromAbsorbing => 'Removed from Absorbing';
