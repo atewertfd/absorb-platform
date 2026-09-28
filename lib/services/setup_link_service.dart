@@ -42,6 +42,11 @@ class SetupLinkService {
     return Uri(scheme: scheme, host: host, pathSegments: [encoded]);
   }
 
+  // A line break in a header would let a link smuggle extra headers or a
+  // second request line into every call to the server.
+  static final _headerName = RegExp(r"^[!#$%&'*+.^_`|~0-9A-Za-z-]{1,128}$");
+  static const _maxHeaderValueLength = 4096;
+
   static SetupLinkData parseLink(Uri uri) {
     if (!isSetupLink(uri) || uri.pathSegments.length != 1) {
       throw const SetupLinkException('Not an Absorb setup link');
@@ -109,7 +114,11 @@ class SetupLinkService {
         throw const SetupLinkException('Custom headers are invalid');
       }
       for (final entry in rawHeaders.entries) {
-        if (entry.key is! String || entry.value is! String) {
+        if (entry.key is! String ||
+            entry.value is! String ||
+            !_headerName.hasMatch(entry.key as String) ||
+            (entry.value as String).length > _maxHeaderValueLength ||
+            (entry.value as String).contains(RegExp(r'[\r\n\x00]'))) {
           throw const SetupLinkException('Custom headers are invalid');
         }
         headers[entry.key as String] = entry.value as String;

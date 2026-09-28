@@ -1088,7 +1088,7 @@ class _LoginScreenState extends State<LoginScreen>
     );
     controller.dispose();
     if (link == null || !mounted) return;
-    await handleSetupLinkLogin(context, link, askForConfirmation: false);
+    await handleSetupLinkLogin(context, link);
   }
 
   Future<void> _quickSwitch(SavedAccount account) async {
