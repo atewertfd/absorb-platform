@@ -3035,7 +3035,51 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         PlayerSettings.setLockSeekBar(v);
                       } : null,
                     ),
-                    const Divider(height: 1, indent: 16, endIndent: 16),
+                    // Android only: chooses which pair fills the phone media
+                    // player's two extra slots. iOS uses CarPlay's own buttons.
+                    if (Platform.isAndroid) ...[
+                      const Divider(height: 1, indent: 16, endIndent: 16),
+                      SwitchListTile(
+                        title: const Text('Duck brief interruptions'),
+                        subtitle: Text(
+                          _duckBriefInterruptions
+                              ? 'Notifications and prompts lower the volume instead of pausing'
+                              : 'Notifications and prompts pause playback',
+                          style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+                        value: _duckBriefInterruptions,
+                        onChanged: _loaded ? (v) {
+                          setState(() => _duckBriefInterruptions = v);
+                          PlayerSettings.setDuckBriefInterruptions(v);
+                        } : null,
+                      ),
+                      const Divider(height: 1, indent: 16, endIndent: 16),
+                      SwitchListTile(
+                        title: Text(l.speedBookmarkInControls),
+                        subtitle: Text(
+                          _notifSpeedBookmark
+                              ? l.speedBookmarkOnSubtitle
+                              : l.speedBookmarkOffSubtitle,
+                          style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+                        value: _notifSpeedBookmark,
+                        onChanged: _loaded ? (v) {
+                          setState(() => _notifSpeedBookmark = v);
+                          PlayerSettings.setMediaControlsSpeedBookmark(v);
+                        } : null,
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // ── Car ──
+                CollapsibleSection(
+                  key: _keyFor('Car'),
+                  icon: Icons.directions_car_rounded,
+                  title: Platform.isIOS ? l.sectionCarIos : l.sectionCar,
+                  cs: cs,
+                  isExpanded: _expandedSection == 'Car',
+                  onExpansionChanged: (v) => _onSectionExpanded('Car', v),
+                  children: [
                     SwitchListTile(
                       title: Text(Platform.isIOS
                           ? l.carConnectAutoplayIos
@@ -3097,38 +3141,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             .then((_) => AndroidAutoService.browseOrderChanged());
                       } : null,
                     ),
-                    // Android only: chooses which pair fills the phone media
-                    // player's two extra slots. iOS uses CarPlay's own buttons.
-                    if (Platform.isAndroid) ...[
-                      const Divider(height: 1, indent: 16, endIndent: 16),
-                      SwitchListTile(
-                        title: const Text('Duck brief interruptions'),
-                        subtitle: Text(
-                          _duckBriefInterruptions
-                              ? 'Notifications and prompts lower the volume instead of pausing'
-                              : 'Notifications and prompts pause playback',
-                          style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
-                        value: _duckBriefInterruptions,
-                        onChanged: _loaded ? (v) {
-                          setState(() => _duckBriefInterruptions = v);
-                          PlayerSettings.setDuckBriefInterruptions(v);
-                        } : null,
-                      ),
-                      const Divider(height: 1, indent: 16, endIndent: 16),
-                      SwitchListTile(
-                        title: Text(l.speedBookmarkInControls),
-                        subtitle: Text(
-                          _notifSpeedBookmark
-                              ? l.speedBookmarkOnSubtitle
-                              : l.speedBookmarkOffSubtitle,
-                          style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
-                        value: _notifSpeedBookmark,
-                        onChanged: _loaded ? (v) {
-                          setState(() => _notifSpeedBookmark = v);
-                          PlayerSettings.setMediaControlsSpeedBookmark(v);
-                        } : null,
-                      ),
-                    ],
                   ],
                 ),
                 const SizedBox(height: 16),

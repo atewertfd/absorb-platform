@@ -414,6 +414,34 @@ class CarPlayService {
           complete();
         },
       ),
+      CPListItem(
+        text: 'Collections',
+        accessoryType: CPListItemAccessoryTypes.disclosureIndicator,
+        onPress: (complete, self) async {
+          final template = await _buildGroupList(
+            title: 'Collections',
+            icon: 'square.stack.fill',
+            groups: await _autoService.fetchCollectionsData(libraryId),
+            entries: _autoService.fetchCollectionBooksData,
+          );
+          _pushTemplate(template);
+          complete();
+        },
+      ),
+      CPListItem(
+        text: 'Playlists',
+        accessoryType: CPListItemAccessoryTypes.disclosureIndicator,
+        onPress: (complete, self) async {
+          final template = await _buildGroupList(
+            title: 'Playlists',
+            icon: 'music.note.list',
+            groups: await _autoService.fetchPlaylistsData(libraryId),
+            entries: _autoService.fetchPlaylistItemsData,
+          );
+          _pushTemplate(template);
+          complete();
+        },
+      ),
     ];
 
     return CPListTemplate(
@@ -476,6 +504,40 @@ class CarPlayService {
       sections: [CPListSection(items: items)],
       title: prefix.isEmpty ? 'Books' : prefix,
       systemIcon: 'book.fill',
+    );
+  }
+
+  /// Collections or playlists: a list of groups, each opening its books.
+  Future<CPListTemplate> _buildGroupList({
+    required String title,
+    required String icon,
+    required List<({String id, String name, int count})> groups,
+    required Future<List<AutoBookEntry>> Function(String id) entries,
+  }) async {
+    final items = groups.map((g) {
+      return CPListItem(
+        text: g.name,
+        detailText: '${g.count}',
+        accessoryType: CPListItemAccessoryTypes.disclosureIndicator,
+        onPress: (complete, self) async {
+          final api = await _autoService.getApi();
+          final books = await entries(g.id);
+          _pushTemplate(CPListTemplate(
+            sections: [
+              CPListSection(
+                  items: books.map((e) => _playableListItem(e, api)).toList()),
+            ],
+            title: g.name,
+            systemIcon: icon,
+          ));
+          complete();
+        },
+      );
+    }).toList();
+    return CPListTemplate(
+      sections: [CPListSection(items: items)],
+      title: title,
+      systemIcon: icon,
     );
   }
 

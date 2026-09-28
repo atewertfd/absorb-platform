@@ -7005,6 +7005,12 @@ class AppLocalizationsIt extends AppLocalizations {
       'Playback waits for you to press play';
 
   @override
+  String get sectionCar => 'Android Auto';
+
+  @override
+  String get sectionCarIos => 'CarPlay';
+
+  @override
   String get carBookOrder => 'Book order in the car';
 
   @override
@@ -7031,6 +7037,12 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get androidAutoCatAuthors => 'Authors';
+
+  @override
+  String get androidAutoCatCollections => 'Collections';
+
+  @override
+  String get androidAutoCatPlaylists => 'Playlists';
 
   @override
   String get showTipsAgain => 'Show tips again';

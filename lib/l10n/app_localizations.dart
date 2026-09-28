@@ -11979,6 +11979,18 @@ abstract class AppLocalizations {
   /// **'Playback waits for you to press play'**
   String get carConnectAutoplayOffSubtitle;
 
+  /// No description provided for @sectionCar.
+  ///
+  /// In en, this message translates to:
+  /// **'Android Auto'**
+  String get sectionCar;
+
+  /// No description provided for @sectionCarIos.
+  ///
+  /// In en, this message translates to:
+  /// **'CarPlay'**
+  String get sectionCarIos;
+
   /// No description provided for @carBookOrder.
   ///
   /// In en, this message translates to:
@@ -12032,6 +12044,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Authors'**
   String get androidAutoCatAuthors;
+
+  /// No description provided for @androidAutoCatCollections.
+  ///
+  /// In en, this message translates to:
+  /// **'Collections'**
+  String get androidAutoCatCollections;
+
+  /// No description provided for @androidAutoCatPlaylists.
+  ///
+  /// In en, this message translates to:
+  /// **'Playlists'**
+  String get androidAutoCatPlaylists;
 
   /// No description provided for @showTipsAgain.
   ///

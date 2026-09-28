@@ -52,6 +52,8 @@ class AutoMediaIds {
   static const seriesPrefix = 'series:';
   static const authorPrefix = 'author:';
   static const showPrefix = 'show:';
+  static const collectionPrefix = 'collection:';
+  static const playlistPrefix = 'playlist:';
 
   // Build IDs
   static String itemId(String absId) => '$itemPrefix$absId';
@@ -60,6 +62,10 @@ class AutoMediaIds {
   static String libSeries(String libraryId) => '$libPrefix$libraryId:series';
   static String libAuthors(String libraryId) => '$libPrefix$libraryId:authors';
   static String libBookPrefix(String libraryId, String prefix) => '$libPrefix$libraryId:p:$prefix';
+  static String libCollections(String libraryId) => '$libPrefix$libraryId:collections';
+  static String libPlaylists(String libraryId) => '$libPrefix$libraryId:playlists';
+  static String collectionId(String cId, String libId) => '$collectionPrefix$cId@$libId';
+  static String playlistId(String pId, String libId) => '$playlistPrefix$pId@$libId';
   static String seriesId(String sId, String libId) => '$seriesPrefix$sId@$libId';
   static String authorId(String aId, String libId) => '$authorPrefix$aId@$libId';
   static String showId(String sId, String libId) => '$showPrefix$sId@$libId';
@@ -93,6 +99,15 @@ class AutoMediaIds {
     final at = rest.indexOf('@');
     if (at < 0) return null;
     return (showId: rest.substring(0, at), libId: rest.substring(at + 1));
+  }
+
+  /// Parse "collection:<id>@<libId>" or "playlist:<id>@<libId>".
+  static ({String id, String libId})? parseGroup(String mediaId, String prefix) {
+    if (!mediaId.startsWith(prefix)) return null;
+    final rest = mediaId.substring(prefix.length);
+    final at = rest.indexOf('@');
+    if (at < 0) return null;
+    return (id: rest.substring(0, at), libId: rest.substring(at + 1));
   }
 
   /// Parse "lib:<libraryId>" or "lib:<libraryId>:books" etc.
@@ -282,6 +297,7 @@ class AndroidAutoService {
     _isRefreshing = false;
     _childrenCache.clear();
     _childrenInFlight.clear();
+    _groupEntries.clear();
     debugPrint('[AutoBrowse] Cache cleared (user switch/logout)');
   }
 
@@ -961,6 +977,16 @@ class AndroidAutoService {
         title: l?.androidAutoCatAuthors ?? 'Authors',
         playable: false,
       ),
+      MediaItem(
+        id: AutoMediaIds.libCollections(libraryId),
+        title: l?.androidAutoCatCollections ?? 'Collections',
+        playable: false,
+      ),
+      MediaItem(
+        id: AutoMediaIds.libPlaylists(libraryId),
+        title: l?.androidAutoCatPlaylists ?? 'Playlists',
+        playable: false,
+      ),
     ];
   }
 
@@ -1087,7 +1113,38 @@ class AndroidAutoService {
           return _fetchLibrarySeries(libId);
         case 'authors':
           return _fetchLibraryAuthors(libId);
+        case 'collections':
+          final collections = await fetchCollectionsData(libId);
+          return collections
+              .map((c) => MediaItem(
+                    id: AutoMediaIds.collectionId(c.id, libId),
+                    title: c.name,
+                    playable: false,
+                  ))
+              .toList();
+        case 'playlists':
+          final playlists = await fetchPlaylistsData(libId);
+          return playlists
+              .map((p) => MediaItem(
+                    id: AutoMediaIds.playlistId(p.id, libId),
+                    title: p.name,
+                    playable: false,
+                  ))
+              .toList();
       }
+    }
+
+    final collection =
+        AutoMediaIds.parseGroup(parentMediaId, AutoMediaIds.collectionPrefix);
+    if (collection != null) {
+      final books = await fetchCollectionBooksData(collection.id);
+      return books.map((e) => e.toMediaItem()).toList();
+    }
+    final playlist =
+        AutoMediaIds.parseGroup(parentMediaId, AutoMediaIds.playlistPrefix);
+    if (playlist != null) {
+      final items = await fetchPlaylistItemsData(playlist.id);
+      return items.map((e) => e.toMediaItem()).toList();
     }
 
     // ── Show drilldown (podcast episodes) ──
@@ -1644,6 +1701,110 @@ class AndroidAutoService {
       debugPrint('[AutoBrowse] Error fetching authors data: $e');
     }
     return [];
+  }
+
+  // Collections and playlists come back with their books already expanded,
+  // so the list fetch holds everything a drilldown needs. Keyed 'c:<id>' and
+  // 'p:<id>'.
+  final Map<String, List<AutoBookEntry>> _groupEntries = {};
+
+  /// Collections in a library, in server order, with how many playable books
+  /// each holds.
+  Future<List<({String id, String name, int count})>> fetchCollectionsData(
+      String libraryId) async {
+    final api = await getApi();
+    if (api == null) return [];
+    final list = await api.getLibraryCollections(libraryId) ?? const [];
+    final out = <({String id, String name, int count})>[];
+    for (final c in list.whereType<Map<String, dynamic>>()) {
+      final id = c['id'] as String?;
+      if (id == null) continue;
+      final books = _collectionEntries(c, api);
+      _groupEntries['c:$id'] = books;
+      out.add((id: id, name: c['name'] as String? ?? 'Collection', count: books.length));
+    }
+    return out;
+  }
+
+  Future<List<AutoBookEntry>> fetchCollectionBooksData(String collectionId) async {
+    final cached = _groupEntries['c:$collectionId'];
+    if (cached != null) return cached;
+    final api = await getApi();
+    if (api == null) return [];
+    final collection = await api.getCollection(collectionId);
+    if (collection == null) return [];
+    return _groupEntries['c:$collectionId'] = _collectionEntries(collection, api);
+  }
+
+  List<AutoBookEntry> _collectionEntries(Map<String, dynamic> c, ApiService api) =>
+      ((c['books'] as List<dynamic>?) ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map((b) => _libraryItemToEntry(b, api))
+          .whereType<AutoBookEntry>()
+          .toList();
+
+  /// The user's playlists in a library, in server order.
+  Future<List<({String id, String name, int count})>> fetchPlaylistsData(
+      String libraryId) async {
+    final api = await getApi();
+    if (api == null) return [];
+    final list = await api.getLibraryPlaylists(libraryId) ?? const [];
+    final out = <({String id, String name, int count})>[];
+    for (final p in list.whereType<Map<String, dynamic>>()) {
+      final id = p['id'] as String?;
+      if (id == null) continue;
+      final items = _playlistEntries(p, api);
+      _groupEntries['p:$id'] = items;
+      out.add((id: id, name: p['name'] as String? ?? 'Playlist', count: items.length));
+    }
+    return out;
+  }
+
+  Future<List<AutoBookEntry>> fetchPlaylistItemsData(String playlistId) async {
+    final cached = _groupEntries['p:$playlistId'];
+    if (cached != null) return cached;
+    final api = await getApi();
+    if (api == null) return [];
+    final playlist = await api.getPlaylist(playlistId);
+    if (playlist == null) return [];
+    return _groupEntries['p:$playlistId'] = _playlistEntries(playlist, api);
+  }
+
+  /// Playlist entries can be whole books or single podcast episodes.
+  List<AutoBookEntry> _playlistEntries(Map<String, dynamic> p, ApiService api) {
+    final out = <AutoBookEntry>[];
+    for (final item in ((p['items'] as List<dynamic>?) ?? const [])
+        .whereType<Map<String, dynamic>>()) {
+      final libraryItem = item['libraryItem'] as Map<String, dynamic>?;
+      if (libraryItem == null) continue;
+      final episode = item['episode'] as Map<String, dynamic>?;
+      if (episode == null) {
+        final entry = _libraryItemToEntry(libraryItem, api);
+        if (entry != null) out.add(entry);
+        continue;
+      }
+      final showId = libraryItem['id'] as String?;
+      final episodeId = episode['id'] as String? ?? item['episodeId'] as String?;
+      if (showId == null || episodeId == null) continue;
+      final media = libraryItem['media'] as Map<String, dynamic>?;
+      final metadata = media?['metadata'] as Map<String, dynamic>? ?? {};
+      final audioFile = episode['audioFile'] as Map<String, dynamic>?;
+      out.add(AutoBookEntry(
+        id: '$showId-$episodeId',
+        title: episode['title'] as String? ?? 'Episode',
+        author: metadata['title'] as String? ?? '',
+        duration: ((episode['duration'] ?? audioFile?['duration']) as num?)
+                ?.toDouble() ??
+            0,
+        coverUrl: localCoverUri(showId),
+        chapters: episode['chapters'] as List<dynamic>? ?? const [],
+        episodeId: episodeId,
+        showId: showId,
+        mediaType: 'podcast',
+        libraryId: libraryItem['libraryId'] as String?,
+      ));
+    }
+    return out;
   }
 
   /// Fetch books in a series, returning raw entries.

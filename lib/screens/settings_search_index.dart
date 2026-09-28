@@ -69,15 +69,19 @@ List<SettingSearchEntry> settingsSearchEntries(BuildContext context) {
     // ── Media Controls ──
     SettingSearchEntry('Media Controls', l.sectionMediaControls, l.chapterProgressInNotification, [l.chapterProgressInNotificationIos, l.chapterProgressOnSubtitle, l.chapterProgressOnSubtitleIos, l.chapterProgressOffSubtitle]),
     SettingSearchEntry('Media Controls', l.sectionMediaControls, l.lockSeekBar, [l.lockSeekBarOnSubtitle, l.lockSeekBarOffSubtitle]),
-    SettingSearchEntry(
-        'Media Controls',
-        l.sectionMediaControls,
-        Platform.isIOS ? l.carConnectAutoplayIos : l.carConnectAutoplay,
-        [l.carConnectAutoplayOnSubtitle, l.carConnectAutoplayOffSubtitle]),
     if (Platform.isAndroid) ...[
       SettingSearchEntry('Media Controls', l.sectionMediaControls, 'Duck brief interruptions', const ['Notifications and prompts lower the volume instead of pausing', 'Notifications and prompts pause playback']),
       SettingSearchEntry('Media Controls', l.sectionMediaControls, l.speedBookmarkInControls, [l.speedBookmarkOnSubtitle, l.speedBookmarkOffSubtitle]),
     ],
+
+    // ── Car ──
+    SettingSearchEntry('Car', Platform.isIOS ? l.sectionCarIos : l.sectionCar,
+        Platform.isIOS ? l.carConnectAutoplayIos : l.carConnectAutoplay,
+        [l.carConnectAutoplayOnSubtitle, l.carConnectAutoplayOffSubtitle]),
+    SettingSearchEntry('Car', Platform.isIOS ? l.sectionCarIos : l.sectionCar, l.carBookOrder, [l.title, l.author, l.dateAdded]),
+    SettingSearchEntry('Car', Platform.isIOS ? l.sectionCarIos : l.sectionCar, l.carBookOrderReverse, [l.carBookOrderReverseSubtitle]),
+    SettingSearchEntry('Car', Platform.isIOS ? l.sectionCarIos : l.sectionCar, l.carPodcastOrder, [l.title, l.dateAdded]),
+    SettingSearchEntry('Car', Platform.isIOS ? l.sectionCarIos : l.sectionCar, l.carEpisodesOldestFirst, [l.carEpisodesOldestFirstSubtitle]),
 
     // ── Sleep Timer ──
     SettingSearchEntry('Sleep Timer', l.sectionSleepTimer, l.shakeDuringSleepTimer, [l.shakeOff, l.shakeAddTime, l.shakeReset]),
