@@ -2680,8 +2680,17 @@ class LibraryScreenState extends State<LibraryScreen>
               canQuickMatch: auth.isAdmin && !libWatch.isPodcastLibrary,
               canMarkProgress: !libWatch.isPodcastLibrary,
               canDelete: auth.canDelete,
+              canDownload: !libWatch.isPodcastLibrary,
               onSelectAll: _toggleSelectAll,
               onClear: _clearSelection,
+              onDownload: () => _runBatchAction(
+                () => DesktopBatchActions.download(
+                  context,
+                  _selectableVisibleItems()
+                      .where((i) => _selectedItemIds.contains(i['id']))
+                      .toList(),
+                ),
+              ),
               onQuickMatch: () => _runBatchAction(
                 () => DesktopBatchActions.quickMatch(
                   context,

@@ -394,8 +394,17 @@ class HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMi
               canQuickMatch: auth.isAdmin && !lib.isPodcastLibrary,
               canMarkProgress: !lib.isPodcastLibrary,
               canDelete: auth.canDelete,
+              canDownload: !lib.isPodcastLibrary,
               onSelectAll: _toggleSelectAll,
               onClear: _clearSelection,
+              onDownload: () => _runBatchAction(
+                () => DesktopBatchActions.download(
+                  context,
+                  selectableItems
+                      .where((i) => _selectedItemIds.contains(i['id']))
+                      .toList(),
+                ),
+              ),
               onQuickMatch: () => _runBatchAction(
                 () => DesktopBatchActions.quickMatch(
                   context,

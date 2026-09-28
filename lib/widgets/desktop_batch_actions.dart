@@ -5,6 +5,7 @@ import '../l10n/app_localizations.dart';
 import '../providers/auth_provider.dart';
 import '../providers/library_provider.dart';
 import '../services/audio_player_service.dart';
+import '../services/download_service.dart';
 import 'delete_confirm_dialog.dart';
 import 'overlay_toast.dart';
 
@@ -101,6 +102,44 @@ Future<DesktopQuickMatchOptions?> showDesktopQuickMatchDialog(
 
 class DesktopBatchActions {
   const DesktopBatchActions._();
+
+  /// Queue downloads for the picked books without playing any of them.
+  /// Books already downloaded or downloading are skipped; the download
+  /// service queues past its concurrency limit on its own.
+  static Future<bool?> download(
+    BuildContext context,
+    List<Map<String, dynamic>> items,
+  ) async {
+    final api = context.read<AuthProvider>().apiService;
+    if (api == null || items.isEmpty) return false;
+    final l = AppLocalizations.of(context)!;
+    final libraryId = context.read<LibraryProvider>().selectedLibraryId;
+    final dl = DownloadService();
+    var queued = 0;
+    for (final item in items) {
+      final id = item['id'] as String?;
+      if (id == null || dl.isDownloaded(id) || dl.isDownloading(id)) continue;
+      final media = item['media'] as Map<String, dynamic>? ?? const {};
+      final meta = media['metadata'] as Map<String, dynamic>? ?? const {};
+      await dl.downloadItem(
+        api: api,
+        itemId: id,
+        title: meta['title'] as String? ?? l.unknown,
+        author: meta['authorName'] as String? ?? '',
+        coverUrl: api.getCoverUrl(id),
+        libraryId: item['libraryId'] as String? ?? libraryId,
+      );
+      queued++;
+    }
+    if (context.mounted) {
+      showOverlayToast(
+        context,
+        queued > 0 ? l.batchDownloadQueued(queued) : l.batchDownloadNothingNew,
+        icon: Icons.download_rounded,
+      );
+    }
+    return true;
+  }
 
   static Future<bool?> quickMatch(
     BuildContext context,
@@ -238,8 +277,10 @@ class DesktopBatchActionBar extends StatelessWidget {
   final bool canQuickMatch;
   final bool canMarkProgress;
   final bool canDelete;
+  final bool canDownload;
   final VoidCallback onSelectAll;
   final VoidCallback onClear;
+  final VoidCallback? onDownload;
   final VoidCallback onQuickMatch;
   final VoidCallback onMarkFinished;
   final VoidCallback onMarkUnfinished;
@@ -254,8 +295,10 @@ class DesktopBatchActionBar extends StatelessWidget {
     required this.canQuickMatch,
     this.canMarkProgress = true,
     required this.canDelete,
+    this.canDownload = false,
     required this.onSelectAll,
     required this.onClear,
+    this.onDownload,
     required this.onQuickMatch,
     required this.onMarkFinished,
     required this.onMarkUnfinished,
@@ -318,6 +361,14 @@ class DesktopBatchActionBar extends StatelessWidget {
                   ),
                 ),
               ),
+              if (canDownload && onDownload != null)
+                Tooltip(
+                  message: l.download,
+                  child: IconButton(
+                    onPressed: busy || !hasSelection ? null : onDownload,
+                    icon: const Icon(Icons.download_rounded),
+                  ),
+                ),
               if (canQuickMatch)
                 Tooltip(
                   message: l.quickMatch,
