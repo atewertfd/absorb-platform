@@ -1681,9 +1681,12 @@ class DownloadService extends ChangeNotifier {
       // moved into the user's chosen folder under "Author/Title" on completion
       // (a direct SAF write can't nest subfolders). iOS downloads into the app
       // group container.
-      final nestedName = (author != null && author.isNotEmpty)
+      var nestedName = (author != null && author.isNotEmpty)
           ? '${_sanitizePath(author)}/${_sanitizePath(title)}'
           : _sanitizePath(title);
+      if (_folderTakenByOther(nestedName, itemId)) {
+        nestedName = '$nestedName (${itemId.substring(itemId.length - 8)})';
+      }
       String? relDir; // Android: relative to applicationDocuments
       if (Platform.isIOS) {
         final basePath = await downloadBasePath;
@@ -1725,7 +1728,7 @@ class DownloadService extends ChangeNotifier {
 
       // Cancelled while we were resolving? Bail before enqueueing anything.
       if (_cancelledIds.remove(itemId)) {
-        await _cleanupBookDir(bookDirRef);
+        await _cleanupBookDir(bookDirRef, itemId);
         _activeDownloadIds.remove(itemId);
         _downloads.remove(itemId);
         notifyListeners();
@@ -2243,7 +2246,7 @@ class DownloadService extends ChangeNotifier {
       if (moved != null) {
         finalPaths = moved.fileUris;
         finalDirPath = moved.dirUri;
-        await _cleanupBookDir(p.bookDir); // drop the now-empty internal temp dir
+        await _cleanupBookDir(p.bookDir, p.itemId); // drop the now-empty internal temp dir
       } else {
         debugPrint('[Download] SAF move failed for "$itemId", keeping internal copy');
       }
@@ -2312,7 +2315,7 @@ class DownloadService extends ChangeNotifier {
     if (p != null && !p.failing && p.trackCount > 1) {
       _dismissGroupNotification(itemId);
     }
-    await _cleanupBookDir(dir);
+    await _cleanupBookDir(dir, itemId);
 
     final msg = _mapError(cause, taskException, responseCode);
     _downloads[itemId] = DownloadInfo(
@@ -2366,7 +2369,7 @@ class DownloadService extends ChangeNotifier {
     // leave a lingering "Download Complete" for a book the user just
     // canceled - dismiss it.
     if ((p?.trackCount ?? 0) > 1) _dismissGroupNotification(itemId);
-    await _cleanupBookDir(p?.bookDir);
+    await _cleanupBookDir(p?.bookDir, itemId);
     _downloads.remove(itemId);
     _activeDownloadIds.remove(itemId);
     _pending.remove(itemId);
@@ -2483,8 +2486,9 @@ class DownloadService extends ChangeNotifier {
   /// Remove a book's download folder. [bookDir] is a filesystem path. SAF
   /// downloads share the user's granted folder, so there's no per-book folder
   /// to remove (cleanup of SAF files is per-file via [deleteDownload]).
-  Future<void> _cleanupBookDir(String? bookDir) async {
+  Future<void> _cleanupBookDir(String? bookDir, String itemId) async {
     if (bookDir == null || isContentUri(bookDir)) return;
+    if (_dirSharedWithOther(bookDir, itemId)) return;
     final dir = Directory(bookDir);
     try {
       if (dir.existsSync()) {
@@ -2493,6 +2497,49 @@ class DownloadService extends ChangeNotifier {
         if (parent.existsSync() && parent.listSync().isEmpty) parent.deleteSync();
       }
     } catch (_) {}
+  }
+
+  /// True when another download already lives in [nestedName] ("Author/Title").
+  /// Books sharing a title and author (a release split into parts) used to
+  /// share one folder, so deleting or failing one wiped the others' files.
+  bool _folderTakenByOther(String nestedName, String itemId) {
+    bool matches(String? dir) {
+      if (dir == null) return false;
+      var d = dir;
+      try {
+        d = Uri.decodeComponent(dir);
+      } catch (_) {}
+      d = d.replaceAll(r'\', '/');
+      return d.endsWith('/$nestedName');
+    }
+
+    for (final e in _downloads.entries) {
+      if (e.key != itemId && matches(e.value.localDirPath)) return true;
+    }
+    for (final p in _pending.values) {
+      if (p.itemId != itemId &&
+          (matches(p.bookDir) || p.safSubfolder == nestedName)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// Whether any other download keeps files in [dirPath]. Downloads made
+  /// before folders were made unique can still share one, and removing the
+  /// whole folder then deletes books the user never touched.
+  bool _dirSharedWithOther(String dirPath, String itemId) {
+    final prefix = dirPath.endsWith('/') ? dirPath : '$dirPath/';
+    for (final e in _downloads.entries) {
+      if (e.key == itemId) continue;
+      final info = e.value;
+      if (info.localDirPath == dirPath) return true;
+      if (info.localPaths.any((p) => p.startsWith(prefix))) return true;
+    }
+    for (final p in _pending.values) {
+      if (p.itemId != itemId && p.bookDir == dirPath) return true;
+    }
+    return false;
   }
 
   String _mapError(Object? cause, TaskException? te, int? code) {
@@ -2667,7 +2714,12 @@ class DownloadService extends ChangeNotifier {
       }
     }
 
+    final sharedPaths = <String>{
+      for (final e in _downloads.entries)
+        if (e.key != itemId) ...e.value.localPaths,
+    };
     for (final path in info.localPaths) {
+      if (sharedPaths.contains(path)) continue;
       try {
         if (isContentUri(path)) {
           await FileDownloader().uri.deleteFile(Uri.parse(path));
@@ -2681,7 +2733,9 @@ class DownloadService extends ChangeNotifier {
     // Remove the download directory (new-style path from DownloadInfo, or legacy UUID path)
     try {
       final dirPath = info.localDirPath;
-      if (dirPath != null && isContentUri(dirPath)) {
+      if (dirPath != null && _dirSharedWithOther(dirPath, itemId)) {
+        // Other books still have files here: only this book's files go.
+      } else if (dirPath != null && isContentUri(dirPath)) {
         // SAF book folder: best-effort delete (harmless if already emptied).
         try {
           await FileDownloader().uri.deleteFile(Uri.parse(dirPath));
