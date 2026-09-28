@@ -849,6 +849,21 @@ class PlayerSettings {
   // alive but paused) belongs to the car system's own resume behavior; this
   // covers the cold start where no session exists for it to resume.
   static Future<bool> getAutoplayOnCarConnect() => _get('autoplayOnCarConnect', false);
+
+  // Android Auto / CarPlay library browsing. Book sort is 'title', 'author' or
+  // 'added' (newest first); reverse flips whichever is picked. Podcast shows
+  // sort 'title' or 'added'.
+  static Future<String> getCarBookSort() => _get('carBookSort', 'title');
+  static Future<void> setCarBookSort(String value) => _set('carBookSort', value);
+  static Future<bool> getCarBookSortReverse() => _get('carBookSortReverse', false);
+  static Future<void> setCarBookSortReverse(bool value) =>
+      _set('carBookSortReverse', value);
+  static Future<String> getCarPodcastSort() => _get('carPodcastSort', 'title');
+  static Future<void> setCarPodcastSort(String value) => _set('carPodcastSort', value);
+  static Future<bool> getCarEpisodesOldestFirst() =>
+      _get('carEpisodesOldestFirst', false);
+  static Future<void> setCarEpisodesOldestFirst(bool value) =>
+      _set('carEpisodesOldestFirst', value);
   static Future<void> setAutoplayOnCarConnect(bool value) =>
       _set('autoplayOnCarConnect', value);
 

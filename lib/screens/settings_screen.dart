@@ -11,6 +11,7 @@ import '../providers/auth_provider.dart';
 import '../providers/library_provider.dart';
 import '../services/audio_player_service.dart';
 import '../services/download_service.dart';
+import '../services/android_auto_service.dart';
 import '../services/episode_notification_service.dart';
 import '../services/sleep_timer_service.dart';
 import '../services/user_account_service.dart';
@@ -94,6 +95,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _notifSpeedBookmark = false;
   bool _duckBriefInterruptions = false;
   bool _autoplayOnCarConnect = false;
+  String _carBookSort = 'title';
+  bool _carBookSortReverse = false;
+  String _carPodcastSort = 'title';
+  bool _carEpisodesOldestFirst = false;
   bool _lockSeekBar = false;
   bool _mp3IndexSeeking = false;
   bool _speedAdjustedTime = true;
@@ -397,6 +402,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _manualSeed = argb);
     PlayerSettings.setManualSeedColor(argb);
     applyManualSeed(argb);
+  }
+
+  Widget _carSortPicker(TextTheme tt, String label, String value,
+      List<(String, String)> options, ValueChanged<String> onChanged) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: tt.titleSmall),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: SegmentedButton<String>(
+              showSelectedIcon: false,
+              segments: [
+                for (final (key, text) in options)
+                  ButtonSegment(
+                    value: key,
+                    label: FittedBox(
+                        fit: BoxFit.scaleDown, child: Text(text, maxLines: 1)),
+                  ),
+              ],
+              selected: {value},
+              onSelectionChanged:
+                  _loaded ? (selected) => onChanged(selected.first) : null,
+              style: const ButtonStyle(visualDensity: VisualDensity.compact),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildColorSwatches(ColorScheme cs) {
@@ -1041,6 +1078,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final episodeNotifMinutes = await PlayerSettings.getEpisodeNotifIntervalMinutes();
     final duckBriefInterruptions = await PlayerSettings.getDuckBriefInterruptions();
     final autoplayOnCarConnect = await PlayerSettings.getAutoplayOnCarConnect();
+    final carBookSort = await PlayerSettings.getCarBookSort();
+    final carBookSortReverse = await PlayerSettings.getCarBookSortReverse();
+    final carPodcastSort = await PlayerSettings.getCarPodcastSort();
+    final carEpisodesOldestFirst = await PlayerSettings.getCarEpisodesOldestFirst();
     if (mounted) setState(() {
       _podcastTabEnabled = podcastTabEnabled;
       _podcastTabLibraryId = podcastTabLibraryId;
@@ -1061,6 +1102,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _notifSpeedBookmark = notifSpeedBookmark;
       _duckBriefInterruptions = duckBriefInterruptions;
       _autoplayOnCarConnect = autoplayOnCarConnect;
+      _carBookSort = carBookSort;
+      _carBookSortReverse = carBookSortReverse;
+      _carPodcastSort = carPodcastSort;
+      _carEpisodesOldestFirst = carEpisodesOldestFirst;
       _lockSeekBar = lockSeek;
       _speedAdjustedTime = speedAdj;
       _forwardSkip = fwd;
@@ -3004,6 +3049,52 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       onChanged: _loaded ? (v) {
                         setState(() => _autoplayOnCarConnect = v);
                         PlayerSettings.setAutoplayOnCarConnect(v);
+                      } : null,
+                    ),
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                    _carSortPicker(
+                      tt,
+                      l.carBookOrder,
+                      _carBookSort,
+                      [('title', l.title), ('author', l.author), ('added', l.dateAdded)],
+                      (v) {
+                        setState(() => _carBookSort = v);
+                        PlayerSettings.setCarBookSort(v)
+                            .then((_) => AndroidAutoService.browseOrderChanged());
+                      },
+                    ),
+                    SwitchListTile(
+                      title: Text(l.carBookOrderReverse),
+                      subtitle: Text(l.carBookOrderReverseSubtitle,
+                        style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+                      value: _carBookSortReverse,
+                      onChanged: _loaded ? (v) {
+                        setState(() => _carBookSortReverse = v);
+                        PlayerSettings.setCarBookSortReverse(v)
+                            .then((_) => AndroidAutoService.browseOrderChanged());
+                      } : null,
+                    ),
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                    _carSortPicker(
+                      tt,
+                      l.carPodcastOrder,
+                      _carPodcastSort,
+                      [('title', l.title), ('added', l.dateAdded)],
+                      (v) {
+                        setState(() => _carPodcastSort = v);
+                        PlayerSettings.setCarPodcastSort(v)
+                            .then((_) => AndroidAutoService.browseOrderChanged());
+                      },
+                    ),
+                    SwitchListTile(
+                      title: Text(l.carEpisodesOldestFirst),
+                      subtitle: Text(l.carEpisodesOldestFirstSubtitle,
+                        style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+                      value: _carEpisodesOldestFirst,
+                      onChanged: _loaded ? (v) {
+                        setState(() => _carEpisodesOldestFirst = v);
+                        PlayerSettings.setCarEpisodesOldestFirst(v)
+                            .then((_) => AndroidAutoService.browseOrderChanged());
                       } : null,
                     ),
                     // Android only: chooses which pair fills the phone media

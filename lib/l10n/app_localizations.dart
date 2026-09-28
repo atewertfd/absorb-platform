@@ -11979,6 +11979,42 @@ abstract class AppLocalizations {
   /// **'Playback waits for you to press play'**
   String get carConnectAutoplayOffSubtitle;
 
+  /// No description provided for @carBookOrder.
+  ///
+  /// In en, this message translates to:
+  /// **'Book order in the car'**
+  String get carBookOrder;
+
+  /// No description provided for @carBookOrderReverse.
+  ///
+  /// In en, this message translates to:
+  /// **'Reverse book order'**
+  String get carBookOrderReverse;
+
+  /// No description provided for @carBookOrderReverseSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Z to A, or oldest added first'**
+  String get carBookOrderReverseSubtitle;
+
+  /// No description provided for @carPodcastOrder.
+  ///
+  /// In en, this message translates to:
+  /// **'Podcast order in the car'**
+  String get carPodcastOrder;
+
+  /// No description provided for @carEpisodesOldestFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Oldest episodes first'**
+  String get carEpisodesOldestFirst;
+
+  /// No description provided for @carEpisodesOldestFirstSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'For shows you listen to from the start'**
+  String get carEpisodesOldestFirstSubtitle;
+
   /// No description provided for @androidAutoCatBooks.
   ///
   /// In en, this message translates to:

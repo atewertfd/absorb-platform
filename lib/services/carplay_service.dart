@@ -432,7 +432,8 @@ class CarPlayService {
   /// the book list - a fixed depth of two pushes.
   Future<CPListTemplate> _buildBooksList(String libraryId) async {
     final api = await _autoService.getApi();
-    final all = await _autoService.fetchAllBooks(libraryId);
+    final sorted = await _autoService.fetchSortedBooks(libraryId);
+    final all = sorted.books;
 
     // Small library: skip the bucket level, list the books directly.
     if (all.length <= AndroidAutoService.bucketThreshold) {
@@ -444,7 +445,7 @@ class CarPlayService {
       );
     }
 
-    final buckets = _autoService.flattenedBookBuckets(all);
+    final buckets = _autoService.flattenedBookBuckets(all, sort: sorted.sort);
     final items = buckets.map((b) {
       return CPListItem(
         text: b.prefix.isEmpty ? '#' : b.prefix,
@@ -467,8 +468,9 @@ class CarPlayService {
   /// Leaf book list for one flat bucket [prefix].
   Future<CPListTemplate> _buildBooksLeaf(String libraryId, String prefix) async {
     final api = await _autoService.getApi();
-    final all = await _autoService.fetchAllBooks(libraryId);
-    final books = _autoService.booksForPrefix(all, prefix);
+    final sorted = await _autoService.fetchSortedBooks(libraryId);
+    final books =
+        _autoService.booksForPrefix(sorted.books, prefix, sort: sorted.sort);
     final items = books.map((e) => _playableListItem(e, api)).toList();
     return CPListTemplate(
       sections: [CPListSection(items: items)],

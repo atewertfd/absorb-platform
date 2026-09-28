@@ -7005,6 +7005,25 @@ class AppLocalizationsEn extends AppLocalizations {
       'Playback waits for you to press play';
 
   @override
+  String get carBookOrder => 'Book order in the car';
+
+  @override
+  String get carBookOrderReverse => 'Reverse book order';
+
+  @override
+  String get carBookOrderReverseSubtitle => 'Z to A, or oldest added first';
+
+  @override
+  String get carPodcastOrder => 'Podcast order in the car';
+
+  @override
+  String get carEpisodesOldestFirst => 'Oldest episodes first';
+
+  @override
+  String get carEpisodesOldestFirstSubtitle =>
+      'For shows you listen to from the start';
+
+  @override
   String get androidAutoCatBooks => 'Books';
 
   @override
