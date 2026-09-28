@@ -55,6 +55,7 @@ import 'settings_screen.dart';
 import 'app_shell_navigation_policy.dart';
 import '../widgets/library_picker_sheet.dart';
 import '../widgets/welcome_sheet.dart';
+import '../widgets/whats_new_prompt.dart';
 import '../services/review_service.dart';
 import '../services/settings_sync_service.dart';
 import '../services/update_checker_service.dart';
@@ -374,6 +375,7 @@ class _AppShellState extends State<AppShell>
     context.read<LibraryProvider>().addListener(_onLibraryChanged);
     _loadPodcastTabPrefs();
     PlayerSettings.settingsChanged.addListener(_loadPodcastTabPrefs);
+    WhatsNewPrompt.showIfUpdated(context);
     WelcomeSheet.showIfNeeded(context);
     _checkForUpdate();
   }
