@@ -948,14 +948,16 @@ class AudioPlayerHandler extends BaseAudioHandler with SeekHandler {
               if (_player.playing) {
                 debugPrint('[Handler] → single press (MEDIA_PAUSE) → PAUSE');
                 await pause();
-              } else if ((_isCarPackage(pkg) ||
-                      (pkg == null && await _carClientRecentlySeen())) &&
-                  sincePause != null &&
-                  sincePause < const Duration(seconds: 4)) {
-                // The #243 phantom: Android Auto repeats MEDIA_PAUSE right
-                // after we paused. A press seconds later is a person.
+              } else if (_isCarPackage(pkg) ||
+                  (pkg == null && await _carClientRecentlySeen())) {
+                // A car never means play with a pause key: Android Auto
+                // repeats MEDIA_PAUSE right after we pause (#243), and sends
+                // it again when the head unit switches to its radio, which
+                // started the book back up over the radio. Its own play
+                // button comes in as a play command, not this key.
                 debugPrint(
-                  '[Handler] -> single press (MEDIA_PAUSE ${sincePause.inMilliseconds}ms after pausing, car) -> no-op (phantom)',
+                  '[Handler] -> single press (MEDIA_PAUSE while paused, car, '
+                  '${sincePause?.inMilliseconds ?? -1}ms after pausing) -> no-op',
                 );
               } else if (await meantForOtherAudio()) {
                 debugPrint(
@@ -3094,7 +3096,19 @@ class AudioPlayerService extends ChangeNotifier {
               // prompts rewind like a manual pause, gated by activationDelay.
               await service._player?.pause();
               service._lastPauseTime = DateTime.now();
-              service._wasPlayingBeforeInterrupt = true;
+              // Android reports a permanent focus loss (another app or the
+              // car's own source took the audio for good) as `unknown`; calls
+              // and nav prompts come as transient `pause`/`duck`. Only a
+              // transient one should come back by itself - resuming after a
+              // permanent one talked over the radio the user switched to.
+              final permanentLoss = Platform.isAndroid &&
+                  event.type == AudioInterruptionType.unknown;
+              service._wasPlayingBeforeInterrupt = !permanentLoss;
+              if (permanentLoss) {
+                debugPrint(
+                  '[AudioSession] Permanent focus loss - not resuming on its own',
+                );
+              }
               // The notification reads the player directly, but the home
               // widget, cards and watch only refresh on notify - without this
               // the widget kept showing "playing" and ticking its clock
@@ -6919,6 +6933,9 @@ class AudioPlayerService extends ChangeNotifier {
 
     _pauseStopTimer?.cancel();
     _pauseStopTimer = null;
+    // Playing again settles any interruption still waiting to resume; a stale
+    // flag would bring the book back after some later, unrelated focus gain.
+    _wasPlayingBeforeInterrupt = false;
     _noisyPause =
         false; // User explicitly resumed — allow interrupt-resume again
     _handler?._noisyPauseAt = null; // Clear noisy suppression window
