@@ -1,11 +1,16 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 import '../providers/library_provider.dart';
 import '../services/audio_player_service.dart';
 import '../services/download_service.dart';
+import '../services/wording.dart';
 import '../widgets/absorb_page_header.dart';
+import '../widgets/card_buttons.dart' show showErrorToast;
+import 'app_shell.dart';
 import '../widgets/overlay_toast.dart';
 import '../l10n/app_localizations.dart';
 
@@ -161,6 +166,51 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
       showOverlayToast(context, l.downloadsRemovedTitle(info.title ?? ''),
           icon: Icons.delete_outline_rounded);
     }
+  }
+
+  /// Plays straight from the download record, so it works offline and from
+  /// any library - the one way to reach a downloaded podcast when the app
+  /// started offline stuck in a book library.
+  Future<void> _play(DownloadInfo info) async {
+    final api = context.read<AuthProvider>().apiService;
+    if (api == null || info.localPaths.isEmpty) return;
+    final isEpisode = info.itemId.length > 36;
+    final itemId = isEpisode ? info.itemId.substring(0, 36) : info.itemId;
+    final episodeId = isEpisode ? info.itemId.substring(37) : null;
+    double duration = 0;
+    List<dynamic> chapters = const [];
+    final sessionJson = info.sessionData;
+    if (sessionJson != null) {
+      try {
+        final session = jsonDecode(sessionJson) as Map<String, dynamic>;
+        duration = (session['duration'] as num?)?.toDouble() ?? 0;
+        chapters = session['chapters'] as List<dynamic>? ?? const [];
+      } catch (_) {}
+    }
+    final title = info.title ?? '';
+    // Episode downloads store the episode as the title and the show as the
+    // author, which is what playItem wants for an episode.
+    final error = await AudioPlayerService().playItem(
+      api: api,
+      itemId: itemId,
+      title: title,
+      author: info.author ?? '',
+      coverUrl: api.getCoverUrl(itemId),
+      totalDuration: duration,
+      chapters: isEpisode ? const [] : chapters,
+      episodeId: episodeId,
+      episodeTitle: isEpisode ? title : null,
+      libraryId: info.libraryId,
+      fromUi: true,
+    );
+    if (!mounted) return;
+    if (error != null) {
+      showErrorToast(context, error);
+      return;
+    }
+    context.read<LibraryProvider>().addToAbsorbing(info.itemId);
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    AppShell.goToAbsorbingGlobal();
   }
 
   static String _formatBytes(int bytes) {
@@ -336,6 +386,7 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
                                   selecting: _selecting,
                                   isSelected: _selected.contains(info.itemId),
                                   onToggle: () => _toggleSelect(info.itemId),
+                                  onPlay: () => _play(info),
                                   onLongPress: () => _enterSelection(info.itemId),
                                   onDelete: () => _deleteSingle(info),
                                   formatBytes: _formatBytes,
@@ -399,6 +450,7 @@ class _DownloadCard extends StatelessWidget {
   final bool selecting;
   final bool isSelected;
   final VoidCallback onToggle;
+  final VoidCallback onPlay;
   final VoidCallback onLongPress;
   final VoidCallback onDelete;
   final String Function(int) formatBytes;
@@ -412,6 +464,7 @@ class _DownloadCard extends StatelessWidget {
     required this.selecting,
     required this.isSelected,
     required this.onToggle,
+    required this.onPlay,
     required this.onLongPress,
     required this.onDelete,
     required this.formatBytes,
@@ -425,7 +478,7 @@ class _DownloadCard extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 8),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: selecting ? onToggle : null,
+        onTap: selecting ? onToggle : onPlay,
         onLongPress: !selecting ? onLongPress : null,
         child: Card(
           elevation: 0,
@@ -496,6 +549,13 @@ class _DownloadCard extends StatelessWidget {
                     ],
                   ),
                 ),
+                if (!selecting)
+                  IconButton(
+                    icon: Icon(Icons.play_circle_outline_rounded,
+                        color: cs.primary, size: 26),
+                    tooltip: Wording.of(context).absorb,
+                    onPressed: onPlay,
+                  ),
                 if (!selecting)
                   IconButton(
                     icon: Icon(Icons.delete_outline_rounded,
