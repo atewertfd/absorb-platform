@@ -4744,7 +4744,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _syncUploading = true;
     HapticFeedback.mediumImpact();
     try {
-      final result = await SettingsSyncService().pushIfChanged();
+      final result =
+          await SettingsSyncService().pushIfChanged(ignoreBackoff: true);
       if (!mounted) return;
       await _refreshSyncStatus();
       if (!mounted) return;

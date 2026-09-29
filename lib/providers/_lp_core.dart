@@ -1209,6 +1209,16 @@ mixin _CoreMixin on ChangeNotifier, _StateMixin {
   static const _localProbeFailuresToFlip = 2;
   static const _localProbePiggybackWindow = Duration(seconds: 25);
 
+  // Away from home the local server never answers, and a ping every 30s all
+  // day on mobile data (or with no signal at all) is pure waste. After two
+  // minutes of misses the checks spread out to at most every 5 minutes. A
+  // network change starts the fast checks again, so joining home WiFi still
+  // switches over straight away.
+  int _remoteProbeMisses = 0;
+  DateTime? _nextRemoteProbeAt;
+  static const _remoteProbeFastMisses = 4;
+  static const _remoteProbeMaxGap = Duration(minutes: 5);
+
   void _startLocalProbeTimer() {
     final auth = _auth;
     if (auth == null) return;
@@ -1222,6 +1232,8 @@ mixin _CoreMixin on ChangeNotifier, _StateMixin {
       _stopLocalProbeTimer();
       return;
     }
+    _remoteProbeMisses = 0;
+    _nextRemoteProbeAt = null;
     if (_localProbeTimer != null) return;
     _localProbeFailures = 0;
     _localProbeTimer = Timer.periodic(_localProbeInterval, (_) => _probeLocalServer());
@@ -1259,6 +1271,12 @@ mixin _CoreMixin on ChangeNotifier, _StateMixin {
         DateTime.now().difference(last) < _localProbePiggybackWindow) {
       return;
     }
+    final nextRemote = _nextRemoteProbeAt;
+    if (!auth.useLocalServer &&
+        nextRemote != null &&
+        DateTime.now().isBefore(nextRemote)) {
+      return;
+    }
 
     final probe = await ApiService.pingServerDetailed(
       auth.localServerUrl,
@@ -1288,8 +1306,20 @@ mixin _CoreMixin on ChangeNotifier, _StateMixin {
       await auth.checkLocalServer();
       _localLastReachableAt = DateTime.now();
       _localProbeFailures = 0;
+      _remoteProbeMisses = 0;
+      _nextRemoteProbeAt = null;
     } else {
-      debugPrint('[Library] Local probe miss while on remote (${probe.detail})');
+      _remoteProbeMisses++;
+      if (_remoteProbeMisses > _remoteProbeFastMisses) {
+        final steps = _remoteProbeMisses - _remoteProbeFastMisses;
+        final gap = _localProbeInterval * (1 << steps.clamp(0, 4));
+        final wait = gap < _remoteProbeMaxGap ? gap : _remoteProbeMaxGap;
+        _nextRemoteProbeAt = DateTime.now().add(wait);
+        debugPrint(
+            '[Library] Local probe miss while on remote (${probe.detail}), next in ${wait.inSeconds}s');
+      } else {
+        debugPrint('[Library] Local probe miss while on remote (${probe.detail})');
+      }
     }
   }
 
