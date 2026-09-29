@@ -85,6 +85,10 @@ class UserAccountService {
   static const _accountsKey = 'saved_accounts';
   static const _activeKey = 'active_account_scope';
 
+  /// Runs before a sign-in changes the active account, so anything still
+  /// being recorded for the old one is saved under it first.
+  static Future<void> Function()? beforeAccountChange;
+
   List<SavedAccount> _accounts = [];
   String? _activeScopeKey;
 
@@ -126,6 +130,7 @@ class UserAccountService {
 
   /// Save or update an account after login. Sets it as active.
   Future<void> saveAccount(SavedAccount account) async {
+    await beforeAccountChange?.call();
     // Remove existing entry for same server+username (update token)
     _accounts.removeWhere(
         (a) => a.serverUrl == account.serverUrl && a.username == account.username);

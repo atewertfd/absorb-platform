@@ -131,6 +131,13 @@
   },
   "setupLinkInvalid": "This sign-in link is invalid or incomplete",
   "setupLinkSigningIn": "Checking sign-in link...",
+  "loginPlayDownloads": "Play your downloads",
+  "signedOutDownloadsNote": "You're signed out. Anything you listen to here syncs to {username} when you sign back in.",
+  "@signedOutDownloadsNote": {
+    "placeholders": {
+      "username": {"type": "String"}
+    }
+  },
   "loginPasteLink": "Paste login link",
   "loginPasteLinkHelp": "Paste the complete sign-in link you received. Treat it like a password.",
   "loginFailed": "Login failed",

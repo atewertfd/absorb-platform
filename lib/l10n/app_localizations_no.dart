@@ -327,6 +327,14 @@ class AppLocalizationsNo extends AppLocalizations {
   String get setupLinkSigningIn => 'Checking sign-in link...';
 
   @override
+  String get loginPlayDownloads => 'Play your downloads';
+
+  @override
+  String signedOutDownloadsNote(String username) {
+    return 'You\'re signed out. Anything you listen to here syncs to $username when you sign back in.';
+  }
+
+  @override
   String get loginPasteLink => 'Paste login link';
 
   @override

@@ -16,7 +16,9 @@ import '../services/setup_link_service.dart';
 import '../services/user_account_service.dart';
 import '../widgets/absorb_wave_icon.dart';
 import '../widgets/overlay_toast.dart';
-import '../widgets/setup_link_login.dart';
+import '../widgets/setup_link_login.dart';
+import '../services/signed_out_playback.dart';
+import 'downloads_screen.dart';
 import '../services/audio_player_service.dart';
 import '../main.dart' show applyTrustAllCerts, flatNotifier;
 import '../l10n/app_localizations.dart';
@@ -775,6 +777,30 @@ class _LoginScreenState extends State<LoginScreen>
                       ),
                     ),
                   ),
+
+                  if (SignedOutPlayback.available) ...[
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: FilledButton.tonalIcon(
+                        key: const Key('play-downloads-signed-out'),
+                        icon: const Icon(Icons.download_done_rounded),
+                        label: Text(l.loginPlayDownloads),
+                        style: FilledButton.styleFrom(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                const DownloadsScreen(signedOut: true),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
 
                   // ── Version + Restore pill ──
                   const SizedBox(height: 32),

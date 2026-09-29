@@ -333,6 +333,14 @@ class AppLocalizationsFr extends AppLocalizations {
   String get setupLinkSigningIn => 'Vérification du lien de connexion...';
 
   @override
+  String get loginPlayDownloads => 'Play your downloads';
+
+  @override
+  String signedOutDownloadsNote(String username) {
+    return 'You\'re signed out. Anything you listen to here syncs to $username when you sign back in.';
+  }
+
+  @override
   String get loginPasteLink => 'Coller le lien de connexion';
 
   @override

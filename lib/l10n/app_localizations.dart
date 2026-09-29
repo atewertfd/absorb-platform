@@ -694,6 +694,18 @@ abstract class AppLocalizations {
   /// **'Checking sign-in link...'**
   String get setupLinkSigningIn;
 
+  /// No description provided for @loginPlayDownloads.
+  ///
+  /// In en, this message translates to:
+  /// **'Play your downloads'**
+  String get loginPlayDownloads;
+
+  /// No description provided for @signedOutDownloadsNote.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re signed out. Anything you listen to here syncs to {username} when you sign back in.'**
+  String signedOutDownloadsNote(String username);
+
   /// No description provided for @loginPasteLink.
   ///
   /// In en, this message translates to:
