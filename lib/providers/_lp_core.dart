@@ -460,7 +460,8 @@ mixin _CoreMixin on ChangeNotifier, _StateMixin {
       return (dl.itemId.length > 36) == isPodcast;
     }).toList();
     debugPrint(
-        '[Library] Building offline sections: ${downloads.length}/${allDownloads.length} downloads (${isPodcast ? "podcast" : "book"})');
+        '[Library] Building offline sections: ${downloads.length}/${allDownloads.length} downloads (${isPodcast ? "podcast" : "book"}) '
+        'library=$_selectedLibraryId of ${_libraries.length}');
     if (downloads.isEmpty) {
       _personalizedSections = [];
       _errorMessage = null;
