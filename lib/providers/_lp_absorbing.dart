@@ -681,7 +681,11 @@ mixin _AbsorbingMixin on ChangeNotifier, _StateMixin, _CoreMixin {
     notifyListeners();
 
     if (itemId.length <= 36) {
-      _addNextSeriesBookToAbsorbing(itemId);
+      // Only a book that ran out here moves playback on. Marking one finished
+      // by hand, or finishing it on another device, just lines the next one
+      // up - otherwise ticking off a few earlier books started each next one.
+      _addNextSeriesBookToAbsorbing(itemId,
+          autoPlay: !skipAutoAdvance && !fromRemote);
     }
 
     if (!skipAutoAdvance) {
@@ -694,7 +698,12 @@ mixin _AbsorbingMixin on ChangeNotifier, _StateMixin, _CoreMixin {
         if (mode == 'manual') {
           _manualQueueAdvance(itemId);
         } else if (mode == 'auto_next') {
-          _autoAdvanceOffline(itemId);
+          // Online, _addNextSeriesBookToAbsorbing plays the real next book
+          // from the server's list. The offline path only knows downloads, so
+          // running it too raced ahead to whichever later book was downloaded.
+          if (isPodcast || isOffline || _api == null) {
+            _autoAdvanceOffline(itemId);
+          }
         } else if (mode == 'playlist') {
           _advanceInPlaylist(itemId);
         } else if (mode == 'collection') {
@@ -1003,7 +1012,8 @@ mixin _AbsorbingMixin on ChangeNotifier, _StateMixin, _CoreMixin {
     }
   }
 
-  Future<void> _addNextSeriesBookToAbsorbing(String finishedBookId) async {
+  Future<void> _addNextSeriesBookToAbsorbing(String finishedBookId,
+      {bool autoPlay = true}) async {
     var finished = _itemDataWithSeries(finishedBookId);
     var (seriesId, currentSeq) =
         finished != null ? _StateMixin._extractSeries(finished) : (null, null);
@@ -1098,7 +1108,7 @@ mixin _AbsorbingMixin on ChangeNotifier, _StateMixin, _CoreMixin {
     notifyListeners();
     debugPrint('[Absorbing] Auto-added next series book: $nextKey (seq ${nextSeq.first})');
 
-    if (mode != 'auto_next') return;
+    if (mode != 'auto_next' || !autoPlay) return;
     if (AudioPlayerService.wasNoisyPause) return;
     if (AudioPlayerService().isPlaying) return;
     if (_api == null) return;
