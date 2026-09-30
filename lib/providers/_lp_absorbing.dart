@@ -651,6 +651,8 @@ mixin _AbsorbingMixin on ChangeNotifier, _StateMixin, _CoreMixin {
       {bool skipRefresh = false,
       bool skipAutoAdvance = false,
       bool fromRemote = false}) {
+    debugPrint('[Absorbing] Finished $itemId (remote=$fromRemote '
+        'autoAdvance=${!skipAutoAdvance} playing=${AudioPlayerService().currentItemId})');
     _resetItems.remove(itemId);
     final existing = _progressMap[itemId] ?? {};
     if (itemId.length > 36 && existing['isFinished'] != true) {
@@ -1040,7 +1042,6 @@ mixin _AbsorbingMixin on ChangeNotifier, _StateMixin, _CoreMixin {
           if (book is! Map<String, dynamic>) continue;
           final id = book['id'] as String?;
           if (id == null || id == finishedBookId) continue;
-          if (_manualAbsorbRemoves.contains(id)) continue;
           if (_progressMap[id]?['isFinished'] == true) continue;
           final (sid, seq) = _StateMixin._extractSeries(book);
           if (sid != seriesId || seq == null || seq <= currentSeq) continue;
@@ -1053,7 +1054,6 @@ mixin _AbsorbingMixin on ChangeNotifier, _StateMixin, _CoreMixin {
       for (final entry in _absorbingItemCache.entries) {
         final key = entry.key;
         if (key == finishedBookId || key.length > 36) continue;
-        if (_manualAbsorbRemoves.contains(key)) continue;
         if ((this as LibraryProvider).isItemFinishedByKey(key)) continue;
         final (sid, seq) = _StateMixin._extractSeries(entry.value);
         if (sid != seriesId || seq == null || seq <= currentSeq) continue;
@@ -1063,7 +1063,6 @@ mixin _AbsorbingMixin on ChangeNotifier, _StateMixin, _CoreMixin {
       for (final dlInfo in DownloadService().downloadedItems) {
         final id = dlInfo.itemId;
         if (id == finishedBookId || id.length > 36) continue;
-        if (_manualAbsorbRemoves.contains(id)) continue;
         if (candidates.values.any((e) => e.key == id)) continue;
         if (_progressMap[id]?['isFinished'] == true) continue;
         final data = _itemDataWithSeries(id);
@@ -1080,6 +1079,9 @@ mixin _AbsorbingMixin on ChangeNotifier, _StateMixin, _CoreMixin {
     }
 
     final nextSeq = candidates.keys.toList()..sort();
+    debugPrint('[Absorbing] Series $seriesId after seq $currentSeq: '
+        'candidates ${nextSeq.take(5).join(', ')}${nextSeq.length > 5 ? '...' : ''} '
+        '(server list=$usedServerList)');
     final next = candidates[nextSeq.first]!;
     final nextKey = next.key;
 
@@ -1091,6 +1093,7 @@ mixin _AbsorbingMixin on ChangeNotifier, _StateMixin, _CoreMixin {
     }
     _absorbingItemCache[nextKey] = next.value;
     _manualAbsorbAdds.add(nextKey);
+    _manualAbsorbRemoves.remove(nextKey);
     _saveManualAbsorbing();
     notifyListeners();
     debugPrint('[Absorbing] Auto-added next series book: $nextKey (seq ${nextSeq.first})');
@@ -1103,6 +1106,7 @@ mixin _AbsorbingMixin on ChangeNotifier, _StateMixin, _CoreMixin {
     final nextData = next.value;
     final media = nextData['media'] as Map<String, dynamic>? ?? {};
     final metadata = media['metadata'] as Map<String, dynamic>? ?? {};
+    debugPrint('[Absorbing] Auto-playing next series book $nextKey after $finishedBookId');
     AudioPlayerService().playItem(
       api: _api!,
       itemId: nextKey,
@@ -1145,7 +1149,6 @@ mixin _AbsorbingMixin on ChangeNotifier, _StateMixin, _CoreMixin {
         final id = dlInfo.itemId;
         if (id == finishedBookId) continue;
         if (id.length > 36) continue;
-        if (_manualAbsorbRemoves.contains(id)) continue;
         if (_progressMap[id]?['isFinished'] == true) continue;
 
         final data = _itemDataWithSeries(id);
@@ -1166,6 +1169,7 @@ mixin _AbsorbingMixin on ChangeNotifier, _StateMixin, _CoreMixin {
 
       _absorbingIdsAdd(nextKey, afterKey: finishedBookId);
       _absorbingItemCache[nextKey] = nextData;
+      _manualAbsorbRemoves.remove(nextKey);
       _saveManualAbsorbing();
       notifyListeners();
 
@@ -1706,10 +1710,9 @@ mixin _AbsorbingMixin on ChangeNotifier, _StateMixin, _CoreMixin {
 
     final candidates = seriesQueueTail(
       current: current,
-      books: books.whereType<Map<String, dynamic>>().where((book) {
-        final id = book['id'] as String?;
-        return id != null && !_manualAbsorbRemoves.contains(id);
-      }),
+      books: books
+          .whereType<Map<String, dynamic>>()
+          .where((book) => book['id'] is String),
       currentKey: currentKey,
       currentSeriesId: seriesId,
       currentSequence: currentSequence,
@@ -2169,7 +2172,6 @@ mixin _AbsorbingMixin on ChangeNotifier, _StateMixin, _CoreMixin {
     final candidates = <double, Map<String, dynamic>>{};
     void consider(String id, Map<String, dynamic> d) {
       if (id == currentBookId) return;
-      if (_manualAbsorbRemoves.contains(id)) return;
       if (self.isItemFinishedByKey(id)) return;
       final (sid, seq) = _StateMixin._extractSeries(d);
       if (sid != seriesId || seq == null || seq <= currentSeq!) return;
