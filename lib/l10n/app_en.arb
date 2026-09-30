@@ -5004,7 +5004,7 @@
   "transcriptionSavedToNote": "Saved to bookmark note",
   "transcriptionDisabledHint": "Turn on bookmark transcription in Settings, under Advanced.",
   "transcriptionNoModelDownloaded": "Download a transcription model in Settings first.",
-  "transcriptionNotDownloadedBook": "Download this book first to transcribe its bookmarks.",
+  "transcriptionNotDownloadedBook": "Download this book or connect to your server to transcribe it.",
   "transcriptionNoMetadataMsg": "Can't locate this spot in the download. Try re-downloading the book.",
   "transcriptionBusyMsg": "Already transcribing something. Give it a moment.",
   "transcriptionEmptyMsg": "No speech was found at this spot.",

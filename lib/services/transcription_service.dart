@@ -7,11 +7,19 @@ import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:whisper_ggml_plus/whisper_ggml_plus.dart';
 
+import 'package:provider/provider.dart';
+
+import '../main.dart' show rootNavigatorKey;
+import '../providers/auth_provider.dart';
+import '../providers/library_provider.dart';
+import 'api_service.dart';
 import 'download_service.dart';
 import 'player_settings.dart';
+import 'remote_audio_slice.dart';
 
 /// On-device bookmark transcription using Whisper (whisper.cpp via
-/// whisper_ggml_plus). Opt-in, downloaded-books only for now.
+/// whisper_ggml_plus). Opt-in. Downloaded books decode from their files;
+/// streamed books read the window straight off the server.
 ///
 /// This is the single seam between the app and the underlying speech engine.
 /// The UI and bookmark code only ever talk to [TranscriptionService] - the
@@ -233,10 +241,178 @@ class TranscriptionService {
 
   // Transcription
 
-  /// Can this book be transcribed right now? Only downloaded books are
-  /// supported (we need the local audio file to extract a window from).
+  /// Can this book be transcribed right now? Downloaded books always can; a
+  /// streamed one can while the server is reachable.
   bool canTranscribeBook(String itemId) =>
-      DownloadService().getLocalPaths(itemId)?.isNotEmpty ?? false;
+      (DownloadService().getLocalPaths(itemId)?.isNotEmpty ?? false) ||
+      _streamingApi() != null;
+
+  /// The server to stream from, or null while offline.
+  ApiService? _streamingApi() {
+    final ctx = rootNavigatorKey.currentContext;
+    if (ctx == null) return null;
+    try {
+      if (Provider.of<LibraryProvider>(ctx, listen: false).isOffline) return null;
+      return Provider.of<AuthProvider>(ctx, listen: false).apiService;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// A streamed book's tracks, fetched once per book: the same list Find the
+  /// start in the chapter editor reads from.
+  final Map<String, List<RemoteTrack>> _streamTracks = {};
+
+  Future<List<RemoteTrack>?> _streamTracksFor(String itemId) async {
+    final cached = _streamTracks[itemId];
+    if (cached != null) return cached;
+    final api = _streamingApi();
+    if (api == null) return null;
+    final isEpisode = itemId.length > 36;
+    final apiItemId = isEpisode ? itemId.substring(0, 36) : itemId;
+    final item = await api.getLibraryItem(apiItemId);
+    final media = item?['media'] as Map<String, dynamic>?;
+    if (media == null) return null;
+    final raw = <Map<String, dynamic>>[];
+    if (isEpisode) {
+      final episodeId = itemId.substring(37);
+      final episode = (media['episodes'] as List<dynamic>? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .where((e) => e['id'] == episodeId)
+          .firstOrNull;
+      final track = episode?['audioTrack'] as Map<String, dynamic>?;
+      if (track != null) raw.add(track);
+    } else {
+      raw.addAll((media['tracks'] as List<dynamic>? ?? const [])
+          .whereType<Map<String, dynamic>>());
+      if (raw.isEmpty) {
+        for (final af in (media['audioFiles'] as List<dynamic>? ?? const [])
+            .whereType<Map<String, dynamic>>()
+            .where((af) => af['exclude'] != true)) {
+          final ino = af['ino'] as String?;
+          if (ino == null) continue;
+          raw.add({
+            'duration': af['duration'],
+            'mimeType': af['mimeType'],
+            'contentUrl': '/api/items/$apiItemId/file/$ino',
+          });
+        }
+      }
+    }
+    final tracks = <RemoteTrack>[];
+    for (final t in raw) {
+      final contentUrl = t['contentUrl'] as String?;
+      if (contentUrl == null) return null;
+      tracks.add(RemoteTrack(
+        url: api.buildTrackUrl(contentUrl),
+        headers: api.mediaHeaders,
+        durationSeconds: (t['duration'] as num?)?.toDouble() ?? 0,
+        mimeType: t['mimeType'] as String?,
+      ));
+    }
+    if (tracks.isEmpty) return null;
+    debugPrint('[Transcribe] $itemId streams from ${tracks.length} track(s)');
+    return _streamTracks[itemId] = tracks;
+  }
+
+  /// Where the window starting at book time [gStart] comes from: the
+  /// downloaded file when there is one, else the server ([stream] set).
+  Future<({String source, double localOffset, double trackDuration, RemoteTrack? stream})>
+      _locate(String itemId, double gStart) async {
+    final localPaths = DownloadService().getLocalPaths(itemId);
+    if (localPaths != null && localPaths.isNotEmpty) {
+      final durations = _trackDurations(itemId);
+      final int trackIndex;
+      final double localOffset;
+      final double trackDuration;
+      if (durations != null && durations.length == localPaths.length) {
+        final m = mapGlobalToTrack(durations, gStart);
+        trackIndex = m.index;
+        localOffset = m.offset;
+        trackDuration = durations[trackIndex];
+      } else if (localPaths.length == 1) {
+        // Single-file book: no per-track metadata needed.
+        trackIndex = 0;
+        localOffset = gStart;
+        trackDuration = double.infinity;
+      } else {
+        // Multi-file book but we can't map without durations.
+        throw TranscriptionException(TranscriptionError.noMetadata);
+      }
+      final sourcePath = localPaths[trackIndex];
+      // Books in a custom Android (SAF) folder are content:// URIs - File()
+      // can't see those, but the native extractor opens them fine.
+      if (!sourcePath.startsWith('content://') && !File(sourcePath).existsSync()) {
+        throw TranscriptionException(TranscriptionError.notDownloaded, sourcePath);
+      }
+      return (
+        source: sourcePath,
+        localOffset: localOffset,
+        trackDuration: trackDuration,
+        stream: null,
+      );
+    }
+
+    final List<RemoteTrack>? tracks;
+    try {
+      tracks = await _streamTracksFor(itemId);
+    } catch (e) {
+      throw TranscriptionException(TranscriptionError.notDownloaded, e);
+    }
+    if (tracks == null) throw TranscriptionException(TranscriptionError.notDownloaded);
+    final durations = [for (final t in tracks) t.durationSeconds];
+    final m = tracks.length == 1
+        ? (index: 0, offset: gStart)
+        : mapGlobalToTrack(durations, gStart);
+    final track = tracks[m.index];
+    return (
+      source: track.url,
+      localOffset: m.offset,
+      trackDuration: track.durationSeconds > 0 ? track.durationSeconds : double.infinity,
+      stream: track,
+    );
+  }
+
+  /// Decode [window] seconds at [at] to a 16kHz WAV. Android's decoder opens
+  /// a stream URL itself; Apple's only reads files, so on iOS the window's
+  /// bytes are pulled down and rewrapped first.
+  Future<String?> _decodeWindow(
+    ({String source, double localOffset, double trackDuration, RemoteTrack? stream}) at,
+    double window,
+  ) async {
+    final remote = at.stream;
+    if (remote == null || !Platform.isIOS) {
+      return _extractWav(
+        sourcePath: at.source,
+        startSeconds: at.localOffset,
+        durationSeconds: window,
+        headers: remote?.headers ?? const {},
+      );
+    }
+    AudioSlice? slice;
+    try {
+      slice = await RemoteAudioSlicer.fetch(
+        remote,
+        at.localOffset,
+        window,
+        tmpDir: (await getTemporaryDirectory()).path,
+      );
+    } catch (e) {
+      debugPrint('[Transcribe] slice failed: $e');
+      throw TranscriptionException(TranscriptionError.extractFailed, e);
+    }
+    try {
+      return await _extractWav(
+        sourcePath: slice.path,
+        startSeconds: slice.startWithin,
+        durationSeconds: window,
+      );
+    } finally {
+      try {
+        File(slice.path).deleteSync();
+      } catch (_) {}
+    }
+  }
 
   /// Which model to run for one job.
   ///
@@ -299,38 +475,11 @@ class TranscriptionService {
     }
     lastModelUsed = info.size;
 
-    final localPaths = DownloadService().getLocalPaths(itemId);
-    if (localPaths == null || localPaths.isEmpty) {
-      throw TranscriptionException(TranscriptionError.notDownloaded);
-    }
-
-    // Resolve which track file + offset the bookmark lands in.
-    final durations = _trackDurations(itemId);
-    final int trackIndex;
-    final double localOffset;
-    final double trackDuration;
     final double gStart = (positionSeconds - leadSeconds).clamp(0.0, double.infinity);
-    if (durations != null && durations.length == localPaths.length) {
-      final m = mapGlobalToTrack(durations, gStart);
-      trackIndex = m.index;
-      localOffset = m.offset;
-      trackDuration = durations[trackIndex];
-    } else if (localPaths.length == 1) {
-      // Single-file book: no per-track metadata needed.
-      trackIndex = 0;
-      localOffset = gStart;
-      trackDuration = double.infinity;
-    } else {
-      // Multi-file book but we can't map without durations.
-      throw TranscriptionException(TranscriptionError.noMetadata);
-    }
-
-    final sourcePath = localPaths[trackIndex];
-    // Books in a custom Android (SAF) folder are content:// URIs - File()
-    // can't see those, but the native extractor opens them fine.
-    if (!sourcePath.startsWith('content://') && !File(sourcePath).existsSync()) {
-      throw TranscriptionException(TranscriptionError.notDownloaded, sourcePath);
-    }
+    final at = await _locate(itemId, gStart);
+    final sourcePath = at.source;
+    final localOffset = at.localOffset;
+    final trackDuration = at.trackDuration;
 
     // Clamp the window so it never runs past the end of this track (v1 doesn't
     // span file boundaries - a bookmark in the last few seconds of a track just
@@ -347,11 +496,7 @@ class TranscriptionService {
     try {
       _markStep('decoding ${sourcePath.split('.').last} audio '
           '(${localOffset.toStringAsFixed(0)}s +${window.toStringAsFixed(0)}s)');
-      wavPath = await _extractWav(
-        sourcePath: sourcePath,
-        startSeconds: localOffset,
-        durationSeconds: window,
-      );
+      wavPath = await _decodeWindow(at, window);
       final extractMs = watch.elapsedMilliseconds;
       if (wavPath == null || !File(wavPath).existsSync()) {
         throw TranscriptionException(TranscriptionError.extractFailed);
@@ -427,35 +572,11 @@ class TranscriptionService {
     }
     lastModelUsed = info.size;
 
-    final localPaths = DownloadService().getLocalPaths(itemId);
-    if (localPaths == null || localPaths.isEmpty) {
-      throw TranscriptionException(TranscriptionError.notDownloaded);
-    }
-
-    final durations = _trackDurations(itemId);
-    final int trackIndex;
-    final double localOffset;
-    final double trackDuration;
     final double gStart = startSeconds.clamp(0.0, double.infinity);
-    if (durations != null && durations.length == localPaths.length) {
-      final m = mapGlobalToTrack(durations, gStart);
-      trackIndex = m.index;
-      localOffset = m.offset;
-      trackDuration = durations[trackIndex];
-    } else if (localPaths.length == 1) {
-      trackIndex = 0;
-      localOffset = gStart;
-      trackDuration = double.infinity;
-    } else {
-      throw TranscriptionException(TranscriptionError.noMetadata);
-    }
-
-    final sourcePath = localPaths[trackIndex];
-    // Books in a custom Android (SAF) folder are content:// URIs - File()
-    // can't see those, but the native extractor opens them fine.
-    if (!sourcePath.startsWith('content://') && !File(sourcePath).existsSync()) {
-      throw TranscriptionException(TranscriptionError.notDownloaded, sourcePath);
-    }
+    final at = await _locate(itemId, gStart);
+    final sourcePath = at.source;
+    final localOffset = at.localOffset;
+    final trackDuration = at.trackDuration;
 
     final available = trackDuration.isFinite ? trackDuration - localOffset : windowSeconds;
     final window = available < windowSeconds ? available : windowSeconds;
@@ -469,11 +590,7 @@ class TranscriptionService {
     try {
       _markStep('decoding ${sourcePath.split('.').last} audio '
           '(${localOffset.toStringAsFixed(0)}s +${window.toStringAsFixed(0)}s)');
-      wavPath = await _extractWav(
-        sourcePath: sourcePath,
-        startSeconds: localOffset,
-        durationSeconds: window,
-      );
+      wavPath = await _decodeWindow(at, window);
       final extractMs = watch.elapsedMilliseconds;
       if (wavPath == null || !File(wavPath).existsSync()) {
         throw TranscriptionException(TranscriptionError.extractFailed);
@@ -694,7 +811,12 @@ class TranscriptionService {
 
   List<double>? _trackDurations(String itemId) {
     final raw = DownloadService().getCachedSessionData(itemId);
-    if (raw == null || raw.isEmpty) return null;
+    if (raw == null || raw.isEmpty) {
+      final streamed = _streamTracks[itemId];
+      return streamed == null
+          ? null
+          : [for (final t in streamed) t.durationSeconds];
+    }
     try {
       final session = jsonDecode(raw) as Map<String, dynamic>;
       final tracks = session['audioTracks'] as List<dynamic>?;
@@ -728,6 +850,7 @@ class TranscriptionService {
     required String sourcePath,
     required double startSeconds,
     required double durationSeconds,
+    Map<String, String> headers = const {},
   }) async {
     final tmpDir = await getTemporaryDirectory();
     final outPath =
@@ -738,6 +861,7 @@ class TranscriptionService {
         'startSeconds': startSeconds,
         'durationSeconds': durationSeconds,
         'outPath': outPath,
+        if (headers.isNotEmpty) 'headers': headers,
       });
       return ok == true ? outPath : null;
     } on PlatformException catch (e) {

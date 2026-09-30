@@ -8968,7 +8968,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get transcriptionNotDownloadedBook =>
-      'Download this book first to transcribe its bookmarks.';
+      'Download this book or connect to your server to transcribe it.';
 
   @override
   String get transcriptionNoMetadataMsg =>

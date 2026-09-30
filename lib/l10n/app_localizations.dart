@@ -15240,7 +15240,7 @@ abstract class AppLocalizations {
   /// No description provided for @transcriptionNotDownloadedBook.
   ///
   /// In en, this message translates to:
-  /// **'Download this book first to transcribe its bookmarks.'**
+  /// **'Download this book or connect to your server to transcribe it.'**
   String get transcriptionNotDownloadedBook;
 
   /// No description provided for @transcriptionNoMetadataMsg.

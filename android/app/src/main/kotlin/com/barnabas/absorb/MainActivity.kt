@@ -208,12 +208,13 @@ class MainActivity : AudioServiceActivity() {
                         val outPath = call.argument<String>("outPath")
                         val startSeconds = call.argument<Double>("startSeconds") ?: 0.0
                         val durationSeconds = call.argument<Double>("durationSeconds") ?: 0.0
+                        val headers = call.argument<Map<String, String>>("headers") ?: emptyMap()
                         if (sourcePath == null || outPath == null) {
                             result.error("ARGS", "sourcePath and outPath are required", null)
                         } else {
                             Thread {
                                 val ok = try {
-                                    AudioWindowExtractor.extractWav(applicationContext, sourcePath, startSeconds, durationSeconds, outPath)
+                                    AudioWindowExtractor.extractWav(applicationContext, sourcePath, startSeconds, durationSeconds, outPath, headers)
                                 } catch (e: Exception) {
                                     Log.e(TAG, "extractWav crashed: ${e.message}")
                                     false
