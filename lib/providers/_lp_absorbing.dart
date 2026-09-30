@@ -430,6 +430,7 @@ mixin _AbsorbingMixin on ChangeNotifier, _StateMixin, _CoreMixin {
 
   Future<void> addToAbsorbingQueue(String itemId,
       {Map<String, dynamic>? item}) async {
+    debugPrint('[Absorbing] Added $itemId to the end (from ${_caller()})');
     _keepInAbsorbing(itemId, item);
     _absorbingIdsAdd(itemId, atFront: false);
     await _saveManualAbsorbing();
@@ -449,6 +450,7 @@ mixin _AbsorbingMixin on ChangeNotifier, _StateMixin, _CoreMixin {
         : player.currentEpisodeId == null
             ? player.currentItemId
             : '${player.currentItemId}-${player.currentEpisodeId}';
+    debugPrint('[Absorbing] Added $key to play next (from ${_caller()})');
     _keepInAbsorbing(key, item);
     _absorbingBookIds.remove(key);
     final activeIdx =
@@ -636,7 +638,16 @@ mixin _AbsorbingMixin on ChangeNotifier, _StateMixin, _CoreMixin {
     if (_manualAbsorbRemoves.remove(key)) _saveManualAbsorbing();
   }
 
+  /// Where a queue change came from, for the log: the frame that called the
+  /// method that called this.
+  static String _caller() {
+    final frames = StackTrace.current.toString().split('\n');
+    if (frames.length < 3) return '?';
+    return frames[2].replaceFirst(RegExp(r'^#\d+\s+'), '').trim();
+  }
+
   Future<void> removeFromAbsorbing(String key) async {
+    debugPrint('[Absorbing] Removed $key (from ${_caller()})');
     _manualAbsorbRemoves.add(key);
     _manualAbsorbAdds.remove(key);
     _finishedManualAbsorbAdds.remove(key);
@@ -1176,6 +1187,8 @@ mixin _AbsorbingMixin on ChangeNotifier, _StateMixin, _CoreMixin {
       final next = candidates[nextSeq.first]!;
       final nextKey = next.key;
       final nextData = next.value;
+      debugPrint('[AutoAdvance] Offline: playing downloaded $nextKey (seq ${nextSeq.first}) '
+          'after $finishedBookId, candidates ${nextSeq.take(5).join(', ')}');
 
       _absorbingIdsAdd(nextKey, afterKey: finishedBookId);
       _absorbingItemCache[nextKey] = nextData;
@@ -2180,11 +2193,15 @@ mixin _AbsorbingMixin on ChangeNotifier, _StateMixin, _CoreMixin {
     if (seriesId == null || currentSeq == null) return null;
 
     final candidates = <double, Map<String, dynamic>>{};
+    final skippedFinished = <double>[];
     void consider(String id, Map<String, dynamic> d) {
       if (id == currentBookId) return;
-      if (self.isItemFinishedByKey(id)) return;
       final (sid, seq) = _StateMixin._extractSeries(d);
       if (sid != seriesId || seq == null || seq <= currentSeq!) return;
+      if (self.isItemFinishedByKey(id)) {
+        skippedFinished.add(seq);
+        return;
+      }
       candidates[seq] = d;
     }
 
@@ -2224,10 +2241,14 @@ mixin _AbsorbingMixin on ChangeNotifier, _StateMixin, _CoreMixin {
       }
     }
 
-    if (candidates.isEmpty) return null;
     final nextSeq = candidates.keys.toList()..sort();
-    final next = candidates[nextSeq.first]!;
-    return _entryTitle(next);
+    skippedFinished.sort();
+    debugPrint('[Queue] Up next in series after seq $currentSeq: '
+        '${nextSeq.isEmpty ? 'nothing' : 'seq ${nextSeq.first} "${_entryTitle(candidates[nextSeq.first]!)}"'} '
+        '(server list=$usedServerList, finished skipped: '
+        '${skippedFinished.isEmpty ? 'none' : skippedFinished.take(8).join(', ')})');
+    if (candidates.isEmpty) return null;
+    return _entryTitle(candidates[nextSeq.first]!);
   }
 
   Future<String?> _peekNextPodcastEpisode(String currentCompoundKey) async {

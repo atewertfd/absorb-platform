@@ -507,10 +507,12 @@ class PlayerSettings {
     final value = await ScopedPrefs.getString('bookQueueMode');
     return value ?? await getQueueMode();
   }
-  static Future<void> setBookQueueMode(String value) =>
-      _serializeQueueModeMutation(
-        () => _set('bookQueueMode', value, notify: true),
-      );
+  static Future<void> setBookQueueMode(String value) {
+    debugPrint('[Queue] Book queue mode -> $value');
+    return _serializeQueueModeMutation(
+      () => _set('bookQueueMode', value, notify: true),
+    );
+  }
 
   static Future<bool> getShowUpNextLabel() => _get('showUpNextLabel', true);
   static Future<void> setShowUpNextLabel(bool value) =>
@@ -520,10 +522,12 @@ class PlayerSettings {
     final value = await ScopedPrefs.getString('podcastQueueMode');
     return value ?? await getQueueMode();
   }
-  static Future<void> setPodcastQueueMode(String value) =>
-      _serializeQueueModeMutation(
-        () => _set('podcastQueueMode', value, notify: true),
-      );
+  static Future<void> setPodcastQueueMode(String value) {
+    debugPrint('[Queue] Podcast queue mode -> $value');
+    return _serializeQueueModeMutation(
+      () => _set('podcastQueueMode', value, notify: true),
+    );
+  }
 
   /// Per-show podcast auto-advance direction: 'oldest_first' (default) or
   /// 'newest_first'. Stored under a raw (un-scoped) key because the advance
