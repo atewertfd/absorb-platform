@@ -6914,12 +6914,19 @@ class AudioPlayerService extends ChangeNotifier {
       debugPrint(
         '[Service] play() on cold-started service - routing to cold-start restore',
       );
-      final restore = AudioPlayerService.onColdStartPlayRequested;
+      // Android can start the process from the media resume card and send
+      // play while the app is still starting up, before main() has wired the
+      // restore handler. Wait for it rather than dropping the press.
+      var restore = AudioPlayerService.onColdStartPlayRequested;
+      for (var i = 0; restore == null && i < 50; i++) {
+        await Future.delayed(const Duration(milliseconds: 200));
+        restore = AudioPlayerService.onColdStartPlayRequested;
+      }
       if (restore != null) {
         unawaited(restore());
       } else {
         debugPrint(
-          '[Service] No cold-start restore handler registered - ignoring play',
+          '[Service] No cold-start restore handler registered after 10s - ignoring play',
         );
       }
       return;

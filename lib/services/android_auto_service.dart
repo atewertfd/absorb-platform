@@ -4,6 +4,7 @@ import 'dart:io' show File, Platform;
 import 'package:audio_service/audio_service.dart';
 
 import 'package:flutter/foundation.dart';
+import 'package:home_widget/home_widget.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api_service.dart';
 import 'audio_player_service.dart';
@@ -992,6 +993,10 @@ class AndroidAutoService {
 
   /// Main entry point for browse tree. May make API calls for drilldowns.
   Future<List<MediaItem>> getChildrenOf(String parentMediaId) {
+    // Android asks for this after the app is gone, to keep a resume card in
+    // the quick settings media carousel. Never cached - it has to follow
+    // whatever was played last.
+    if (parentMediaId == AudioService.recentRootId) return _recentChildren();
     final cached = _childrenCache[parentMediaId];
     if (cached != null) return Future.value(cached);
 
@@ -1997,6 +2002,62 @@ class AndroidAutoService {
     } catch (e) {
       debugPrint('[AutoBrowse] Search error: $e');
       return [];
+    }
+  }
+
+  /// The last book or episode played, as one playable item, from local data
+  /// only so it works with no connection. Same record the cold-start restore
+  /// resumes from, so tapping play on the card plays what the card shows.
+  Future<List<MediaItem>> _recentChildren() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final itemId = prefs.getString('widget_item_id');
+      if (itemId == null || itemId.isEmpty) return const [];
+      final episodeId = prefs.getString('widget_episode_id');
+      final key = episodeId != null ? '$itemId-$episodeId' : itemId;
+
+      var title = '';
+      var author = '';
+      final known = findEntry(key);
+      final dl = DownloadService();
+      if (known != null) {
+        title = known.title;
+        author = known.author;
+      } else if (dl.isDownloaded(key)) {
+        final info = dl.getInfo(key);
+        title = info.title ?? '';
+        author = info.author ?? '';
+      }
+      if (title.isEmpty) {
+        // The widget keeps "Author · Book" (or "Show · Episode") under the
+        // chapter title, which is the best a streamed item leaves behind.
+        final subtitle =
+            await HomeWidget.getWidgetData<String>('widget_author') ?? '';
+        final cut = subtitle.indexOf(' · ');
+        if (cut > 0) {
+          author = subtitle.substring(0, cut);
+          title = subtitle.substring(cut + 3);
+        } else {
+          title = subtitle;
+        }
+      }
+      if (title.isEmpty) return const [];
+      final cover = Uri.tryParse(localCoverUri(itemId));
+      debugPrint('[AutoBrowse] Recent for media resumption: $key "$title"');
+      return [
+        MediaItem(
+          id: AutoMediaIds.itemId(key),
+          title: title,
+          artist: author,
+          album: title,
+          artUri: cover,
+          playable: true,
+          extras: cover != null ? {'artUri': cover.toString()} : null,
+        ),
+      ];
+    } catch (e) {
+      debugPrint('[AutoBrowse] Recent for media resumption failed: $e');
+      return const [];
     }
   }
 
