@@ -302,9 +302,8 @@ class _BookmarkDetailSheetState extends State<BookmarkDetailSheet> {
 
     // Set expectations before burning CPU (it takes a while, the text needs a
     // once-over, the result lands in the note) and let the user pick how much
-    // audio to transcribe. The choices are remembered for next time.
+    // audio to transcribe. The choice is remembered for next time.
     var window = await PlayerSettings.getTranscriptionWindowSeconds();
-    var useEbookText = await PlayerSettings.getTranscriptionUseEbookText();
     if (!mounted) return;
     final go = await showDialog<bool>(
       context: context,
@@ -330,21 +329,6 @@ class _BookmarkDetailSheetState extends State<BookmarkDetailSheet> {
                 onSelectionChanged: (sel) =>
                     setDialogState(() => window = sel.first),
               ),
-              if (_epubForCrossRef != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Row(children: [
-                    Expanded(
-                      child: Text(l.transcriptionUseEbookText,
-                          style: Theme.of(ctx).textTheme.bodySmall),
-                    ),
-                    Switch(
-                      value: useEbookText,
-                      onChanged: (v) =>
-                          setDialogState(() => useEbookText = v),
-                    ),
-                  ]),
-                ),
             ],
           ),
           actions: [
@@ -362,7 +346,6 @@ class _BookmarkDetailSheetState extends State<BookmarkDetailSheet> {
     );
     if (go != true || !mounted) return;
     await PlayerSettings.setTranscriptionWindowSeconds(window);
-    await PlayerSettings.setTranscriptionUseEbookText(useEbookText);
     if (!mounted) return;
 
     showProgressDialog(context, l.transcribing);
@@ -385,7 +368,7 @@ class _BookmarkDetailSheetState extends State<BookmarkDetailSheet> {
       // Cross-reference the ebook: a confident match swaps Whisper's
       // approximation for the book's actual words. Still under the progress
       // dialog - fetching an uncached epub plus matching can take a moment.
-      if (useEbookText && text.isNotEmpty) {
+      if (text.isNotEmpty) {
         final exact = await _ebookExactText(text);
         if (exact != null && exact.isNotEmpty) text = exact;
       }
