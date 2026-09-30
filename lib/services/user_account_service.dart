@@ -126,11 +126,43 @@ class UserAccountService {
     // Load active scope
     _activeScopeKey = prefs.getString(_activeKey);
     debugPrint('[UserAccount] Loaded ${_accounts.length} accounts, active=$_activeScopeKey');
+    await _alignScopeWithSession(prefs);
+  }
+
+  /// The signed-in session lives in the plain server_url / username keys
+  /// while everything per account is stored under the active scope. If the
+  /// two ever disagree, the app talks to the server as one user but saves
+  /// progress and settings under another, so trust the session and point the
+  /// scope back at it.
+  Future<void> _alignScopeWithSession(SharedPreferences prefs) async {
+    final server = prefs.getString('server_url');
+    final username = prefs.getString('username');
+    if (server == null || username == null || username.isEmpty) return;
+    SavedAccount? match;
+    for (final a in _accounts) {
+      if (a.username == username &&
+          normalizeServerUrl(a.serverUrl) == normalizeServerUrl(server)) {
+        match = a;
+        break;
+      }
+    }
+    if (match == null || match.scopeKey == _activeScopeKey) return;
+    debugPrint('[UserAccount] Active scope $_activeScopeKey did not match the '
+        'signed-in $username - switching the scope to ${match.scopeKey}');
+    _activeScopeKey = match.scopeKey;
+    await _persistActiveKey();
   }
 
   /// Save or update an account after login. Sets it as active.
   Future<void> saveAccount(SavedAccount account) async {
-    await beforeAccountChange?.call();
+    // Nothing in here may stop the account being saved: a sign-in that got
+    // this far has already written the new session, and bailing out now
+    // leaves the old account's scope active under it.
+    try {
+      await beforeAccountChange?.call();
+    } catch (e) {
+      debugPrint('[UserAccount] beforeAccountChange failed: $e');
+    }
     // Remove existing entry for same server+username (update token)
     _accounts.removeWhere(
         (a) => a.serverUrl == account.serverUrl && a.username == account.username);

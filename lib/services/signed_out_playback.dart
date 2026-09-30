@@ -50,10 +50,14 @@ class SignedOutPlayback {
     _active = false;
     debugPrint('[SignedOut] Signing in, stopping signed-out playback first');
     UserAccountService.beforeAccountChange = null;
-    final player = AudioPlayerService();
-    if (player.hasBook) {
-      await player.pause();
-      await player.stop();
+    try {
+      final player = AudioPlayerService();
+      if (player.hasBook) {
+        await player.pause();
+        await player.stop();
+      }
+    } catch (e) {
+      debugPrint('[SignedOut] Stopping playback failed: $e');
     }
   }
 }

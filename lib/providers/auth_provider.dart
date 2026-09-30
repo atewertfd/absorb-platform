@@ -812,7 +812,9 @@ class AuthProvider extends ChangeNotifier {
           customHeaders: customHeaders,
         ),
       );
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Auth] Saving the account failed: $e');
+    }
 
     await _onAccountActivated();
 
@@ -903,7 +905,9 @@ class AuthProvider extends ChangeNotifier {
           customHeaders: customHeaders,
         ),
       );
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Auth] Saving the account failed: $e');
+    }
 
     await _onAccountActivated();
 
@@ -1016,7 +1020,9 @@ class AuthProvider extends ChangeNotifier {
           customHeaders: customHeaders,
         ),
       );
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Auth] Saving the account failed: $e');
+    }
 
     await _onAccountActivated();
 
