@@ -129,6 +129,7 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
   bool _uploading = false;
   bool _autoFetchMetadata = false;
   bool _metadataSearching = false;
+  bool _indexing = false;
   List<String> _metadataProviders = [];
   String _metadataProvider = 'audible';
   String? _lastMetadataQuery;
@@ -568,6 +569,23 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
           : await api!.uploadMedia(request, onProgress: _updateProgress);
       if (!mounted) return;
 
+      var indexed = true;
+      // The upload endpoint can return before the library scanner exposes the
+      // destination. Only the real screen path performs this follow-up;
+      // injected fixture uploaders intentionally model one request only.
+      if (result.success &&
+          api != null &&
+          widget.pathChecker == null &&
+          widget.uploader == null) {
+        setState(() => _indexing = true);
+        indexed = await _waitForIndex(
+          api,
+          directory: request.directory,
+          folderPath: _folderPath,
+        );
+        if (!mounted) return;
+      }
+
       final uploadedTitle = request.title;
       final mustReselectFiles =
           !result.success &&
@@ -591,7 +609,9 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
       if (result.success) {
         showOverlayToast(
           context,
-          l.adminUploadComplete(uploadedTitle),
+          indexed
+              ? l.adminUploadComplete(uploadedTitle)
+              : l.adminUploadCompletePendingIndex(uploadedTitle),
           icon: Icons.check_circle_outline_rounded,
         );
       } else {
@@ -625,11 +645,38 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
       if (mounted) {
         setState(() {
           _uploading = false;
+          _indexing = false;
           _progress = null;
         });
         widget.onNavigationGuardChanged?.call();
       }
     }
+  }
+
+  /// Give Audiobookshelf a short, bounded window to expose a newly uploaded
+  /// destination. A timeout is not treated as an upload failure: indexing is
+  /// server-side work and may continue after the app returns to the library.
+  Future<bool> _waitForIndex(
+    ApiService api, {
+    required String directory,
+    required String folderPath,
+  }) async {
+    const delays = <Duration>[
+      Duration(milliseconds: 500),
+      Duration(seconds: 1),
+      Duration(seconds: 2),
+      Duration(seconds: 3),
+    ];
+    for (final delay in delays) {
+      await Future<void>.delayed(delay);
+      if (!mounted) return false;
+      final result = await api.checkUploadPathExists(
+        directory: directory,
+        folderPath: folderPath,
+      );
+      if (result.success && result.exists) return true;
+    }
+    return false;
   }
 
   MediaUploadRequest? get _draft {
@@ -738,7 +785,9 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
                                       LinearProgressIndicator(value: _progress),
                                       const SizedBox(height: 8),
                                       Text(
-                                        _progress == null
+                                        _indexing
+                                            ? l.adminUploadIndexing
+                                            : _progress == null
                                             ? l.adminUploadUploading
                                             : l.adminUploadProgress(
                                                 (_progress! * 100).round(),

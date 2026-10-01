@@ -4589,6 +4589,7 @@
     }
   },
   "adminUploadUploading": "Uploading...",
+  "adminUploadIndexing": "Upload complete; waiting for Audiobookshelf to index...",
   "adminUploadProgress": "Uploading {percent}%",
   "@adminUploadProgress": {
     "placeholders": {
@@ -4600,6 +4601,14 @@
   "adminUploadButton": "Upload",
   "adminUploadComplete": "Uploaded \"{title}\"",
   "@adminUploadComplete": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "adminUploadCompletePendingIndex": "Uploaded \"{title}\"; Audiobookshelf is still indexing it",
+  "@adminUploadCompletePendingIndex": {
     "placeholders": {
       "title": {
         "type": "String"

@@ -13479,6 +13479,12 @@ abstract class AppLocalizations {
   /// **'Uploading...'**
   String get adminUploadUploading;
 
+  /// No description provided for @adminUploadIndexing.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload complete; waiting for Audiobookshelf to index...'**
+  String get adminUploadIndexing;
+
   /// No description provided for @adminUploadProgress.
   ///
   /// In en, this message translates to:
@@ -13496,6 +13502,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Uploaded \"{title}\"'**
   String adminUploadComplete(String title);
+
+  /// No description provided for @adminUploadCompletePendingIndex.
+  ///
+  /// In en, this message translates to:
+  /// **'Uploaded \"{title}\"; Audiobookshelf is still indexing it'**
+  String adminUploadCompletePendingIndex(String title);
 
   /// No description provided for @adminUploadFailed.
   ///

@@ -7961,6 +7961,10 @@ class AppLocalizationsDe extends AppLocalizations {
   String get adminUploadUploading => 'Wird hochgeladen...';
 
   @override
+  String get adminUploadIndexing =>
+      'Upload complete; waiting for Audiobookshelf to index...';
+
+  @override
   String adminUploadProgress(int percent) {
     return 'Fortschritt beim Hochladen: $percent %';
   }
@@ -7971,6 +7975,11 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String adminUploadComplete(String title) {
     return '\"$title\" hochgeladen';
+  }
+
+  @override
+  String adminUploadCompletePendingIndex(String title) {
+    return 'Uploaded \"$title\"; Audiobookshelf is still indexing it';
   }
 
   @override
