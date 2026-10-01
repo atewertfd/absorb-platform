@@ -13,7 +13,7 @@ An unofficial enhanced cross-platform edition of [Absorb](https://github.com/pou
 - Audiobookshelf server connectivity
 - Library browsing, covers, metadata, search, playback, seeking, and playback speed support as the primary targets
 - Resizable desktop application window
-- Download/offline playback tools with byte progress, transfer speed, and estimated time remaining
+- Download/offline playback tools with byte progress, transfer speed, estimated time remaining, and persistent retryable failures
 - Listening statistics, custom themes, playlists/queue controls, and optional on-device Whisper bookmark transcription
 
 ## Plus features

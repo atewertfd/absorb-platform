@@ -388,10 +388,12 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
 
                         final active = filterByLibrary(ds.activeDownloads);
                         final queued = filterByLibrary(ds.queuedDownloads);
+                        final failed = filterByLibrary(ds.failedDownloads);
                         final completed = filterByLibrary(ds.downloadedItems);
                         final hasAny =
                             active.isNotEmpty ||
                             queued.isNotEmpty ||
+                            failed.isNotEmpty ||
                             completed.isNotEmpty;
 
                         if (!hasAny) {
@@ -475,6 +477,43 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
                                   mediaHeaders: context
                                       .read<LibraryProvider>()
                                       .mediaHeaders,
+                                ),
+                            ],
+                            // Failed downloads remain available for retry
+                            // after a relaunch or transient network/storage
+                            // error instead of silently disappearing.
+                            if (failed.isNotEmpty) ...[
+                              Padding(
+                                padding: const EdgeInsets.only(
+                                  left: 4,
+                                  top: 4,
+                                  bottom: 8,
+                                ),
+                                child: Text(
+                                  l.downloadFailedGeneric(''),
+                                  style: tt.labelMedium?.copyWith(
+                                    color: cs.error,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              for (final info in failed)
+                                _FailedDownloadCard(
+                                  info: info,
+                                  cs: cs,
+                                  tt: tt,
+                                  onRetry: () async {
+                                    final api = context
+                                        .read<AuthProvider>()
+                                        .apiService;
+                                    if (api == null) return;
+                                    await ds.retryDownload(
+                                      api: api,
+                                      itemId: info.itemId,
+                                    );
+                                  },
+                                  onDismiss: () =>
+                                      ds.dismissFailedDownload(info.itemId),
                                 ),
                             ],
                             // Completed downloads
@@ -563,6 +602,62 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
                     ),
                 ],
               ),
+      ),
+    );
+  }
+}
+
+class _FailedDownloadCard extends StatelessWidget {
+  final DownloadInfo info;
+  final ColorScheme cs;
+  final TextTheme tt;
+  final Future<void> Function() onRetry;
+  final VoidCallback onDismiss;
+
+  const _FailedDownloadCard({
+    required this.info,
+    required this.cs,
+    required this.tt,
+    required this.onRetry,
+    required this.onDismiss,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final title = info.title ?? l.unknown;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Card(
+        elevation: 0,
+        color: cs.errorContainer.withValues(alpha: 0.45),
+        child: ListTile(
+          leading: Icon(Icons.error_outline_rounded, color: cs.error),
+          title: Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          subtitle: Text(l.downloadFailedGeneric(title)),
+          trailing: Wrap(
+            spacing: 0,
+            children: [
+              IconButton(
+                tooltip: l.retry,
+                icon: const Icon(Icons.refresh_rounded),
+                onPressed: () {
+                  onRetry();
+                },
+              ),
+              IconButton(
+                tooltip: l.delete,
+                icon: const Icon(Icons.close_rounded),
+                onPressed: onDismiss,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

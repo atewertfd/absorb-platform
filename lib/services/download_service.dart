@@ -689,6 +689,12 @@ class DownloadService extends ChangeNotifier {
       .where((d) => d.status == DownloadStatus.downloaded)
       .toList();
 
+  /// Failed downloads remain visible after relaunch so transient errors can
+  /// be retried instead of silently turning back into a missing download.
+  List<DownloadInfo> get failedDownloads => _downloads.values
+      .where((d) => d.status == DownloadStatus.error)
+      .toList();
+
   /// Get actively downloading items (in progress right now).
   List<DownloadInfo> get activeDownloads => _downloads.values
       .where(
@@ -748,7 +754,8 @@ class DownloadService extends ChangeNotifier {
             'cover=${info.coverUrl != null ? "yes" : "null"} '
             'sessionData=${info.sessionData != null ? "${info.sessionData!.length} chars" : "null"}',
           );
-          if (info.status == DownloadStatus.downloaded) {
+          if (info.status == DownloadStatus.downloaded ||
+              info.status == DownloadStatus.error) {
             _downloads[entry.key] = info;
           } else {
             debugPrint(
@@ -1400,7 +1407,8 @@ class DownloadService extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     final map = <String, dynamic>{};
     for (final entry in _downloads.entries) {
-      if (entry.value.status == DownloadStatus.downloaded) {
+      if (entry.value.status == DownloadStatus.downloaded ||
+          entry.value.status == DownloadStatus.error) {
         map[entry.key] = entry.value.toJson();
       }
     }
@@ -2569,6 +2577,7 @@ class DownloadService extends ChangeNotifier {
     );
     _activeDownloadIds.remove(itemId);
     _pending.remove(itemId);
+    await _save();
     await _persistPending();
     await _deleteDbRecords(itemId, p?.trackCount ?? 0);
     _cancelledIds.remove(itemId);
@@ -2578,6 +2587,38 @@ class DownloadService extends ChangeNotifier {
     _toastFailure(t, cause, taskException, responseCode);
     notifyListeners();
     unawaited(_processQueue());
+  }
+
+  /// Retry a failed book using its persisted metadata. Podcast episode IDs
+  /// use the same composite key as the rest of the download service.
+  Future<String?> retryDownload({
+    required ApiService api,
+    required String itemId,
+  }) async {
+    final info = _downloads[itemId];
+    if (info == null || info.status != DownloadStatus.error) return null;
+    _downloads.remove(itemId);
+    await _save();
+    notifyListeners();
+
+    final episodeId = itemId.length > 36 ? itemId.substring(37) : null;
+    return downloadItem(
+      api: api,
+      itemId: episodeId == null ? itemId : itemId.substring(0, 36),
+      title: info.title ?? itemId,
+      author: info.author,
+      coverUrl: info.coverUrl,
+      episodeId: episodeId,
+      libraryId: info.libraryId,
+    );
+  }
+
+  /// Dismiss a failed record without touching any completed downloads.
+  Future<void> dismissFailedDownload(String itemId) async {
+    if (_downloads[itemId]?.status != DownloadStatus.error) return;
+    _downloads.remove(itemId);
+    await _save();
+    notifyListeners();
   }
 
   /// A failed book used to just drop back to the download button, so a book
