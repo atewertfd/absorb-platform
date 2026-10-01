@@ -4,7 +4,7 @@
 
 Manage → Upload → **Import Libation exports** provides a one-book file handoff through the existing Audiobookshelf uploader. Select compatible audio plus a cover, review/edit title, author, series and destination, then explicitly select Upload. Selecting files does not upload them. The export picker excludes configuration/metadata sidecars and unsupported protected extensions by filename extension; it does not inspect or certify file contents. The general upload picker retains its existing broader file support. After a successful upload, the UI checks the destination for up to about 6.5 seconds and reports whether Audiobookshelf has exposed it yet; a timeout is reported as still indexing, not as an upload failure.
 
-One primary audio file plus a cover now prefills the title from the audio filename. Multiple chapter files require the user to enter the book title. Folder scanning, automatic multi-book grouping, batch queues, true upload resuming and server-index confirmation are not implemented.
+One primary audio file plus a cover now prefills the title from the audio filename. Multiple chapter files require the user to enter the book title. Folder scanning, automatic multi-book grouping, batch queues and true upload resuming are not implemented. The post-upload check is bounded and may report that server indexing is still in progress; it is not a durable indexing job tracker.
 
 This does not implement direct Audible login/library import; see [the separate feasibility record](AUDIBLE-INTEGRATION.md).
 

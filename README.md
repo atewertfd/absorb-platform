@@ -30,7 +30,7 @@ The exporter handoff is distinct from the requested future **Connect Audible** f
 
 The exact formats and export options depend on the titles and rights available in your Audible/Libation setup. Absorb Plus does not attempt to automate protected Audible downloads.
 
-See [import verification](docs/IMPORT-VERIFICATION.md) for tests, visual checks, and remaining limits. File imports currently handle one book at a time, require server upload permissions, and do not provide folder scanning, a batch queue, or resumable uploads.
+See [import verification](docs/IMPORT-VERIFICATION.md) for tests, visual checks, and remaining limits. File imports currently handle one book at a time, require server upload permissions, and do not provide folder scanning, a batch queue, or resumable uploads. The app performs a short post-upload indexing check but does not track a long-running server scan.
 
 ## Downloads
 
