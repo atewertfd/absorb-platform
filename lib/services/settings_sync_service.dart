@@ -16,14 +16,7 @@ import 'player_settings.dart';
 import 'scoped_prefs.dart';
 import 'user_account_service.dart';
 
-enum SyncStatus {
-  ok,
-  notConfigured,
-  noRemote,
-  authFailed,
-  network,
-  tooLarge,
-}
+enum SyncStatus { ok, notConfigured, noRemote, authFailed, network, tooLarge }
 
 class SyncResult {
   final SyncStatus status;
@@ -59,7 +52,11 @@ class SettingsSyncService {
   @visibleForTesting
   static http.Client? testClient;
 
-  Future<http.Response> _put(Uri url, Map<String, String> headers, String body) {
+  Future<http.Response> _put(
+    Uri url,
+    Map<String, String> headers,
+    String body,
+  ) {
     final c = testClient;
     return c != null
         ? c.put(url, headers: headers, body: body)
@@ -68,7 +65,9 @@ class SettingsSyncService {
 
   Future<http.Response> _getUrl(Uri url, Map<String, String> headers) {
     final c = testClient;
-    return c != null ? c.get(url, headers: headers) : http.get(url, headers: headers);
+    return c != null
+        ? c.get(url, headers: headers)
+        : http.get(url, headers: headers);
   }
 
   /// The ONLY top-level backup keys that ever leave the device. This is an
@@ -250,7 +249,7 @@ class SettingsSyncService {
     try {
       final decoded = jsonDecode(raw);
       if (decoded is Map) {
-        return decoded.map((k, v) => MapEntry('$k', '$v'));
+        return safeCustomHeaders(decoded.map((k, v) => MapEntry('$k', '$v')));
       }
     } catch (_) {}
     return const {};
@@ -282,6 +281,35 @@ class SettingsSyncService {
   static String headerLines(Map<String, String> headers) =>
       headers.entries.map((e) => '${e.key}: ${e.value}').join('\n');
 
+  /// Custom headers are intended for provider-specific access gates such as
+  /// Cloudflare Access. They must not be able to replace the credentials the
+  /// sync service constructs, or smuggle connection-level/cookie headers into
+  /// a request. Header names are case-insensitive on the wire, so compare them
+  /// case-insensitively here rather than relying on a map key spelling.
+  @visibleForTesting
+  static Map<String, String> safeCustomHeaders(Map<String, String> headers) {
+    const blocked = {
+      'authorization',
+      'proxy-authorization',
+      'cookie',
+      'set-cookie',
+      'host',
+      'content-length',
+      'transfer-encoding',
+      'connection',
+      'upgrade',
+    };
+    final safe = <String, String>{};
+    for (final entry in headers.entries) {
+      final name = entry.key.trim();
+      if (name.isEmpty || blocked.contains(name.toLowerCase())) continue;
+      final value = entry.value.trim();
+      if (value.isEmpty) continue;
+      safe[name] = value;
+    }
+    return safe;
+  }
+
   /// Opt-in because the ReadMeABook config carries an API token, and that is
   /// the user's decision to make about their own storage rather than a default
   /// worth choosing for them.
@@ -299,10 +327,9 @@ class SettingsSyncService {
   /// themselves, ABS rotates refresh tokens, so a stale one arriving from the
   /// file could overwrite a freshly rotated one and strand the session.
   Future<Set<String>> _activeKeys() async => {
-        ..._syncedKeys,
-        if (await getSyncRmab()) 'rmab',
-      };
-
+    ..._syncedKeys,
+    if (await getSyncRmab()) 'rmab',
+  };
 
   /// Epoch ms of the newest payload this device has either written or applied.
   /// Both directions compare against it, so a device never re-imports its own
@@ -417,7 +444,9 @@ class SettingsSyncService {
     // losing the change silently. Pushing first stamps our copy as the newest,
     // and the pull below then sees its own timestamp and skips.
     if (await _hasUnsentChanges()) {
-      debugPrint('[SettingsSync] unsent local changes - pushing before pulling');
+      debugPrint(
+        '[SettingsSync] unsent local changes - pushing before pulling',
+      );
       await pushIfChanged();
     }
     final result = await pull();
@@ -754,11 +783,10 @@ class SettingsSyncService {
         );
         return const SyncResult(SyncStatus.tooLarge);
       }
-      final resp = await _put(
-        uri,
-        {...headers, 'content-type': 'application/json'},
-        body,
-      ).timeout(const Duration(seconds: 20));
+      final resp = await _put(uri, {
+        ...headers,
+        'content-type': 'application/json',
+      }, body).timeout(const Duration(seconds: 20));
       if (resp.statusCode == 401 || resp.statusCode == 403) {
         return SyncResult(SyncStatus.authFailed, null, _http(resp, uri, 'PUT'));
       }
@@ -806,8 +834,10 @@ class SettingsSyncService {
 
     _busy = true;
     try {
-      final resp =
-          await _getUrl(uri, headers).timeout(const Duration(seconds: 20));
+      final resp = await _getUrl(
+        uri,
+        headers,
+      ).timeout(const Duration(seconds: 20));
       if (resp.statusCode == 401 || resp.statusCode == 403) {
         return SyncResult(SyncStatus.authFailed, null, _http(resp, uri, 'GET'));
       }
@@ -903,8 +933,10 @@ class SettingsSyncService {
       return const SyncResult(SyncStatus.notConfigured);
     }
     try {
-      final resp =
-          await _getUrl(uri, headers).timeout(const Duration(seconds: 15));
+      final resp = await _getUrl(
+        uri,
+        headers,
+      ).timeout(const Duration(seconds: 15));
       if (resp.statusCode == 401 || resp.statusCode == 403) {
         return SyncResult(SyncStatus.authFailed, null, _http(resp, uri, 'GET'));
       }

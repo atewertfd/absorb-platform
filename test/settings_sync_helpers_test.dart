@@ -38,4 +38,18 @@ void main() {
       isEmpty,
     );
   });
+
+  test('custom headers cannot override auth or inject connection headers', () {
+    expect(
+      SettingsSyncService.safeCustomHeaders({
+        'Authorization': 'Bearer should-not-win',
+        'COOKIE': 'account=secret',
+        'Host': 'attacker.example',
+        'CF-Access-Client-Id': 'client-id',
+        'X-Trace': ' useful-value ',
+        'Empty': ' ',
+      }),
+      {'CF-Access-Client-Id': 'client-id', 'X-Trace': 'useful-value'},
+    );
+  });
 }
