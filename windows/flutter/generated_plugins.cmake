@@ -4,9 +4,11 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   app_links
+  audio_service_win
   connectivity_plus
   desktop_webview_window
   flutter_inappwebview_windows
+  media_kit_libs_windows_audio
   permission_handler_windows
   share_plus
   url_launcher_windows

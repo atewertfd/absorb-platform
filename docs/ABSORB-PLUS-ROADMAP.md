@@ -14,8 +14,9 @@ This port keeps the upstream Absorb visual language and adds cross-platform beha
 - Failed downloads retain their library filter and remain retryable when downloader startup is rejected; service-level regression tests cover both cases
 - Missing-file, disk-full, and permission failures retain a localized explanation after restart; tests simulate downloader failure callbacks and persisted records (not a real disk-full device)
 - Audiobookshelf token-refresh recovery coverage for both 401 rotation and transient 503 retry, plus an app-shell widget smoke test
-- Global media controls where the host platform exposes them
-- Optional native Whisper bookmark transcription
+- Windows/Linux libmpv playback backend and SMTC/MPRIS media-service registration (physical media keys and Linux runtime playback still need verification)
+- [Windows native audio fixture verification](DESKTOP-AUDIO-VERIFICATION.md): local/loopback playback, pause, speed, repeated cross-file seeking, saved position, and clean shutdown
+- Optional upstream Whisper bookmark transcription; desktop audio extraction is not yet verified, and web transcription is unavailable
 - GitHub Pages web deployment and release-oriented desktop builds
 - Analysis and regression tests gate web artifacts and Pages publication
 
@@ -25,6 +26,7 @@ This port keeps the upstream Absorb visual language and adds cross-platform beha
 - Add more download recovery tests for interrupted files and low-storage conditions
 - Improve accessibility coverage for queue, playlist, and player actions across keyboard and screen readers
 - Continue platform-specific verification for Windows and Linux media keys, audio focus, and window resizing
+- Verify real-server playback/sync and audiobook codecs in addition to the isolated WAV/loopback native audio smoke test
 
 ## Deliberate boundary
 

@@ -2,8 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 import '_audio_player.dart';
+import 'desktop_audio.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -42,8 +44,8 @@ class AudioPlayerHandler extends BaseAudioHandler with SeekHandler {
     // platforms (ExoPlayer via setDefaultRequestProperties, AVPlayer via
     // AVURLAssetHTTPHeaderFieldsKey). The proxy doubles the packet count.
     useProxyForRequestHeaders: false,
-    audioLoadConfiguration: const AudioLoadConfiguration(
-      androidLoadControl: AndroidLoadControl(
+    audioLoadConfiguration: AudioLoadConfiguration(
+      androidLoadControl: const AndroidLoadControl(
         bufferForPlaybackDuration: Duration(seconds: 2),
         bufferForPlaybackAfterRebufferDuration: Duration(seconds: 5),
         targetBufferBytes: 5 * 1024 * 1024, // 5 MB buffer
@@ -54,9 +56,10 @@ class AudioPlayerHandler extends BaseAudioHandler with SeekHandler {
       // resolves instantly; in background after a fresh asset load, iOS never
       // grants that guarantee, so the new track stays state=buffering at
       // pos=0.0 forever even with hundreds of seconds buffered (GH #244).
-      darwinLoadControl: DarwinLoadControl(
-        automaticallyWaitsToMinimizeStalling: false,
-      ),
+      // Do not send AVPlayer-only settings to the desktop libmpv backend.
+      darwinLoadControl: !kIsWeb && (Platform.isIOS || Platform.isMacOS)
+          ? const DarwinLoadControl(automaticallyWaitsToMinimizeStalling: false)
+          : null,
     ),
   );
   AudioPlayerService? _service; // back-reference for auto-rewind
@@ -2855,6 +2858,7 @@ class AudioPlayerService extends ChangeNotifier {
     try {
       final fwdSkip = await PlayerSettings.getForwardSkip();
       final backSkip = await PlayerSettings.getBackSkip();
+      initializeDesktopAudio();
       _handler = await AudioService.init<AudioPlayerHandler>(
         builder: () => AudioPlayerHandler(),
         config: AudioServiceConfig(
@@ -3000,6 +3004,7 @@ class AudioPlayerService extends ChangeNotifier {
 
   /// Check if BT audio (A2DP/SCO) is currently connected via native AudioManager.
   static Future<bool> _isBluetoothAudioConnected() async {
+    if (kIsWeb || !Platform.isAndroid) return false;
     try {
       final result = await _eqChannel.invokeMethod<bool>(
         'isBluetoothAudioConnected',

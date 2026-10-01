@@ -20,7 +20,7 @@ An unofficial enhanced cross-platform edition of [Absorb](https://github.com/pou
 
 ## Plus features
 
-Absorb Plus builds on the upstream client with desktop-first controls and cross-platform improvements. Existing upstream features remain the foundation; platform-specific features are enabled where the target supports them. Media-key behavior depends on the operating system and browser, while optional Whisper transcription is currently native-only and is intentionally unavailable in the web build.
+Absorb Plus builds on the upstream client with desktop-first controls and cross-platform improvements. Existing upstream features remain the foundation; platform-specific features are enabled where the target supports them. Windows and Linux playback use libmpv through `just_audio_media_kit`; Android, iOS, and web retain their existing playback implementations. Windows system media controls use SMTC and Linux uses MPRIS. Physical media-key behavior still needs verification on each desktop environment; this is not a claim of complete platform parity. Optional Whisper transcription is unavailable on the web, and its desktop audio-extraction path still needs implementation/verification.
 
 ## Audible and Libation workflow
 
@@ -30,13 +30,13 @@ The exact formats and export options depend on the titles and rights available i
 
 ## Downloads
 
-Download desktop builds from the [Releases](../../releases) page. Extract the Windows or Linux archive and run the included executable. The hosted web build is available at the project’s [GitHub Pages site](https://atewertfd.github.io/absorb-platform/).
+Download desktop builds from the [Releases](../../releases) page. Extract the **entire** Windows or Linux archive and run the included executable; keep its libraries and data alongside it. Windows bundles its native audio decoder. Linux requires a system libmpv runtime (`libmpv1` on Ubuntu 22.04, `libmpv2` on Ubuntu 24.04) and a desktop session bus for MPRIS controls. The hosted web build is available at the project’s [GitHub Pages site](https://atewertfd.github.io/absorb-platform/).
 
 ## Build requirements
 
 - Flutter stable with the desired desktop/web support enabled
 - Windows: Visual Studio with the **Desktop development with C++** workload, Windows Developer Mode, and NuGet CLI
-- Linux: GTK 3 development packages, CMake, Ninja, Clang, and pkg-config
+- Linux: GTK 3 development packages, CMake, Ninja, Clang, pkg-config, libmpv-dev, and WebKitGTK 4.0 development packages (CI uses Ubuntu 22.04)
 - Web: Flutter web support and a modern browser
 
 ## Build
@@ -58,9 +58,31 @@ flutter test
 
 The web build and Pages deployment also run analysis and regression tests before publishing. Coverage includes token refresh recovery, failed-download persistence and retry rejection, and keyboard/screen-reader behavior for the compact header controls. These checks do not replace playback testing against a real server on each platform.
 
+### Native audio smoke test
+
+See the [verification record](docs/DESKTOP-AUDIO-VERIFICATION.md) for tested behavior, fixed failures, and remaining gaps.
+
+Build the isolated test target on the target desktop, then run the generated executable:
+
+```powershell
+flutter build windows --release -t tool/desktop_audio_smoke.dart
+# Run build/windows/x64/runner/Release/absorb.exe
+# On Linux: flutter build linux --release -t tool/desktop_audio_smoke.dart
+```
+
+On Windows, `pwsh -File tool/verify-desktop-audio.ps1` automates the build/run checks and restores the normal application build afterward. Pass `-Flutter C:\path\to\flutter.bat` if Flutter is not on PATH. Run on a desktop with an audio output device; headless CI is not a substitute for that check.
+
+The test generates a silent WAV in a unique temporary directory, initializes the real audio handler/native media service, and checks local playback, pause, seeking, speed, multi-file playlist selection, and HTTP playback against a loopback-only fixture with a fake authorization header. It removes its fixture afterward and requires both `DESKTOP_AUDIO_SMOKE PASS` and a clean process exit. It does not use Audiobookshelf credentials or library data, and does not prove audible speaker output, physical media keys, server synchronization, or codec compatibility beyond WAV. Rebuild the normal application afterward with `flutter build windows --release -t lib/main.dart` (or `linux`); **do not distribute the smoke-test executable**.
+
 ## Limitations
 
 Android-only or mobile-specific features are not included in desktop/web targets, including Android Auto, Chromecast, home-screen widgets, Android background services, and APK self-updating. Some features require platform-specific implementations and further testing. Linux builds are produced in CI when a native Linux toolchain is not available.
+
+The desktop audio backend does not implement the mobile equalizer or silence skipping. Windows SMTC integration does not currently expose OS timeline scrubbing; use the app's seek controls. Real Audiobookshelf playback, reconnect/sync behavior, physical media keys, and Linux runtime audio still need end-to-end verification. A successful build alone is not evidence that those flows work.
+
+Windows media integration includes a [small vendored patch](packages/audio_service_win/PATCHES.md) for native-object cleanup and platform-thread callback delivery. Desktop cross-file seeking reloads the selected file before applying its position to avoid an adapter timing race; this can introduce a brief pause when crossing file boundaries.
+
+Windows builds also apply a scoped WebView shutdown fix for [upstream issue #2733](https://github.com/pichillilorenzo/flutter_inappwebview/issues/2733). CMake compiles a patched copy in the build directory, without changing the shared Pub cache. It verifies the original source hash and requires review if an upstream update changes that file.
 
 ## Attribution
 

@@ -38,6 +38,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
     ::DispatchMessage(&msg);
   }
 
+  // A Dart-requested exit can post WM_QUIT without first destroying the window.
+  // Clear the controller before its child HWND emits teardown messages, and
+  // release COM-backed plugins while the apartment is still initialized.
+  window.Destroy();
   ::CoUninitialize();
   return EXIT_SUCCESS;
 }

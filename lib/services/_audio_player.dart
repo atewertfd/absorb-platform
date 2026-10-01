@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:just_audio/just_audio.dart' as ja;
 import 'native_ios_audio_player.dart';
 
@@ -25,7 +26,7 @@ class AudioPlayer {
     bool useProxyForRequestHeaders = true,
     ja.AudioLoadConfiguration? audioLoadConfiguration,
   }) {
-    if (Platform.isIOS) {
+    if (!kIsWeb && Platform.isIOS) {
       _native = NativeIosAudioPlayer();
     } else {
       _ja = ja.AudioPlayer(
@@ -40,6 +41,7 @@ class AudioPlayer {
   NativeIosAudioPlayer? _native;
 
   bool get _isNative => _native != null;
+  bool get _isDesktop => !kIsWeb && (Platform.isWindows || Platform.isLinux);
 
   /// Expose the just_audio inner player for code paths that absolutely need
   /// it (rare). Null when running on the native engine.
@@ -99,6 +101,17 @@ class AudioPlayer {
     }
     // just_audio doesn't track an item id; it's only meaningful for the iOS
     // engine, which uses it to recognise a book on widget-driven resume.
+    // The libmpv adapter can receive a seek before the newly opened file is
+    // ready. Wait for loading before applying the saved audiobook position.
+    if (_isDesktop && initialPosition != null && (preload || _ja!.playing)) {
+      final wasPlaying = _ja!.playing;
+      await _ja!.pause();
+      final duration = await _ja!.setAudioSource(source,
+          initialIndex: initialIndex, preload: preload);
+      await _ja!.seek(initialPosition);
+      if (wasPlaying) unawaited(_ja!.play());
+      return duration;
+    }
     return _ja!.setAudioSource(source, initialPosition: initialPosition, initialIndex: initialIndex, preload: preload);
   }
 
@@ -137,8 +150,24 @@ class AudioPlayer {
   Future<void> play() => _isNative ? _native!.play() : _ja!.play();
   Future<void> pause() => _isNative ? _native!.pause() : _ja!.pause();
   Future<void> stop() => _isNative ? _native!.stop() : _ja!.stop();
-  Future<void> seek(Duration? position, {int? index}) =>
-      _isNative ? _native!.seek(position, index: index) : _ja!.seek(position, index: index);
+  Future<void> seek(Duration? position, {int? index}) async {
+    if (_isNative) return _native!.seek(position, index: index);
+    final player = _ja!;
+    final source = player.audioSource;
+    if (_isDesktop && source != null && index != null && index != player.currentIndex) {
+      // media_kit.jump completes when the command is accepted, before the next
+      // file is loaded. Its adapter may then seek against the previous file's
+      // duration and silently lose the position. Reload at the requested index
+      // while paused, wait for readiness, then seek and restore playback.
+      final wasPlaying = player.playing;
+      await player.pause();
+      await player.setAudioSource(source, initialIndex: index);
+      await player.seek(position ?? Duration.zero);
+      if (wasPlaying) unawaited(player.play());
+      return;
+    }
+    await player.seek(position, index: index);
+  }
   Future<void> setSpeed(double speed) =>
       _isNative ? _native!.setSpeed(speed) : _ja!.setSpeed(speed);
   Future<void> setVolume(double volume) =>
