@@ -54,7 +54,6 @@ jobs:
               raise SystemExit('desktop_webview_window cookie expiry source changed')
           path.write_text(source.replace(old, new, 1))
           PY
-            linux/flutter/ephemeral/.plugin_symlinks/desktop_webview_window/linux/webview_window.cc
       - run: flutter build linux --release
       - uses: actions/upload-artifact@v4
         with:
