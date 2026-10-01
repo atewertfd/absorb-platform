@@ -3423,42 +3423,25 @@ class ApiService {
         },
       });
 
-      final totalBytes = upload.files.fold<int>(
-        0,
-        (total, file) => total + file.size,
-      );
-      var sentBytes = 0;
-
+      final parts = <http.MultipartFile>[];
       for (var i = 0; i < upload.files.length; i++) {
         final file = upload.files[i];
         if (file.bytes != null) {
-          final source = Stream<List<int>>.value(file.bytes!);
-          final tracked = source.map((chunk) {
-            sentBytes += chunk.length;
-            onProgress?.call(sentBytes, totalBytes);
-            return chunk;
-          });
-          request.files.add(http.MultipartFile(
+          parts.add(http.MultipartFile.fromBytes(
             '$i',
-            tracked,
-            file.size > 0 ? file.size : file.bytes!.length,
+            file.bytes!,
             filename: file.name,
           ));
         } else if (file.path != null && file.path!.isNotEmpty) {
-          request.files.add(await http.MultipartFile.fromPath(
+          parts.add(await http.MultipartFile.fromPath(
             '$i',
             file.path!,
             filename: file.name,
           ));
         } else if (file.readStream != null) {
-          final tracked = file.readStream!.map((chunk) {
-            sentBytes += chunk.length;
-            onProgress?.call(sentBytes, totalBytes);
-            return chunk;
-          });
-          request.files.add(http.MultipartFile(
+          parts.add(http.MultipartFile(
             '$i',
-            tracked,
+            file.readStream!,
             file.size,
             filename: file.name,
           ));
@@ -3470,7 +3453,28 @@ class ApiService {
         }
       }
 
-      final streamedResponse = await request.send();
+      // Track every source uniformly, including native file paths. Use actual
+      // multipart lengths rather than potentially stale file-picker metadata.
+      final totalBytes = parts.fold<int>(0, (total, part) => total + part.length);
+      var sentBytes = 0;
+      onProgress?.call(0, totalBytes);
+      for (final part in parts) {
+        request.files.add(http.MultipartFile(
+          part.field,
+          part.finalize().map((chunk) {
+            sentBytes += chunk.length;
+            onProgress?.call(sentBytes, totalBytes);
+            return chunk;
+          }),
+          part.length,
+          filename: part.filename,
+          contentType: part.contentType,
+        ));
+      }
+
+      // Multipart streams are single-use: never automatically replay an
+      // upload after an uncertain server result (which could duplicate a book).
+      final streamedResponse = await (_httpClient?.send(request) ?? request.send());
       final response = await http.Response.fromStream(streamedResponse);
       if (response.statusCode == 200) {
         onProgress?.call(totalBytes, totalBytes);

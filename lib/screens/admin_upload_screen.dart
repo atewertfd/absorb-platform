@@ -32,6 +32,8 @@ class AdminUploadScreen extends StatefulWidget {
   static const metadataProviderKey = Key('adminUploadMetadataProvider');
   static const chooseFilesKey = Key('adminUploadChooseFiles');
   static const submitKey = Key('adminUploadSubmit');
+  static const libationGuideKey = Key('libationImportGuide');
+  static const libationFilesKey = Key('libationImportFiles');
 
   final List<dynamic> libraries;
   final String? initialLibraryId;
@@ -105,6 +107,14 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
     ..._audioExtensions,
     ..._ebookExtensions,
     ..._otherExtensions,
+  };
+  // Export handoff only: never select Libation account/configuration files.
+  static const _libationExportExtensions = <String>{
+    ..._audioExtensions,
+    'png',
+    'jpg',
+    'jpeg',
+    'webp',
   };
 
   final _formKey = GlobalKey<FormState>();
@@ -370,11 +380,16 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
     });
   }
 
-  Future<List<MediaUploadFile>?> _pickWithFilePicker() async {
+  Future<List<MediaUploadFile>?> _pickWithFilePicker({
+    bool exportedOnly = false,
+  }) async {
     final result = await FilePicker.platform.pickFiles(
       allowMultiple: true,
       type: FileType.custom,
-      allowedExtensions: _supportedExtensions.toList()..sort(),
+      allowedExtensions:
+          (exportedOnly ? _libationExportExtensions : _supportedExtensions)
+              .toList()
+            ..sort(),
       withReadStream: true,
     );
     if (result == null) return null;
@@ -391,16 +406,27 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
         .toList();
   }
 
-  Future<void> _pickFiles() async {
+  Future<void> _pickFiles({bool exportedOnly = false}) async {
+    if (_uploading) return;
     final l = AppLocalizations.of(context)!;
     try {
-      final picked = await (widget.filePicker ?? _pickWithFilePicker)();
+      final picked =
+          await (widget.filePicker ??
+              () => _pickWithFilePicker(exportedOnly: exportedOnly))();
       if (picked == null || picked.isEmpty || !mounted) return;
-      final supported = picked.where(_isSupported).toList();
+      final supported = picked
+          .where(
+            (file) => exportedOnly
+                ? _libationExportExtensions.contains(_extension(file.name))
+                : _isSupported(file),
+          )
+          .toList();
       if (supported.length != picked.length) {
         showOverlayToast(
           context,
-          l.adminUploadUnsupportedFiles,
+          exportedOnly
+              ? l.libationImportUnsupported
+              : l.adminUploadUnsupportedFiles,
           icon: Icons.warning_amber_rounded,
         );
       }
@@ -416,8 +442,9 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
 
       setState(() {
         _files = [..._files, ...newFiles];
-        if (_title.text.trim().isEmpty && _files.length == 1) {
-          final filename = _files.single.name;
+        final primaryFiles = _files.where(_isPrimaryFile).toList();
+        if (_title.text.trim().isEmpty && primaryFiles.length == 1) {
+          final filename = primaryFiles.single.name;
           final dot = filename.lastIndexOf('.');
           _title.text = dot > 0 ? filename.substring(0, dot) : filename;
         }
@@ -457,6 +484,7 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
   }
 
   Future<void> _submit() async {
+    if (_uploading) return;
     final l = AppLocalizations.of(context)!;
     if (!(_formKey.currentState?.validate() ?? false)) return;
     if (_selectedLibraryId == null) {
@@ -480,106 +508,127 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
       return;
     }
 
-    if (_autoFetchMetadata &&
-        !_isPodcast &&
-        _lastMetadataQuery != _metadataQuery) {
-      await _fetchMetadata();
-      if (!mounted) return;
-    }
-
-    final request = MediaUploadRequest(
-      libraryId: _selectedLibraryId!,
-      folderId: _selectedFolderId!,
-      mediaType: _mediaType,
-      title: _title.text.trim(),
-      author: _author.text.trim(),
-      series: _series.text.trim(),
-      files: _files,
-    );
-
-    ApiService? api;
-    if (widget.pathChecker == null || widget.uploader == null) {
-      api = widget.apiService;
-      if (api == null) {
-        _showError(l.adminUploadFailed);
-        return;
-      }
-    }
-
     setState(() {
       _uploading = true;
       _progress = null;
     });
     widget.onNavigationGuardChanged?.call();
-
-    final pathResult = widget.pathChecker != null
-        ? await widget.pathChecker!(request.directory, _folderPath)
-        : await api!.checkUploadPathExists(
-            directory: request.directory,
-            folderPath: _folderPath,
-          );
-    if (!mounted) return;
-    if (!pathResult.success) {
-      setState(() => _uploading = false);
-      widget.onNavigationGuardChanged?.call();
-      _showError(l.adminUploadPathCheckFailed);
-      return;
-    }
-    if (pathResult.exists) {
-      setState(() => _uploading = false);
-      widget.onNavigationGuardChanged?.call();
-      final existingTitle = pathResult.libraryItemTitle;
-      _showError(
-        existingTitle == null || existingTitle.isEmpty
-            ? l.adminUploadDestinationExists
-            : l.adminUploadDestinationUsedBy(existingTitle),
-      );
-      return;
-    }
-
-    final result = widget.uploader != null
-        ? await widget.uploader!(request, onProgress: _updateProgress)
-        : await api!.uploadMedia(request, onProgress: _updateProgress);
-    if (!mounted) return;
-
-    final uploadedTitle = request.title;
-    final mustReselectFiles =
-        !result.success &&
-        _files.any(
-          (file) =>
-              file.path == null &&
-              file.bytes == null &&
-              file.readStream != null,
-        );
-    setState(() {
-      _uploading = false;
-      _progress = null;
-      if (result.success) {
-        _title.clear();
-        _author.clear();
-        _series.clear();
-        _files = [];
-        _lastMetadataQuery = null;
-      } else if (mustReselectFiles) {
-        _files = [];
+    var uploadAttempted = false;
+    try {
+      if (_autoFetchMetadata &&
+          !_isPodcast &&
+          _lastMetadataQuery != _metadataQuery) {
+        await _fetchMetadata();
+        if (!mounted) return;
       }
-    });
-    widget.onNavigationGuardChanged?.call();
 
-    if (result.success) {
-      showOverlayToast(
-        context,
-        l.adminUploadComplete(uploadedTitle),
-        icon: Icons.check_circle_outline_rounded,
+      final request = MediaUploadRequest(
+        libraryId: _selectedLibraryId!,
+        folderId: _selectedFolderId!,
+        mediaType: _mediaType,
+        title: _title.text.trim(),
+        author: _author.text.trim(),
+        series: _series.text.trim(),
+        files: _files,
       );
-    } else {
-      final error = result.error?.trim();
-      final message = error == null || error.isEmpty
-          ? l.adminUploadFailed
-          : l.adminUploadFailedReason(error);
+
+      ApiService? api;
+      if (widget.pathChecker == null || widget.uploader == null) {
+        api = widget.apiService;
+        if (api == null) {
+          _showError(l.adminUploadFailed);
+          return;
+        }
+      }
+
+      final pathResult = widget.pathChecker != null
+          ? await widget.pathChecker!(request.directory, _folderPath)
+          : await api!.checkUploadPathExists(
+              directory: request.directory,
+              folderPath: _folderPath,
+            );
+      if (!mounted) return;
+      if (!pathResult.success) {
+        _showError(l.adminUploadPathCheckFailed);
+        return;
+      }
+      if (pathResult.exists) {
+        final existingTitle = pathResult.libraryItemTitle;
+        _showError(
+          existingTitle == null || existingTitle.isEmpty
+              ? l.adminUploadDestinationExists
+              : l.adminUploadDestinationUsedBy(existingTitle),
+        );
+        return;
+      }
+
+      uploadAttempted = true;
+      final result = widget.uploader != null
+          ? await widget.uploader!(request, onProgress: _updateProgress)
+          : await api!.uploadMedia(request, onProgress: _updateProgress);
+      if (!mounted) return;
+
+      final uploadedTitle = request.title;
+      final mustReselectFiles =
+          !result.success &&
+          _files.any(
+            (file) =>
+                file.path == null &&
+                file.bytes == null &&
+                file.readStream != null,
+          );
+      setState(() {
+        if (result.success) {
+          _title.clear();
+          _author.clear();
+          _series.clear();
+          _files = [];
+          _lastMetadataQuery = null;
+        } else if (mustReselectFiles) {
+          _files = [];
+        }
+      });
+      if (result.success) {
+        showOverlayToast(
+          context,
+          l.adminUploadComplete(uploadedTitle),
+          icon: Icons.check_circle_outline_rounded,
+        );
+      } else {
+        final error = result.error?.trim();
+        final message = error == null || error.isEmpty
+            ? l.adminUploadFailed
+            : l.adminUploadFailedReason(error);
+        _showError(
+          mustReselectFiles
+              ? '$message ${l.adminUploadReselectFiles}'
+              : message,
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      final mustReselect =
+          uploadAttempted &&
+          _files.any(
+            (file) =>
+                file.path == null &&
+                file.bytes == null &&
+                file.readStream != null,
+          );
+      if (mustReselect) setState(() => _files = []);
       _showError(
-        mustReselectFiles ? '$message ${l.adminUploadReselectFiles}' : message,
+        mustReselect
+            ? '${l.adminUploadFailed} ${l.adminUploadReselectFiles}'
+            : l.adminUploadFailed,
       );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _uploading = false;
+          _progress = null;
+        });
+        widget.onNavigationGuardChanged?.call();
+      }
     }
   }
 
@@ -619,106 +668,122 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
       child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 8, 0),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: AbsorbPageHeader(
-                      title: l.adminUploadTitle,
-                      padding: EdgeInsets.zero,
-                    ),
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.close_rounded, color: cs.onSurfaceVariant),
-                    onPressed: _uploading ? null : () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: _libraries.isEmpty
-                  ? Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(32),
-                        child: Text(
-                          l.adminUploadNoLibraries,
-                          textAlign: TextAlign.center,
-                          style: tt.bodyMedium?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 8, 0),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: AbsorbPageHeader(
+                        title: l.adminUploadTitle,
+                        padding: EdgeInsets.zero,
                       ),
-                    )
-                  : Form(
-                      key: _formKey,
-                      child: ListView(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
-                        children: [
-                          Center(
-                            child: ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 760),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  _destinationCard(cs, tt, l),
-                                  const SizedBox(height: 12),
-                                  _detailsCard(cs, tt, l),
-                                  const SizedBox(height: 12),
-                                  _filesCard(cs, tt, l),
-                                  const SizedBox(height: 16),
-                                  if (_uploading) ...[
-                                    LinearProgressIndicator(value: _progress),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      _progress == null
-                                          ? l.adminUploadUploading
-                                          : l.adminUploadProgress(
-                                              (_progress! * 100).round(),
-                                            ),
-                                      textAlign: TextAlign.center,
-                                      style: tt.bodySmall?.copyWith(
-                                        color: cs.onSurfaceVariant,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 12),
-                                  ],
-                                  FilledButton.icon(
-                                    key: AdminUploadScreen.submitKey,
-                                    onPressed: _uploading || _metadataSearching
-                                        ? null
-                                        : _submit,
-                                    icon: _uploading
-                                        ? SizedBox(
-                                            width: 18,
-                                            height: 18,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              color: cs.onPrimary,
-                                            ),
-                                          )
-                                        : const Icon(
-                                            Icons.cloud_upload_rounded,
-                                          ),
-                                    label: Text(
-                                      _uploading
-                                          ? l.adminUploadUploading
-                                          : l.adminUploadButton,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                    ),
+                    IconButton(
+                      tooltip: MaterialLocalizations.of(
+                        context,
+                      ).closeButtonTooltip,
+                      icon: Icon(
+                        Icons.close_rounded,
+                        color: cs.onSurfaceVariant,
+                      ),
+                      onPressed: _uploading
+                          ? null
+                          : () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: _libraries.isEmpty
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(32),
+                          child: Text(
+                            l.adminUploadNoLibraries,
+                            textAlign: TextAlign.center,
+                            style: tt.bodyMedium?.copyWith(
+                              color: cs.onSurfaceVariant,
                             ),
                           ),
-                        ],
+                        ),
+                      )
+                    : Form(
+                        key: _formKey,
+                        child: ListView(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
+                          children: [
+                            Center(
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  maxWidth: 760,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    _destinationCard(cs, tt, l),
+                                    const SizedBox(height: 12),
+                                    _detailsCard(cs, tt, l),
+                                    const SizedBox(height: 12),
+                                    if (!_isPodcast) ...[
+                                      _libationCard(cs, tt, l),
+                                      const SizedBox(height: 12),
+                                    ],
+                                    _filesCard(cs, tt, l),
+                                    const SizedBox(height: 16),
+                                    if (_uploading) ...[
+                                      LinearProgressIndicator(value: _progress),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        _progress == null
+                                            ? l.adminUploadUploading
+                                            : l.adminUploadProgress(
+                                                (_progress! * 100).round(),
+                                              ),
+                                        textAlign: TextAlign.center,
+                                        style: tt.bodySmall?.copyWith(
+                                          color: cs.onSurfaceVariant,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                    ],
+                                    FilledButton.icon(
+                                      key: AdminUploadScreen.submitKey,
+                                      onPressed:
+                                          _uploading || _metadataSearching
+                                          ? null
+                                          : _submit,
+                                      icon: _uploading
+                                          ? SizedBox(
+                                              width: 18,
+                                              height: 18,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: cs.onPrimary,
+                                              ),
+                                            )
+                                          : const Icon(
+                                              Icons.cloud_upload_rounded,
+                                            ),
+                                      label: Text(
+                                        _uploading
+                                            ? l.adminUploadUploading
+                                            : l.adminUploadButton,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -775,13 +840,15 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
             onChanged: (id) => setState(() => _selectedFolderId = id),
           ),
           const SizedBox(height: 12),
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Text(
                 '${l.libMediaType}:',
                 style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
               ),
-              const SizedBox(width: 8),
               Container(
                 key: AdminUploadScreen.mediaTypeKey,
                 padding: const EdgeInsets.symmetric(
@@ -975,6 +1042,48 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
     );
   }
 
+  Widget _libationCard(ColorScheme cs, TextTheme tt, AppLocalizations l) {
+    return _card(
+      cs,
+      child: ExpansionTile(
+        key: AdminUploadScreen.libationGuideKey,
+        tilePadding: EdgeInsets.zero,
+        childrenPadding: const EdgeInsets.only(top: 8),
+        shape: const Border(),
+        collapsedShape: const Border(),
+        leading: Icon(Icons.drive_folder_upload_outlined, color: cs.primary),
+        title: Text(
+          l.libationImportTitle,
+          style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+        ),
+        subtitle: Text(
+          l.libationImportSubtitle,
+          style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+        ),
+        children: [
+          Text(l.libationImportSteps, style: tt.bodyMedium),
+          const SizedBox(height: 12),
+          Text(
+            l.libationImportPrivacy,
+            style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+          ),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              key: AdminUploadScreen.libationFilesKey,
+              onPressed: _uploading
+                  ? null
+                  : () => _pickFiles(exportedOnly: true),
+              icon: const Icon(Icons.audio_file_outlined, size: 18),
+              label: Text(l.libationImportChooseFiles),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _filesCard(ColorScheme cs, TextTheme tt, AppLocalizations l) {
     final totalBytes = _files.fold<int>(0, (total, file) => total + file.size);
     return _card(
@@ -982,29 +1091,23 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final heading = Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l.adminUploadFiles,
+                    style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                  if (_files.isNotEmpty)
                     Text(
-                      l.adminUploadFiles,
-                      style: tt.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                      '${l.adminUploadSelectedFiles(_files.length)} · ${_formatBytes(totalBytes)}',
+                      style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
                     ),
-                    if (_files.isNotEmpty)
-                      Text(
-                        '${l.adminUploadSelectedFiles(_files.length)} · ${_formatBytes(totalBytes)}',
-                        style: tt.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              OutlinedButton.icon(
+                ],
+              );
+              final chooseButton = OutlinedButton.icon(
                 key: AdminUploadScreen.chooseFilesKey,
                 onPressed: _uploading ? null : _pickFiles,
                 icon: Icon(
@@ -1018,8 +1121,22 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
                       ? l.adminUploadChooseFiles
                       : l.adminUploadAddFiles,
                 ),
-              ),
-            ],
+              );
+              final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
+              if (constraints.maxWidth < 480 * scale) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [heading, const SizedBox(height: 12), chooseButton],
+                );
+              }
+              return Row(
+                children: [
+                  Expanded(child: heading),
+                  const SizedBox(width: 12),
+                  chooseButton,
+                ],
+              );
+            },
           ),
           const SizedBox(height: 10),
           if (_files.isEmpty)

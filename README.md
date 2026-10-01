@@ -24,9 +24,13 @@ Absorb Plus builds on the upstream client with desktop-first controls and cross-
 
 ## Audible and Libation workflow
 
-Absorb Plus connects to Audiobookshelf; it does not sign in to Audible, store Audible credentials, remove DRM, or bypass Audible protections. If you use [Libation](https://github.com/rmcrackan/Libation), keep that workflow separate: export or organize media with Libation according to its documentation, place the resulting compatible audiobook files in the Audiobookshelf library or ingest location, let Audiobookshelf scan the files, and then refresh Absorb Plus. This preserves Audiobookshelf as the source of truth for metadata, playback position, statistics, and downloads.
+Absorb Plus connects to Audiobookshelf; it does not currently sign in to Audible, store Audible credentials, remove DRM, or bypass Audible protections. If you already have compatible exported files from [Libation](https://github.com/rmcrackan/Libation), open **Manage → Upload → Import Libation exports**. Select audio files for one book and its cover, review the title and server destination, then explicitly select **Upload**. After Audiobookshelf indexes the book, refresh your library. This preserves Audiobookshelf as the source of truth for metadata, playback position, statistics, and downloads.
+
+The exporter handoff is distinct from the requested future **Connect Audible** feature, which would work without a separate Libation installation. That integration is not implemented; its authentication, licensing, platform and content-access constraints are documented in the [feasibility record](docs/AUDIBLE-INTEGRATION.md). Other software integrations are deferred.
 
 The exact formats and export options depend on the titles and rights available in your Audible/Libation setup. Absorb Plus does not attempt to automate protected Audible downloads.
+
+See [import verification](docs/IMPORT-VERIFICATION.md) for tests, visual checks, and remaining limits. File imports currently handle one book at a time, require server upload permissions, and do not provide folder scanning, a batch queue, or resumable uploads.
 
 ## Downloads
 

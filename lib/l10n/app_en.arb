@@ -5063,5 +5063,11 @@
   "findInAudiobookAfterLabel": "When the spot is found",
   "findInAudiobookStay": "Keep reading",
   "findInAudiobookGoPlayer": "Open the player",
-  "findInAudiobookPlaying": "Playing this passage in the audiobook"
+  "findInAudiobookPlaying": "Playing this passage in the audiobook",
+  "libationImportTitle": "Import Libation exports",
+  "libationImportSubtitle": "Add exported audiobook files to Audiobookshelf",
+  "libationImportSteps": "1. Choose exported audio files for one book, plus its cover if available.\n2. Review the title, author, library, and destination above.\n3. Select Upload below when you are ready. After Audiobookshelf scans the files, refresh your library to listen or download for offline use.",
+  "libationImportPrivacy": "Only import files you are authorized to use. Absorb Plus does not sign in to Audible or Libation, read account/configuration files, or convert protected files. Selecting files does not upload them.",
+  "libationImportChooseFiles": "Choose exported files",
+  "libationImportUnsupported": "Only exported audio and cover images were added. Account files, metadata/configuration files, and unsupported protected formats were skipped."
 }

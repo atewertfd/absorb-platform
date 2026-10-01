@@ -15560,6 +15560,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Playing this passage in the audiobook'**
   String get findInAudiobookPlaying;
+
+  /// No description provided for @libationImportTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Import Libation exports'**
+  String get libationImportTitle;
+
+  /// No description provided for @libationImportSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Add exported audiobook files to Audiobookshelf'**
+  String get libationImportSubtitle;
+
+  /// No description provided for @libationImportSteps.
+  ///
+  /// In en, this message translates to:
+  /// **'1. Choose exported audio files for one book, plus its cover if available.\n2. Review the title, author, library, and destination above.\n3. Select Upload below when you are ready. After Audiobookshelf scans the files, refresh your library to listen or download for offline use.'**
+  String get libationImportSteps;
+
+  /// No description provided for @libationImportPrivacy.
+  ///
+  /// In en, this message translates to:
+  /// **'Only import files you are authorized to use. Absorb Plus does not sign in to Audible or Libation, read account/configuration files, or convert protected files. Selecting files does not upload them.'**
+  String get libationImportPrivacy;
+
+  /// No description provided for @libationImportChooseFiles.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose exported files'**
+  String get libationImportChooseFiles;
+
+  /// No description provided for @libationImportUnsupported.
+  ///
+  /// In en, this message translates to:
+  /// **'Only exported audio and cover images were added. Account files, metadata/configuration files, and unsupported protected formats were skipped.'**
+  String get libationImportUnsupported;
 }
 
 class _AppLocalizationsDelegate

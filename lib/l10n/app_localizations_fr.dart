@@ -9084,4 +9084,26 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get findInAudiobookPlaying => 'Playing this passage in the audiobook';
+
+  @override
+  String get libationImportTitle => 'Import Libation exports';
+
+  @override
+  String get libationImportSubtitle =>
+      'Add exported audiobook files to Audiobookshelf';
+
+  @override
+  String get libationImportSteps =>
+      '1. Choose exported audio files for one book, plus its cover if available.\n2. Review the title, author, library, and destination above.\n3. Select Upload below when you are ready. After Audiobookshelf scans the files, refresh your library to listen or download for offline use.';
+
+  @override
+  String get libationImportPrivacy =>
+      'Only import files you are authorized to use. Absorb Plus does not sign in to Audible or Libation, read account/configuration files, or convert protected files. Selecting files does not upload them.';
+
+  @override
+  String get libationImportChooseFiles => 'Choose exported files';
+
+  @override
+  String get libationImportUnsupported =>
+      'Only exported audio and cover images were added. Account files, metadata/configuration files, and unsupported protected formats were skipped.';
 }

@@ -19,6 +19,7 @@ This port keeps the upstream Absorb visual language and adds cross-platform beha
 - Optional upstream Whisper bookmark transcription; desktop audio extraction is not yet verified, and web transcription is unavailable
 - GitHub Pages web deployment and release-oriented desktop builds
 - Analysis and regression tests gate web artifacts and Pages publication
+- One-book Libation export handoff in the existing upload UI, duplicate-path checks, explicit confirmation, failure recovery and multipart byte progress for native paths/bytes/streams; [fixture and visual checks](IMPORT-VERIFICATION.md), not real-server verification
 
 ## Stability-focused next work
 
@@ -27,7 +28,10 @@ This port keeps the upstream Absorb visual language and adds cross-platform beha
 - Improve accessibility coverage for queue, playlist, and player actions across keyboard and screen readers
 - Continue platform-specific verification for Windows and Linux media keys, audio focus, and window resizing
 - Verify real-server playback/sync and audiobook codecs in addition to the isolated WAV/loopback native audio smoke test
+- Finish cross-device settings synchronization and verify desktop Whisper extraction; these are not complete
+- Complete import folder grouping, multi-book queue, cancellation, server indexing feedback and real-server verification; investigate API support before claiming resumable uploads
+- Investigate the requested in-app Audible login/library/import without a separate Libation installation; [research and constraints](AUDIBLE-INTEGRATION.md). Export-file import is not an equivalent completion
 
 ## Deliberate boundary
 
-Audible/Libation support is an import handoff through Audiobookshelf. The app does not collect Audible credentials, bypass DRM, or copy protected content. See the main README for the supported workflow.
+Currently implemented Libation support is an export-file handoff through Audiobookshelf. Direct Audible integration remains a distinct, unfulfilled request. The app does not collect Audible credentials or bypass DRM; a compatible direct-import route meeting those constraints has not been established. Other software integrations are deferred. See the main README for the supported workflow.
