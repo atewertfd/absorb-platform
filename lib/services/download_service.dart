@@ -66,6 +66,7 @@ class DownloadInfo {
   Map<String, dynamic> toJson() => {
     'itemId': itemId,
     'status': status.index,
+    'progress': progress,
     if (bytesDone != null) 'bytesDone': bytesDone,
     if (bytesTotal != null) 'bytesTotal': bytesTotal,
     if (speedBytesPerSecond != null) 'speedBytesPerSecond': speedBytesPerSecond,
@@ -115,6 +116,7 @@ class DownloadInfo {
     return DownloadInfo(
       itemId: json['itemId'] as String,
       status: DownloadStatus.values[json['status'] as int? ?? 0],
+      progress: (json['progress'] as num?)?.toDouble() ?? 0,
       bytesDone: (json['bytesDone'] as num?)?.toInt(),
       bytesTotal: (json['bytesTotal'] as num?)?.toInt(),
       speedBytesPerSecond: (json['speedBytesPerSecond'] as num?)?.toDouble(),
