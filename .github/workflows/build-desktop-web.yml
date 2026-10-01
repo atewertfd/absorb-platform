@@ -45,11 +45,10 @@ jobs:
           path = Path('linux/flutter/ephemeral/.plugin_symlinks/desktop_webview_window/linux/webview_window.cc')
           source = path.read_text()
           old = '    gdouble expires = g_date_time_get_seconds(soup_cookie_get_expires(cookie));'
-          new = ("    const GDateTime *expires_date = soup_cookie_get_expires(cookie);\n"
+          new = ("    SoupDate *expires_date = soup_cookie_get_expires(cookie);\n"
                  "    gdouble expires = expires_date == nullptr\n"
                  "                           ? -1\n"
-                 "                           : static_cast<gdouble>(g_date_time_to_unix(\n"
-                 "                                 const_cast<GDateTime *>(expires_date)));")
+                 "                           : static_cast<gdouble>(soup_date_to_time_t(expires_date));")
           if old not in source:
               raise SystemExit('desktop_webview_window cookie expiry source changed')
           path.write_text(source.replace(old, new, 1))
