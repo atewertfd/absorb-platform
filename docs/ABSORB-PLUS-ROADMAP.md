@@ -9,8 +9,8 @@ This port keeps the upstream Absorb visual language and adds cross-platform beha
 - Audiobookshelf library, playback, seeking, playback speed, covers, metadata, and statistics
 - Playlists, queue modes, auto-downloads, offline playback, and custom themes
 - Download byte progress, transfer speed, estimated time remaining, and accessible progress announcements
-- Persistent failed-download records with retry and dismiss controls
-- Audiobookshelf token-refresh recovery coverage and an app-shell widget smoke test
+- Persistent failed-download records with retry and dismiss controls, metadata recovery tests, and screen-reader summaries
+- Audiobookshelf token-refresh recovery coverage for both 401 rotation and transient 503 retry, plus an app-shell widget smoke test
 - Global media controls where the host platform exposes them
 - Optional native Whisper bookmark transcription
 - GitHub Pages web deployment and release-oriented desktop builds
