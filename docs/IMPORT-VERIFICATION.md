@@ -10,7 +10,7 @@ This does not implement direct Audible login/library import; see [the separate f
 
 ## Automated evidence
 
-At this checkpoint, analysis completed without issues and the full default suite passed 28 tests (the optional screenshot capture is skipped by default and also passed when explicitly enabled). The JavaScript web release build succeeded; its WebAssembly dry-run warnings do not establish Wasm support.
+At the import checkpoint (071c272), analysis completed without issues and the full default suite passed 28 tests (the optional screenshot capture is skipped by default and also passed when explicitly enabled). Windows and JavaScript web release builds succeeded; the web build's WebAssembly dry-run warnings do not establish Wasm support.
 
 `test/admin_upload_screen_test.dart` checks:
 

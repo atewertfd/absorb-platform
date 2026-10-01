@@ -344,12 +344,10 @@ class ApiService {
     return _httpClient?.delete(url, headers: headers) ?? http.delete(url, headers: headers);
   }
 
-  /// Loggable token identity: length plus the signature tail, enough to tell
-  /// token A from token B across a log without exposing the credential.
+  /// Credential-presence diagnostic only. Never include token characters,
+  /// even for short tokens, in logs that a user may export for support.
   static String tokenFp(String? token) {
-    if (token == null || token.isEmpty) return 'none';
-    final tail = token.length <= 8 ? token : token.substring(token.length - 8);
-    return '${token.length}:$tail';
+    return token == null || token.isEmpty ? 'none' : 'present';
   }
 
   Future<bool> _adoptPersistedTokens() async {

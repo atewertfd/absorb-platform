@@ -269,6 +269,8 @@ class _PendingBook {
 
   double get overallProgress {
     if (trackCount == 0) return 0;
+    final total = totalExpectedBytes;
+    if (total != null) return (bytesDone! / total).clamp(0.0, 1.0);
     var sum = 0.0;
     for (int i = 0; i < trackCount; i++) {
       sum += trackProgress[i] ?? 0.0;
@@ -293,7 +295,11 @@ class _PendingBook {
   }
 
   double? get speedBytesPerSecond {
-    final speed = trackSpeedMbps.values.fold<double>(0, (a, b) => a + b);
+    final speed = trackSpeedMbps.entries
+        .where((entry) =>
+            (trackProgress[entry.key] ?? 0) < 1 &&
+            entry.value.isFinite && entry.value > 0)
+        .fold<double>(0, (sum, entry) => sum + entry.value);
     return speed > 0 ? speed * 1000000 : null;
   }
 
@@ -2280,17 +2286,23 @@ class DownloadService extends ChangeNotifier {
     final i = meta.$2;
     final p = _pending[itemId];
     if (p == null) return;
+    if (i < 0 || i >= p.trackCount) return;
     p.lastUpdate = DateTime.now();
 
     if (update is TaskProgressUpdate) {
+      if (_terminal.contains(p.trackStatus[i])) return;
       final prog = update.progress;
       if (prog >= 0 && prog <= 1) {
         p.trackProgress[i] = prog;
         if (update.hasExpectedFileSize) {
           p.trackExpectedBytes[i] = update.expectedFileSize;
         }
-        if (update.hasNetworkSpeed) {
+        final status = p.trackStatus[i];
+        if (update.hasNetworkSpeed && update.networkSpeed.isFinite && prog < 1 &&
+            (status == null || status == TaskStatus.running)) {
           p.trackSpeedMbps[i] = update.networkSpeed;
+        } else {
+          p.trackSpeedMbps.remove(i);
         }
         if (update.hasTimeRemaining) {
           p.trackEta[i] = update.timeRemaining;
@@ -2319,8 +2331,13 @@ class DownloadService extends ChangeNotifier {
   }) async {
     final p = _pending[itemId];
     if (p == null) return;
+    if (trackIndex < 0 || trackIndex >= p.trackCount) return;
     p.lastUpdate = DateTime.now();
     p.trackStatus[trackIndex] = status;
+    if (status != TaskStatus.running) {
+      p.trackSpeedMbps.remove(trackIndex);
+      p.trackEta.remove(trackIndex);
+    }
     debugPrint(
       '[Download] task $itemId #$trackIndex status=${status.name}'
       '${exception != null ? ' ex=$exception' : ''}'
@@ -2339,11 +2356,14 @@ class DownloadService extends ChangeNotifier {
       unawaited(_cancelSiblings(itemId, p));
     }
     await _checkBookTerminal(itemId, p);
+    if (identical(_pending[itemId], p) && !p.finalizing) {
+      _emitBookProgress(itemId, p, force: true);
+    }
   }
 
-  void _emitBookProgress(String itemId, _PendingBook p) {
+  void _emitBookProgress(String itemId, _PendingBook p, {bool force = false}) {
     final now = DateTime.now();
-    if (now.difference(p.lastUi).inMilliseconds < 250) return;
+    if (!force && now.difference(p.lastUi).inMilliseconds < 250) return;
     p.lastUi = now;
     unawaited(_updateBookNotification(itemId, p, now));
     _downloads[itemId] = DownloadInfo(
@@ -2415,6 +2435,27 @@ class DownloadService extends ChangeNotifier {
       title: 'Test download',
     );
     await _persistPending();
+  }
+
+  @visibleForTesting
+  void debugHandleTaskProgress({
+    required String itemId,
+    required int trackIndex,
+    required double progress,
+    int expectedBytes = -1,
+    double speedMegabytesPerSecond = -1,
+  }) {
+    // Skip UI throttling only; exercise the real callback and aggregation.
+    _pending[itemId]?.lastUi = DateTime.fromMillisecondsSinceEpoch(0);
+    _onTaskUpdate(TaskProgressUpdate(
+      DownloadTask(
+        url: 'https://example.invalid/fixture.mp3',
+        metaData: jsonEncode({'itemId': itemId, 'i': trackIndex}),
+      ),
+      progress,
+      expectedBytes,
+      speedMegabytesPerSecond,
+    ));
   }
 
   @visibleForTesting

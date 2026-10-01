@@ -7,6 +7,13 @@ import 'package:http/testing.dart';
 import 'package:absorb/services/api_service.dart';
 
 void main() {
+  test('token diagnostics never contain full credentials or suffixes', () {
+    expect(ApiService.tokenFp(null), 'none');
+    expect(ApiService.tokenFp(''), 'none');
+    for (final token in ['tiny', 'fixture-long-token-secret-suffix']) {
+      expect(ApiService.tokenFp(token), 'present');
+    }
+  });
   test(
     'refreshes once after a 401 and retries the Audiobookshelf request',
     () async {
