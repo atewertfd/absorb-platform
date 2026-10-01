@@ -28,7 +28,7 @@ This port keeps the upstream Absorb visual language and adds cross-platform beha
 
 - Expand integration coverage around API errors, reconnects, and offline-to-online synchronization
 - Add more download recovery tests for interrupted files and low-storage conditions
-- Improve accessibility coverage for queue, playlist, and player actions across keyboard and screen readers
+- Improve accessibility coverage for queue, playlist, and player actions across keyboard and screen readers; playlist controls and the downloads player now expose localized labels/tooltips, with broader runtime screen-reader verification still open
 - Continue platform-specific verification for Windows and Linux media keys, audio focus, and window resizing
 - Verify real-server playback/sync and audiobook codecs in addition to the isolated WAV/loopback native audio smoke test
 - Finish real-server cross-device settings synchronization verification and verify desktop Whisper extraction; transport filtering, lifecycle wiring, payload allowlisting, and local regression coverage are complete

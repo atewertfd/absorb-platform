@@ -340,6 +340,9 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
                               Icons.close_rounded,
                               color: cs.onSurfaceVariant,
                             ),
+                            tooltip: MaterialLocalizations.of(
+                              context,
+                            ).closeButtonTooltip,
                             onPressed: () => Navigator.pop(context),
                           ),
                         ],
@@ -657,7 +660,9 @@ class _FailedDownloadCard extends StatelessWidget {
                   },
                 ),
                 IconButton(
-                  tooltip: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+                  tooltip: MaterialLocalizations.of(
+                    context,
+                  ).modalBarrierDismissLabel,
                   icon: const Icon(Icons.close_rounded),
                   onPressed: onDismiss,
                 ),
@@ -1031,6 +1036,7 @@ class _SignedOutPlayerBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
+    final l = AppLocalizations.of(context)!;
     final player = AudioPlayerService();
     return ListenableBuilder(
       listenable: player,
@@ -1079,6 +1085,7 @@ class _SignedOutPlayerBar extends StatelessWidget {
                     ),
                     IconButton(
                       icon: const Icon(Icons.fast_rewind_rounded),
+                      tooltip: l.skipBack,
                       onPressed: () async => player.skipBackward(
                         await PlayerSettings.getBackSkip(),
                       ),
@@ -1089,10 +1096,12 @@ class _SignedOutPlayerBar extends StatelessWidget {
                             ? Icons.pause_rounded
                             : Icons.play_arrow_rounded,
                       ),
+                      tooltip: player.isPlaying ? l.pauseAction : l.playAction,
                       onPressed: () => player.togglePlayPause(fromUi: true),
                     ),
                     IconButton(
                       icon: const Icon(Icons.fast_forward_rounded),
+                      tooltip: l.skipForward,
                       onPressed: () async => player.skipForward(
                         await PlayerSettings.getForwardSkip(),
                       ),

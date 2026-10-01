@@ -3088,6 +3088,18 @@ abstract class AppLocalizations {
   /// **'Skip forward'**
   String get skipForward;
 
+  /// No description provided for @playAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Play'**
+  String get playAction;
+
+  /// No description provided for @pauseAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Pause'**
+  String get pauseAction;
+
   /// No description provided for @iosLockScreenSkipHint.
   ///
   /// In en, this message translates to:
