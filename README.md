@@ -4,6 +4,38 @@
 
 A modern audiobookshelf client with a card-based player experience.
 
+## Windows port
+
+This fork adds an experimental native Windows x64 target. It is built from the same Flutter codebase and is intended for desktop use without an Android emulator.
+
+### Current status
+
+- Native Windows release build succeeds with Flutter 3.47.3 stable.
+- Audiobookshelf networking, library browsing, metadata, and core playback are the primary targets.
+- Android-only features such as Android Auto, Chromecast, home-screen widgets, Android background services, and APK self-updating are not included in the Windows target.
+- The Windows target is experimental and needs broader runtime testing against real Audiobookshelf servers.
+
+### Build on Windows
+
+Requirements:
+
+- Windows 10/11 x64
+- Flutter stable with Windows desktop support
+- Visual Studio with the **Desktop development with C++** workload
+- Windows Developer Mode enabled, or an elevated build environment for plugin symlinks
+- NuGet CLI available on `PATH` for the WebView plugin
+
+Commands:
+
+```powershell
+flutter pub get
+flutter build windows --release
+```
+
+The executable is produced under `build/windows/x64/runner/Release/`.
+
+The original Android and iOS targets remain available. This fork preserves the upstream GPL-3.0 license and credits the original Absorb project.
+
 > **A note on AI:** Absorb is developed by a human with AI assistance (mostly Claude Code) helping write, refactor, and review code. It's not "vibe coded" or auto-generated, every change is reviewed, tested, and shipped intentionally. That said, I'm all in on AI as a development tool. It massively speeds up the work and lets a solo developer ship features and fixes at a pace that wouldn't be possible otherwise. I'm sharing this openly so you know what's behind the app.
 
 ## Screenshots

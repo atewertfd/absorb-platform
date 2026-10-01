@@ -79,7 +79,9 @@ if (WHISPER_COREML)
         )
 
     set_target_properties(${TARGET} PROPERTIES FOLDER "libs")
-    install(TARGETS ${TARGET} LIBRARY)
+    if(NOT WIN32)
+        install(TARGETS ${TARGET} LIBRARY)
+    endif()
 endif()
 
 if (WHISPER_OPENVINO)

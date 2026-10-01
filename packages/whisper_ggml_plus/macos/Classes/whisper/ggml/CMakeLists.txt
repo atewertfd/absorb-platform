@@ -330,8 +330,10 @@ set_target_properties(ggml PROPERTIES PUBLIC_HEADER "${GGML_PUBLIC_HEADERS}")
 #if (GGML_METAL)
 #    set_target_properties(ggml PROPERTIES RESOURCE "${CMAKE_CURRENT_SOURCE_DIR}/src/ggml-metal.metal")
 #endif()
-install(TARGETS ggml LIBRARY PUBLIC_HEADER)
-install(TARGETS ggml-base LIBRARY)
+if(NOT WIN32)
+    install(TARGETS ggml LIBRARY PUBLIC_HEADER)
+    install(TARGETS ggml-base LIBRARY)
+endif()
 
 if (GGML_STANDALONE)
     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/ggml.pc.in
@@ -399,9 +401,11 @@ target_compile_definitions(ggml-base PRIVATE
 message(STATUS "ggml version: ${GGML_INSTALL_VERSION}")
 message(STATUS "ggml commit:  ${GGML_BUILD_COMMIT}")
 
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/ggml-config.cmake
-              ${CMAKE_CURRENT_BINARY_DIR}/ggml-version.cmake
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/ggml)
+if(NOT WIN32)
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/ggml-config.cmake
+                  ${CMAKE_CURRENT_BINARY_DIR}/ggml-version.cmake
+            DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/ggml)
+endif()
 
 if (MSVC)
     set(MSVC_WARNING_FLAGS
