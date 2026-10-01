@@ -307,6 +307,7 @@
   "sequence": "Series Sequence",
   "absorbingTitle": "Absorbing",
   "absorbingStop": "Stop",
+  "absorbingReorderQueue": "Reorder queue",
   "absorbingManageQueue": "Manage Queue",
   "absorbingDone": "Done",
   "absorbingNoDownloadedEpisodes": "No downloaded episodes",

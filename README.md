@@ -10,10 +10,12 @@ An unofficial enhanced cross-platform edition of [Absorb](https://github.com/pou
 - Native Windows x64 and Linux desktop executables built with Flutter
 - Browser build for modern web browsers
 - Desktop keyboard controls: Space play/pause, Left/Right rewind or fast-forward, Ctrl+F search, Ctrl+L Library, and Ctrl+N Now Playing
+- Tab-accessible queue, stop, refresh, and offline header controls with visible focus and Enter/Space activation
 - Audiobookshelf server connectivity
 - Library browsing, covers, metadata, search, playback, seeking, and playback speed support as the primary targets
 - Resizable desktop application window
 - Download/offline playback tools with byte progress, transfer speed, estimated time remaining, and persistent retryable failures
+- Persistent download failure explanations for missing files, full storage, and permission problems
 - Listening statistics, custom themes, playlists/queue controls, and optional on-device Whisper bookmark transcription
 
 ## Plus features
@@ -53,6 +55,8 @@ Run the local regression tests with:
 ```powershell
 flutter test
 ```
+
+The web build and Pages deployment also run analysis and regression tests before publishing. Coverage includes token refresh recovery, failed-download persistence and retry rejection, and keyboard/screen-reader behavior for the compact header controls. These checks do not replace playback testing against a real server on each platform.
 
 ## Limitations
 

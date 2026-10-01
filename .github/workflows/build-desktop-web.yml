@@ -15,6 +15,8 @@ jobs:
           channel: stable
           flutter-version-file: .flutter-version
       - run: flutter pub get
+      - run: flutter analyze --no-pub
+      - run: flutter test --no-pub
       - run: flutter build web --release
       - uses: actions/upload-artifact@v4
         with:

@@ -13,6 +13,7 @@ import '../widgets/absorb_page_header.dart';
 import '../main.dart' show flatNotifier, gradientIntensityNotifier, rootNavigatorKey;
 import '../widgets/absorbing_card.dart';
 import '../widgets/offline_status_icon.dart';
+import '../widgets/accessible_header_action.dart';
 import '../widgets/overlay_toast.dart';
 import '../widgets/series_books_sheet.dart';
 import '../widgets/playlist_detail_sheet.dart';
@@ -681,8 +682,9 @@ class _AbsorbingScreenState extends State<AbsorbingScreen> {
 
           final headerActions = <Widget>[
             if (_player.hasBook)
-              GestureDetector(
-                onTap: _isSyncing ? null : () => _stopAndRefresh(lib),
+              AccessibleHeaderAction(
+                label: l.absorbingStop,
+                onPressed: _isSyncing ? null : () => _stopAndRefresh(lib),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
@@ -707,8 +709,9 @@ class _AbsorbingScreenState extends State<AbsorbingScreen> {
                 ),
               )
             else if (!effectiveOffline)
-              GestureDetector(
-                onTap: _isSyncing ? null : () async {
+              AccessibleHeaderAction(
+                label: l.refreshTooltip,
+                onPressed: _isSyncing ? null : () async {
                   setState(() => _isSyncing = true);
                   await _pullRefresh();
                   if (mounted) setState(() => _isSyncing = false);
@@ -727,8 +730,9 @@ class _AbsorbingScreenState extends State<AbsorbingScreen> {
               ),
             if (books.isNotEmpty) ...[
               const SizedBox(width: 8),
-              GestureDetector(
-                onTap: () => _showReorderSheet(context, lib, books),
+              AccessibleHeaderAction(
+                label: l.absorbingReorderQueue,
+                onPressed: () => _showReorderSheet(context, lib, books),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
                   decoration: BoxDecoration(

@@ -676,6 +676,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get absorbingStop => 'Stop';
 
   @override
+  String get absorbingReorderQueue => 'Reorder queue';
+
+  @override
   String get absorbingManageQueue => 'Gérer la file d\'attente';
 
   @override

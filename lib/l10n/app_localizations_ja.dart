@@ -668,6 +668,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get absorbingStop => 'Stop';
 
   @override
+  String get absorbingReorderQueue => 'Reorder queue';
+
+  @override
   String get absorbingManageQueue => 'Manage Queue';
 
   @override

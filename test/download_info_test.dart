@@ -3,6 +3,17 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:absorb/services/download_service.dart';
 
 void main() {
+  test('old and future failure categories keep a readable fallback', () {
+    for (final reason in [null, 'new-reason-from-future-version']) {
+      final restored = DownloadInfo.fromJson({
+        'itemId': 'book-123',
+        'status': DownloadStatus.error.index,
+        if (reason != null) 'failureReason': reason,
+      });
+      expect(restored.status, DownloadStatus.error);
+      expect(restored.failureReason, DownloadFailureReason.unknown);
+    }
+  });
   test('persists download telemetry across serialization', () {
     final original = DownloadInfo(
       itemId: 'book-123',

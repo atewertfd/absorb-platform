@@ -507,10 +507,13 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
                                         .read<AuthProvider>()
                                         .apiService;
                                     if (api == null) return;
-                                    await ds.retryDownload(
+                                    final error = await ds.retryDownload(
                                       api: api,
                                       itemId: info.itemId,
                                     );
+                                    if (error != null && context.mounted) {
+                                      showErrorToast(context, error);
+                                    }
                                   },
                                   onDismiss: () =>
                                       ds.dismissFailedDownload(info.itemId),
@@ -626,12 +629,11 @@ class _FailedDownloadCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final title = info.title ?? l.unknown;
+    final message = info.failureReason.message(l, title);
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Semantics(
         container: true,
-        label: title,
-        value: l.downloadFailedGeneric(title),
         child: Card(
           elevation: 0,
           color: cs.errorContainer.withValues(alpha: 0.45),
@@ -643,7 +645,7 @@ class _FailedDownloadCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w600),
             ),
-            subtitle: Text(l.downloadFailedGeneric(title)),
+            subtitle: Text(message),
             trailing: Wrap(
               spacing: 0,
               children: [
@@ -655,7 +657,7 @@ class _FailedDownloadCard extends StatelessWidget {
                   },
                 ),
                 IconButton(
-                  tooltip: l.delete,
+                  tooltip: MaterialLocalizations.of(context).modalBarrierDismissLabel,
                   icon: const Icon(Icons.close_rounded),
                   onPressed: onDismiss,
                 ),

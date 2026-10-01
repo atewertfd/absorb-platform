@@ -662,6 +662,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get absorbingStop => '停止';
 
   @override
+  String get absorbingReorderQueue => 'Reorder queue';
+
+  @override
   String get absorbingManageQueue => '管理队列';
 
   @override

@@ -20,10 +20,37 @@ import 'offline_source.dart';
 
 enum DownloadStatus { none, downloading, downloaded, error }
 
+/// Persist a category, never a raw exception that may contain a server URL
+/// or credentials. Older records without a reason remain retryable.
+enum DownloadFailureReason {
+  unknown, missingFile, insufficientSpace, permissionDenied;
+
+  String message(AppLocalizations l, String title) => switch (this) {
+    DownloadFailureReason.missingFile => l.downloadFailedMissingFile(title),
+    DownloadFailureReason.insufficientSpace => l.downloadFailedNoSpace(title),
+    DownloadFailureReason.permissionDenied => l.downloadFailedPermission(title),
+    DownloadFailureReason.unknown => l.downloadFailedGeneric(title),
+  };
+}
+
+DownloadFailureReason _failureReason(Object? cause, TaskException? exception, int? code) {
+  if (code == 404) return DownloadFailureReason.missingFile;
+  final description = '${cause ?? ''} ${exception?.description ?? ''}'.toLowerCase();
+  if (description.contains('no space') || description.contains('enospc') ||
+      description.contains('disk full')) {
+    return DownloadFailureReason.insufficientSpace;
+  }
+  if (description.contains('permission') || description.contains('not permitted') || code == 403) {
+    return DownloadFailureReason.permissionDenied;
+  }
+  return DownloadFailureReason.unknown;
+}
+
 class DownloadInfo {
   final String itemId;
   final DownloadStatus status;
   final double progress;
+  final DownloadFailureReason failureReason;
 
   /// Transfer telemetry for the active download UI. Bytes and speed are
   /// optional because some servers do not expose content lengths.
@@ -47,6 +74,7 @@ class DownloadInfo {
     required this.itemId,
     this.status = DownloadStatus.none,
     this.progress = 0,
+    this.failureReason = DownloadFailureReason.unknown,
     this.bytesDone,
     this.bytesTotal,
     this.speedBytesPerSecond,
@@ -67,6 +95,7 @@ class DownloadInfo {
     'itemId': itemId,
     'status': status.index,
     'progress': progress,
+    if (status == DownloadStatus.error) 'failureReason': failureReason.name,
     if (bytesDone != null) 'bytesDone': bytesDone,
     if (bytesTotal != null) 'bytesTotal': bytesTotal,
     if (speedBytesPerSecond != null) 'speedBytesPerSecond': speedBytesPerSecond,
@@ -117,6 +146,9 @@ class DownloadInfo {
       itemId: json['itemId'] as String,
       status: DownloadStatus.values[json['status'] as int? ?? 0],
       progress: (json['progress'] as num?)?.toDouble() ?? 0,
+      failureReason: DownloadFailureReason.values
+          .where((reason) => reason.name == json['failureReason'])
+          .firstOrNull ?? DownloadFailureReason.unknown,
       bytesDone: (json['bytesDone'] as num?)?.toInt(),
       bytesTotal: (json['bytesTotal'] as num?)?.toInt(),
       speedBytesPerSecond: (json['speedBytesPerSecond'] as num?)?.toDouble(),
@@ -2303,7 +2335,7 @@ class DownloadService extends ChangeNotifier {
         !p.failing) {
       p.failing = true;
       p.failException = exception;
-      p.failCode = responseCode;
+      p.failCode = responseCode ?? (status == TaskStatus.notFound ? 404 : null);
       unawaited(_cancelSiblings(itemId, p));
     }
     await _checkBookTerminal(itemId, p);
@@ -2360,6 +2392,7 @@ class DownloadService extends ChangeNotifier {
   Future<void> debugSeedPendingDownload({
     required String itemId,
     required int trackCount,
+    String? libraryId,
   }) async {
     final bookDir =
         '${Directory.systemTemp.path}/absorb_download_service_test/$itemId';
@@ -2368,6 +2401,7 @@ class DownloadService extends ChangeNotifier {
       apiItemId: itemId,
       title: 'Test download',
       bookDir: bookDir,
+      libraryId: libraryId,
       trackCount: trackCount,
       expectedPaths: List.generate(
         trackCount,
@@ -2389,11 +2423,13 @@ class DownloadService extends ChangeNotifier {
     required int trackIndex,
     required TaskStatus status,
     int? responseCode,
+    TaskException? exception,
   }) => _handleTaskStatus(
     itemId: itemId,
     trackIndex: trackIndex,
     status: status,
     responseCode: responseCode,
+    exception: exception,
   );
 
   @visibleForTesting
@@ -2556,6 +2592,7 @@ class DownloadService extends ChangeNotifier {
     final t = title ?? p?.title ?? '';
     final a = author ?? p?.author;
     final c = coverUrl ?? p?.coverUrl;
+    final libraryId = p?.libraryId ?? _downloads[itemId]?.libraryId;
     final dir = bookDirRef ?? p?.bookDir;
 
     if (p != null) await _cancelSiblings(itemId, p, force: true);
@@ -2571,9 +2608,11 @@ class DownloadService extends ChangeNotifier {
     _downloads[itemId] = DownloadInfo(
       itemId: itemId,
       status: DownloadStatus.error,
+      failureReason: _failureReason(cause, taskException, responseCode),
       title: t,
       author: a,
       coverUrl: c,
+      libraryId: libraryId,
     );
     _activeDownloadIds.remove(itemId);
     _pending.remove(itemId);
@@ -2597,9 +2636,9 @@ class DownloadService extends ChangeNotifier {
   }) async {
     final info = _downloads[itemId];
     if (info == null || info.status != DownloadStatus.error) return null;
-    _downloads.remove(itemId);
-    await _save();
-    notifyListeners();
+    // Keep the persisted failure until downloadItem accepts the retry. Its
+    // initialization/network guards can reject the request without starting
+    // anything, and the user must still be able to retry after that rejection.
 
     final episodeId = itemId.length > 36 ? itemId.substring(37) : null;
     return downloadItem(
@@ -2634,19 +2673,7 @@ class DownloadService extends ChangeNotifier {
     if (navigator == null) return;
     final l = AppLocalizations.of(navigator.context);
     if (l == null) return;
-    final s = '${cause ?? ''} ${te?.description ?? ''}'.toLowerCase();
-    final String message;
-    if (code == 404) {
-      message = l.downloadFailedMissingFile(title);
-    } else if (s.contains('no space') || s.contains('enospc')) {
-      message = l.downloadFailedNoSpace(title);
-    } else if (s.contains('permission') ||
-        s.contains('not permitted') ||
-        code == 403) {
-      message = l.downloadFailedPermission(title);
-    } else {
-      message = l.downloadFailedGeneric(title);
-    }
+    final message = _failureReason(cause, te, code).message(l, title);
     showNavigatorOverlayToast(
       navigator,
       message,

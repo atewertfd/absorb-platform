@@ -4,6 +4,7 @@ import '../l10n/app_localizations.dart';
 import '../providers/auth_provider.dart';
 import '../providers/library_provider.dart';
 import 'overlay_toast.dart';
+import 'accessible_header_action.dart';
 
 /// Cloud icon in page headers showing online/offline state.
 ///
@@ -23,16 +24,19 @@ class OfflineStatusIcon extends StatelessWidget {
     final offline = lib.isOffline;
     final reconnecting = lib.isReconnecting;
     final onLocal = !offline && auth.useLocalServer;
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: reconnecting
+    return AccessibleHeaderAction(
+      label: offline ? l.offline : l.online,
+      onPressed: reconnecting || (!offline && onTapWhenOnline == null)
           ? null
           : () async {
               if (offline) {
                 final ok = await lib.tryReconnect();
                 if (!ok && context.mounted) {
-                  showOverlayToast(context, l.stillOffline,
-                      icon: Icons.cloud_off_rounded);
+                  showOverlayToast(
+                    context,
+                    l.stillOffline,
+                    icon: Icons.cloud_off_rounded,
+                  );
                 }
               } else {
                 onTapWhenOnline?.call();
@@ -57,8 +61,8 @@ class OfflineStatusIcon extends StatelessWidget {
                   color: offline
                       ? Colors.orange
                       : onLocal
-                          ? Colors.lightBlueAccent
-                          : Colors.green,
+                      ? Colors.lightBlueAccent
+                      : Colors.green,
                 ),
         ),
       ),

@@ -6,14 +6,18 @@ This port keeps the upstream Absorb visual language and adds cross-platform beha
 
 - Windows, Linux, and web Flutter targets
 - Resizable desktop window and desktop keyboard controls
+- Focusable queue, stop, refresh, and offline header actions with Enter/Space activation and a visible keyboard focus outline
 - Audiobookshelf library, playback, seeking, playback speed, covers, metadata, and statistics
 - Playlists, queue modes, auto-downloads, offline playback, and custom themes
 - Download byte progress, transfer speed, estimated time remaining, and accessible progress announcements
 - Persistent failed-download records with retry and dismiss controls, metadata recovery tests, and screen-reader summaries
+- Failed downloads retain their library filter and remain retryable when downloader startup is rejected; service-level regression tests cover both cases
+- Missing-file, disk-full, and permission failures retain a localized explanation after restart; tests simulate downloader failure callbacks and persisted records (not a real disk-full device)
 - Audiobookshelf token-refresh recovery coverage for both 401 rotation and transient 503 retry, plus an app-shell widget smoke test
 - Global media controls where the host platform exposes them
 - Optional native Whisper bookmark transcription
 - GitHub Pages web deployment and release-oriented desktop builds
+- Analysis and regression tests gate web artifacts and Pages publication
 
 ## Stability-focused next work
 

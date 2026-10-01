@@ -1324,6 +1324,12 @@ abstract class AppLocalizations {
   /// **'Stop'**
   String get absorbingStop;
 
+  /// No description provided for @absorbingReorderQueue.
+  ///
+  /// In en, this message translates to:
+  /// **'Reorder queue'**
+  String get absorbingReorderQueue;
+
   /// No description provided for @absorbingManageQueue.
   ///
   /// In en, this message translates to:
