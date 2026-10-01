@@ -14,7 +14,7 @@ This port keeps the upstream Absorb visual language and adds cross-platform beha
 - Persistent failed-download records with retry and dismiss controls, metadata recovery tests, and screen-reader summaries
 - Failed downloads retain their library filter and remain retryable when downloader startup is rejected; service-level regression tests cover both cases
 - Missing-file, disk-full, and permission failures retain a localized explanation after restart; tests simulate downloader failure callbacks and persisted records (not a real disk-full device)
-- Audiobookshelf token-refresh recovery coverage for both 401 rotation and transient 503 retry, plus an app-shell widget smoke test
+- Audiobookshelf token-refresh recovery coverage for both 401 rotation and transient 503 retry, plus a bounded one-time retry for safe GET transport failures; mutating requests and uploads are not replayed
 - Shared token diagnostics report presence only, never token suffixes (including short-token regression coverage); this is not a complete log-security audit
 - Windows/Linux libmpv playback backend and SMTC/MPRIS media-service registration (physical media keys and Linux runtime playback still need verification)
 - [Windows native audio fixture verification](DESKTOP-AUDIO-VERIFICATION.md): local/loopback playback, pause, speed, repeated cross-file seeking, saved position, and clean shutdown

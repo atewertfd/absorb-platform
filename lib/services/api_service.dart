@@ -108,18 +108,9 @@ class LibraryMetadataRemovalResult {
   });
 }
 
-enum _RefreshOutcome {
-  refreshed,
-  rejected,
-  transientFailure,
-}
+enum _RefreshOutcome { refreshed, rejected, transientFailure }
 
-enum PasswordChangeStatus {
-  success,
-  invalidPassword,
-  unsupported,
-  failed,
-}
+enum PasswordChangeStatus { success, invalidPassword, unsupported, failed }
 
 class PasswordChangeResult {
   final PasswordChangeStatus status;
@@ -244,7 +235,8 @@ class ApiService {
   /// Returns whether the pair actually reached storage - a rotation that only
   /// lives in memory dies with the process and leaves a spent refresh token
   /// behind, so callers must be able to tell the difference.
-  FutureOr<bool> Function(String newAccessToken, String? newRefreshToken)? onTokensRefreshed;
+  FutureOr<bool> Function(String newAccessToken, String? newRefreshToken)?
+  onTokensRefreshed;
 
   /// Loads the latest persisted tokens before refreshing. Background isolates
   /// can rotate tokens while this instance is still alive, so the store is the
@@ -255,6 +247,7 @@ class ApiService {
   VoidCallback? onAuthExpired;
 
   final Duration _refreshRetryDelay;
+  final Duration _networkRetryDelay;
 
   // Each ApiService instance already deduplicates its own refreshes. This lock
   // also serializes token rotation across the short-lived instances created by
@@ -273,7 +266,8 @@ class ApiService {
     final prefs = await SharedPreferences.getInstance();
     var id = prefs.getString('absorb_device_id');
     if (id == null || id.isEmpty) {
-      id = 'absorb-${DateTime.now().millisecondsSinceEpoch.toRadixString(36)}-${(DateTime.now().microsecond * 31337).toRadixString(36)}';
+      id =
+          'absorb-${DateTime.now().millisecondsSinceEpoch.toRadixString(36)}-${(DateTime.now().microsecond * 31337).toRadixString(36)}';
       await prefs.setString('absorb_device_id', id);
     }
     deviceId = id;
@@ -289,12 +283,14 @@ class ApiService {
     this.loadPersistedTokens,
     this.onAuthExpired,
     Duration refreshRetryDelay = const Duration(milliseconds: 250),
+    Duration networkRetryDelay = const Duration(milliseconds: 350),
     http.Client? httpClient,
-  })  : _accessToken = token,
-        _refreshToken = refreshToken,
-        _isLegacyToken = isLegacyToken,
-        _refreshRetryDelay = refreshRetryDelay,
-        _httpClient = httpClient {
+  }) : _accessToken = token,
+       _refreshToken = refreshToken,
+       _isLegacyToken = isLegacyToken,
+       _refreshRetryDelay = refreshRetryDelay,
+       _networkRetryDelay = networkRetryDelay,
+       _httpClient = httpClient {
     _loadCachedServerVersion(baseUrl);
   }
 
@@ -307,16 +303,16 @@ class ApiService {
   static String get userAgent => 'Absorb/$appVersionFull';
 
   Map<String, String> get _headers => {
-        ...customHeaders,
-        'Authorization': 'Bearer $_accessToken',
-        'Content-Type': 'application/json',
-      };
+    ...customHeaders,
+    'Authorization': 'Bearer $_accessToken',
+    'Content-Type': 'application/json',
+  };
 
   /// Public headers for image/audio requests (no Content-Type needed).
   Map<String, String> get mediaHeaders => {
-        ...customHeaders,
-        'Authorization': 'Bearer $_accessToken',
-      };
+    ...customHeaders,
+    'Authorization': 'Bearer $_accessToken',
+  };
 
   /// Playback-session tracks use ABS's unguessable public session URLs, so
   /// only reverse-proxy headers belong on the media request. Keeping the
@@ -327,27 +323,69 @@ class ApiService {
   String get _cleanBaseUrl => normalizeServerUrl(baseUrl);
 
   Future<http.Response> _get(Uri url, {Map<String, String>? headers}) {
-    return _httpClient?.get(url, headers: headers) ?? http.get(url, headers: headers);
+    return _httpClient?.get(url, headers: headers) ??
+        http.get(url, headers: headers);
   }
 
-  Future<http.Response> _post(Uri url, {Map<String, String>? headers, Object? body}) {
+  Future<http.Response> _post(
+    Uri url, {
+    Map<String, String>? headers,
+    Object? body,
+  }) {
     return _httpClient?.post(url, headers: headers, body: body) ??
         http.post(url, headers: headers, body: body);
   }
 
-  Future<http.Response> _patch(Uri url, {Map<String, String>? headers, Object? body}) {
+  Future<http.Response> _patch(
+    Uri url, {
+    Map<String, String>? headers,
+    Object? body,
+  }) {
     return _httpClient?.patch(url, headers: headers, body: body) ??
         http.patch(url, headers: headers, body: body);
   }
 
   Future<http.Response> _delete(Uri url, {Map<String, String>? headers}) {
-    return _httpClient?.delete(url, headers: headers) ?? http.delete(url, headers: headers);
+    return _httpClient?.delete(url, headers: headers) ??
+        http.delete(url, headers: headers);
   }
 
   /// Credential-presence diagnostic only. Never include token characters,
   /// even for short tokens, in logs that a user may export for support.
   static String tokenFp(String? token) {
     return token == null || token.isEmpty ? 'none' : 'present';
+  }
+
+  /// GET is safe to replay after a transport failure. Keep this retry narrow:
+  /// mutating requests and streamed uploads must never be replayed implicitly.
+  Future<http.Response> _getWithNetworkRetry(
+    Uri url, {
+    required Map<String, String> headers,
+    required Duration timeout,
+  }) async {
+    try {
+      return await _get(url, headers: headers).timeout(timeout);
+    } on TimeoutException catch (first) {
+      debugPrint('[API] GET transport timeout for ${url.path}; retrying once');
+      if (_networkRetryDelay > Duration.zero) {
+        await Future<void>.delayed(_networkRetryDelay);
+      }
+      try {
+        return await _get(url, headers: headers).timeout(timeout);
+      } catch (_) {
+        Error.throwWithStackTrace(first, StackTrace.current);
+      }
+    } on http.ClientException catch (first) {
+      debugPrint('[API] GET transport failure for ${url.path}; retrying once');
+      if (_networkRetryDelay > Duration.zero) {
+        await Future<void>.delayed(_networkRetryDelay);
+      }
+      try {
+        return await _get(url, headers: headers).timeout(timeout);
+      } catch (_) {
+        Error.throwWithStackTrace(first, StackTrace.current);
+      }
+    }
   }
 
   Future<bool> _adoptPersistedTokens() async {
@@ -380,7 +418,10 @@ class ApiService {
 
   Future<void> _notifyTokensRefreshed() async {
     try {
-      final persisted = await onTokensRefreshed?.call(_accessToken, _refreshToken);
+      final persisted = await onTokensRefreshed?.call(
+        _accessToken,
+        _refreshToken,
+      );
       debugPrint(
         persisted == false
             ? '[API] Tokens NOT persisted (rotation held in memory only): '
@@ -431,7 +472,8 @@ class ApiService {
       }
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       final tokens = AuthTokens.fromResponse(data);
-      if (tokens.accessToken == null || tokens.refreshToken == null) return false;
+      if (tokens.accessToken == null || tokens.refreshToken == null)
+        return false;
       _accessToken = tokens.accessToken!;
       _refreshToken = tokens.refreshToken!;
       await _notifyTokensRefreshed();
@@ -450,7 +492,9 @@ class ApiService {
   /// an explicit 401/403 can expire the local session.
   Future<_RefreshOutcome> _refreshAccessToken() async {
     if (_isLegacyToken || _refreshToken == null) {
-      debugPrint('[API] Cannot refresh: isLegacy=$_isLegacyToken, hasRefreshToken=${_refreshToken != null}');
+      debugPrint(
+        '[API] Cannot refresh: isLegacy=$_isLegacyToken, hasRefreshToken=${_refreshToken != null}',
+      );
       return _RefreshOutcome.transientFailure;
     }
 
@@ -622,15 +666,26 @@ class ApiService {
   /// [sendRefreshTokenHeader] adds `x-refresh-token` from whatever the current
   /// pair is once the pre-flight has run, rather than from a value the caller
   /// captured earlier.
-  Future<http.Response> _authGet(Uri url, {Map<String, String>? headers, bool sendRefreshTokenHeader = false, Duration timeout = const Duration(seconds: 15)}) async {
+  Future<http.Response> _authGet(
+    Uri url, {
+    Map<String, String>? headers,
+    bool sendRefreshTokenHeader = false,
+    Duration timeout = const Duration(seconds: 15),
+  }) async {
     await _ensureFreshAccessToken();
     var h = headers ?? _headers;
     if (sendRefreshTokenHeader && _refreshToken != null) {
       h = {...h, 'x-refresh-token': _refreshToken!};
     }
-    var response = await _get(url, headers: h).timeout(timeout);
+    var response = await _getWithNetworkRetry(
+      url,
+      headers: h,
+      timeout: timeout,
+    );
     if (response.statusCode == 401) {
-      debugPrint('[API] 401 on GET ${url.path} - isLegacy=$_isLegacyToken, hasRefresh=${_refreshToken != null}, tokenLen=${_accessToken.length}');
+      debugPrint(
+        '[API] 401 on GET ${url.path} - isLegacy=$_isLegacyToken, hasRefresh=${_refreshToken != null}, tokenLen=${_accessToken.length}',
+      );
     }
     if (response.statusCode == 401 && !_isLegacyToken) {
       final outcome = await _refreshAccessToken();
@@ -641,7 +696,11 @@ class ApiService {
             _refreshToken != null) {
           refreshedHeaders['x-refresh-token'] = _refreshToken!;
         }
-        response = await _get(url, headers: refreshedHeaders).timeout(timeout);
+        response = await _getWithNetworkRetry(
+          url,
+          headers: refreshedHeaders,
+          timeout: timeout,
+        );
       }
       if (outcome == _RefreshOutcome.rejected) onAuthExpired?.call();
     }
@@ -649,7 +708,12 @@ class ApiService {
   }
 
   /// Make an authenticated POST request, retrying once on 401 with a refreshed token.
-  Future<http.Response> _authPost(Uri url, {Map<String, String>? headers, Object? body, Duration timeout = const Duration(seconds: 15)}) async {
+  Future<http.Response> _authPost(
+    Uri url, {
+    Map<String, String>? headers,
+    Object? body,
+    Duration timeout = const Duration(seconds: 15),
+  }) async {
     await _ensureFreshAccessToken();
     final h = headers ?? _headers;
     var response = await _post(url, headers: h, body: body).timeout(timeout);
@@ -658,7 +722,11 @@ class ApiService {
       if (outcome == _RefreshOutcome.refreshed) {
         final refreshedHeaders = Map<String, String>.from(h)
           ..['Authorization'] = 'Bearer $_accessToken';
-        response = await _post(url, headers: refreshedHeaders, body: body).timeout(timeout);
+        response = await _post(
+          url,
+          headers: refreshedHeaders,
+          body: body,
+        ).timeout(timeout);
       }
       if (outcome == _RefreshOutcome.rejected) onAuthExpired?.call();
     }
@@ -666,7 +734,12 @@ class ApiService {
   }
 
   /// Make an authenticated PATCH request, retrying once on 401 with a refreshed token.
-  Future<http.Response> _authPatch(Uri url, {Map<String, String>? headers, Object? body, Duration timeout = const Duration(seconds: 15)}) async {
+  Future<http.Response> _authPatch(
+    Uri url, {
+    Map<String, String>? headers,
+    Object? body,
+    Duration timeout = const Duration(seconds: 15),
+  }) async {
     await _ensureFreshAccessToken();
     final h = headers ?? _headers;
     var response = await _patch(url, headers: h, body: body).timeout(timeout);
@@ -675,7 +748,11 @@ class ApiService {
       if (outcome == _RefreshOutcome.refreshed) {
         final refreshedHeaders = Map<String, String>.from(h)
           ..['Authorization'] = 'Bearer $_accessToken';
-        response = await _patch(url, headers: refreshedHeaders, body: body).timeout(timeout);
+        response = await _patch(
+          url,
+          headers: refreshedHeaders,
+          body: body,
+        ).timeout(timeout);
       }
       if (outcome == _RefreshOutcome.rejected) onAuthExpired?.call();
     }
@@ -683,7 +760,11 @@ class ApiService {
   }
 
   /// Make an authenticated DELETE request, retrying once on 401 with a refreshed token.
-  Future<http.Response> _authDelete(Uri url, {Map<String, String>? headers, Duration timeout = const Duration(seconds: 15)}) async {
+  Future<http.Response> _authDelete(
+    Uri url, {
+    Map<String, String>? headers,
+    Duration timeout = const Duration(seconds: 15),
+  }) async {
     await _ensureFreshAccessToken();
     final h = headers ?? _headers;
     var response = await _delete(url, headers: h).timeout(timeout);
@@ -692,7 +773,10 @@ class ApiService {
       if (outcome == _RefreshOutcome.refreshed) {
         final refreshedHeaders = Map<String, String>.from(h)
           ..['Authorization'] = 'Bearer $_accessToken';
-        response = await _delete(url, headers: refreshedHeaders).timeout(timeout);
+        response = await _delete(
+          url,
+          headers: refreshedHeaders,
+        ).timeout(timeout);
       }
       if (outcome == _RefreshOutcome.rejected) onAuthExpired?.call();
     }
@@ -744,10 +828,12 @@ class ApiService {
     final url = '${base}api/me';
 
     try {
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {...customHeaders, 'Authorization': 'Bearer $apiKey'},
-      ).timeout(const Duration(seconds: 15));
+      final response = await http
+          .get(
+            Uri.parse(url),
+            headers: {...customHeaders, 'Authorization': 'Bearer $apiKey'},
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         return (jsonDecode(response.body) as Map<String, dynamic>, 200);
@@ -759,12 +845,19 @@ class ApiService {
   }
 
   /// Ping the server to check connectivity.
-  static Future<bool> pingServer(String serverUrl, {Map<String, String> customHeaders = const {}}) async {
+  static Future<bool> pingServer(
+    String serverUrl, {
+    Map<String, String> customHeaders = const {},
+  }) async {
     final url = serverUrl.endsWith('/')
         ? '${serverUrl}ping'
         : '$serverUrl/ping';
     try {
-      final response = await http.get(Uri.parse(url), headers: customHeaders.isNotEmpty ? customHeaders : null)
+      final response = await http
+          .get(
+            Uri.parse(url),
+            headers: customHeaders.isNotEmpty ? customHeaders : null,
+          )
           .timeout(const Duration(seconds: 10));
       return response.statusCode == 200;
     } catch (_) {
@@ -782,13 +875,21 @@ class ApiService {
     String serverUrl, {
     Map<String, String> customHeaders = const {},
   }) async {
-    final url = serverUrl.endsWith('/') ? '${serverUrl}ping' : '$serverUrl/ping';
+    final url = serverUrl.endsWith('/')
+        ? '${serverUrl}ping'
+        : '$serverUrl/ping';
     try {
       final response = await http
-          .get(Uri.parse(url), headers: customHeaders.isNotEmpty ? customHeaders : null)
+          .get(
+            Uri.parse(url),
+            headers: customHeaders.isNotEmpty ? customHeaders : null,
+          )
           .timeout(const Duration(seconds: 15));
       if (response.statusCode == 200) return (ok: true, detail: null);
-      return (ok: false, detail: 'Server returned HTTP ${response.statusCode} instead of 200.');
+      return (
+        ok: false,
+        detail: 'Server returned HTTP ${response.statusCode} instead of 200.',
+      );
     } catch (e) {
       return (ok: false, detail: _describePingError(e));
     }
@@ -803,10 +904,13 @@ class ApiService {
     }
     final msg = e.toString();
     final lower = msg.toLowerCase();
-    if (lower.contains('failed host lookup') || lower.contains('nodename nor servname')) {
+    if (lower.contains('failed host lookup') ||
+        lower.contains('nodename nor servname')) {
       return 'Could not resolve the domain (DNS). Check the address is spelled right. ($msg)';
     }
-    if (lower.contains('handshake') || lower.contains('certificate') || lower.contains('tls')) {
+    if (lower.contains('handshake') ||
+        lower.contains('certificate') ||
+        lower.contains('tls')) {
       return 'Secure connection (TLS) failed. If your server uses a self-signed certificate, turn on Trust all certificates above. Otherwise the server may be blocking non-browser apps. ($msg)';
     }
     if (lower.contains('connection refused')) {
@@ -817,19 +921,27 @@ class ApiService {
         lower.contains('protocol error')) {
       return 'The server closed the connection early. This can happen when a proxy only speaks HTTP/2. ($msg)';
     }
-    if (lower.contains('connection reset') || lower.contains('connection terminated')) {
+    if (lower.contains('connection reset') ||
+        lower.contains('connection terminated')) {
       return 'The connection was reset, which usually means a proxy or firewall is blocking the app even though browsers get through. ($msg)';
     }
     return msg;
   }
 
   /// Get the server version via the /status endpoint (no auth needed).
-  static Future<String?> getServerVersion(String serverUrl, {Map<String, String> customHeaders = const {}}) async {
+  static Future<String?> getServerVersion(
+    String serverUrl, {
+    Map<String, String> customHeaders = const {},
+  }) async {
     final url = serverUrl.endsWith('/')
         ? '${serverUrl}status'
         : '$serverUrl/status';
     try {
-      final response = await http.get(Uri.parse(url), headers: customHeaders.isNotEmpty ? customHeaders : null)
+      final response = await http
+          .get(
+            Uri.parse(url),
+            headers: customHeaders.isNotEmpty ? customHeaders : null,
+          )
           .timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -878,12 +990,14 @@ class ApiService {
     final origin = _originOf(serverUrl);
     if (origin == null || !_serverVersionLoads.add(origin)) return;
     unawaited(
-      SharedPreferences.getInstance().then((p) {
-        final v = p.getString('server_version_$origin');
-        if (v != null && v.isNotEmpty) {
-          _serverVersions.putIfAbsent(origin, () => v);
-        }
-      }).catchError((Object _) {}),
+      SharedPreferences.getInstance()
+          .then((p) {
+            final v = p.getString('server_version_$origin');
+            if (v != null && v.isNotEmpty) {
+              _serverVersions.putIfAbsent(origin, () => v);
+            }
+          })
+          .catchError((Object _) {}),
     );
   }
 
@@ -948,8 +1062,9 @@ class ApiService {
       if (limit != null) query['limit'] = '$limit';
 
       final response = await _authGet(
-        Uri.parse('$_cleanBaseUrl/api/libraries/$libraryId/personalized')
-            .replace(queryParameters: query.isEmpty ? null : query),
+        Uri.parse(
+          '$_cleanBaseUrl/api/libraries/$libraryId/personalized',
+        ).replace(queryParameters: query.isEmpty ? null : query),
       );
 
       if (response.statusCode == 200) {
@@ -980,7 +1095,8 @@ class ApiService {
     bool collapseSeries = false,
   }) async {
     try {
-      var url = '$_cleanBaseUrl/api/libraries/$libraryId/items'
+      var url =
+          '$_cleanBaseUrl/api/libraries/$libraryId/items'
           '?page=$page&limit=$limit&sort=$sort&desc=$desc'
           // Ask the server to populate numEpisodesIncomplete on podcast items
           // so podcast tiles can show an unplayed-count badge without loading
@@ -989,15 +1105,15 @@ class ApiService {
       if (filter != null) url += '&filter=$filter';
       if (expanded) url += '&minified=0';
       if (collapseSeries) url += '&collapseseries=1';
-      final response = await _authGet(
-        Uri.parse(url),
-      );
+      final response = await _authGet(Uri.parse(url));
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
-      debugPrint('[API] getLibraryItems page=$page limit=$limit: '
-          'HTTP ${response.statusCode}');
+      debugPrint(
+        '[API] getLibraryItems page=$page limit=$limit: '
+        'HTTP ${response.statusCode}',
+      );
     } catch (e) {
       debugPrint('[API] getLibraryItems page=$page limit=$limit failed: $e');
     }
@@ -1052,7 +1168,8 @@ class ApiService {
     try {
       final response = await _authPost(
         Uri.parse('$_cleanBaseUrl/api/authorize'),
-        timeout: const Duration(seconds: 10));
+        timeout: const Duration(seconds: 10),
+      );
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
@@ -1068,7 +1185,8 @@ class ApiService {
     try {
       final response = await _authGet(
         Uri.parse('$_cleanBaseUrl/api/me'),
-        timeout: const Duration(seconds: 10));
+        timeout: const Duration(seconds: 10),
+      );
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
@@ -1085,7 +1203,8 @@ class ApiService {
     try {
       final response = await _authGet(
         Uri.parse('$_cleanBaseUrl/api/me/progress'),
-        timeout: const Duration(seconds: 10));
+        timeout: const Duration(seconds: 10),
+      );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         return (data['mediaProgress'] as List<dynamic>? ?? const [])
@@ -1108,7 +1227,8 @@ class ApiService {
     try {
       final response = await _authGet(
         Uri.parse('$_cleanBaseUrl/api/me/bookmarks'),
-        timeout: const Duration(seconds: 10));
+        timeout: const Duration(seconds: 10),
+      );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         return (data['bookmarks'] as List<dynamic>? ?? const [])
@@ -1126,15 +1246,21 @@ class ApiService {
     }
   }
 
-  Future<AuthSessionsResult> getAuthSessions({int page = 0, int itemsPerPage = 20}) async {
+  Future<AuthSessionsResult> getAuthSessions({
+    int page = 0,
+    int itemsPerPage = 20,
+  }) async {
     try {
       // Headers are built by _authGet AFTER its pre-flight refresh, so this
       // can't be snapshotted here - a rotation would leave both the Bearer and
       // the x-refresh-token stale, guaranteeing a 401 and a second rotation.
       final response = await _authGet(
-        Uri.parse('$_cleanBaseUrl/api/me/sessions?page=$page&itemsPerPage=$itemsPerPage'),
+        Uri.parse(
+          '$_cleanBaseUrl/api/me/sessions?page=$page&itemsPerPage=$itemsPerPage',
+        ),
         sendRefreshTokenHeader: true,
-        timeout: const Duration(seconds: 10));
+        timeout: const Duration(seconds: 10),
+      );
       if (response.statusCode == 404) {
         return const AuthSessionsResult(AuthSessionsStatus.unsupported);
       }
@@ -1144,7 +1270,8 @@ class ApiService {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       return AuthSessionsResult(
         AuthSessionsStatus.supported,
-        AuthSessionsPage.fromJson(data));
+        AuthSessionsPage.fromJson(data),
+      );
     } catch (e) {
       debugPrint('[API] getAuthSessions error: $e');
       return const AuthSessionsResult(AuthSessionsStatus.failed);
@@ -1156,7 +1283,8 @@ class ApiService {
     try {
       final response = await _authDelete(
         Uri.parse('$_cleanBaseUrl/api/me/sessions/${session.id}'),
-        timeout: const Duration(seconds: 10));
+        timeout: const Duration(seconds: 10),
+      );
       return response.statusCode >= 200 && response.statusCode < 300;
     } catch (e) {
       debugPrint('[API] deleteAuthSession error: $e');
@@ -1175,7 +1303,8 @@ class ApiService {
           ...customHeaders,
           'x-refresh-token': refreshToken,
           if (!kIsWeb) 'User-Agent': userAgent,
-        }).timeout(const Duration(seconds: 10));
+        },
+      ).timeout(const Duration(seconds: 10));
       return response.statusCode >= 200 && response.statusCode < 300;
     } catch (e) {
       debugPrint('[API] logout error: $e');
@@ -1191,14 +1320,17 @@ class ApiService {
     try {
       await _adoptPersistedTokens();
       Future<http.Response> sendPasswordChange() => _patch(
-          Uri.parse('$_cleanBaseUrl/api/me/password'),
-          headers: {
-            ..._headers,
-            if (_refreshToken != null) 'x-refresh-token': _refreshToken!,
-            if (!kIsWeb) 'User-Agent': userAgent,
-          },
-          body: jsonEncode({'password': currentPassword, 'newPassword': newPassword})
-        ).timeout(const Duration(seconds: 15));
+        Uri.parse('$_cleanBaseUrl/api/me/password'),
+        headers: {
+          ..._headers,
+          if (_refreshToken != null) 'x-refresh-token': _refreshToken!,
+          if (!kIsWeb) 'User-Agent': userAgent,
+        },
+        body: jsonEncode({
+          'password': currentPassword,
+          'newPassword': newPassword,
+        }),
+      ).timeout(const Duration(seconds: 15));
 
       var response = await sendPasswordChange();
       if (response.statusCode == 401 && !_isLegacyToken) {
@@ -1214,7 +1346,8 @@ class ApiService {
       if (response.statusCode == 400) {
         return PasswordChangeResult(
           PasswordChangeStatus.invalidPassword,
-          message: response.body.trim().isEmpty ? null : response.body.trim());
+          message: response.body.trim().isEmpty ? null : response.body.trim(),
+        );
       }
       if (response.statusCode != 200) {
         return const PasswordChangeResult(PasswordChangeStatus.failed);
@@ -1256,7 +1389,8 @@ class ApiService {
     try {
       final response = await _authGet(
         Uri.parse('$_cleanBaseUrl/api/me/listening-stats'),
-        timeout: const Duration(seconds: 10));
+        timeout: const Duration(seconds: 10),
+      );
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
@@ -1290,11 +1424,17 @@ class ApiService {
   }
 
   /// Get user's listening sessions (paginated).
-  Future<Map<String, dynamic>?> getListeningSessions({int page = 0, int itemsPerPage = 20}) async {
+  Future<Map<String, dynamic>?> getListeningSessions({
+    int page = 0,
+    int itemsPerPage = 20,
+  }) async {
     try {
       final response = await _authGet(
-        Uri.parse('$_cleanBaseUrl/api/me/listening-sessions?itemsPerPage=$itemsPerPage&page=$page'),
-        timeout: const Duration(seconds: 10));
+        Uri.parse(
+          '$_cleanBaseUrl/api/me/listening-sessions?itemsPerPage=$itemsPerPage&page=$page',
+        ),
+        timeout: const Duration(seconds: 10),
+      );
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
@@ -1319,10 +1459,9 @@ class ApiService {
 
     try {
       while (true) {
-        final uri = Uri.parse(endpoint).replace(queryParameters: {
-          'itemsPerPage': '$itemsPerPage',
-          'page': '$page',
-        });
+        final uri = Uri.parse(endpoint).replace(
+          queryParameters: {'itemsPerPage': '$itemsPerPage', 'page': '$page'},
+        );
         final response = await _authGet(
           uri,
           timeout: const Duration(seconds: 10),
@@ -1346,11 +1485,18 @@ class ApiService {
   }
 
   /// Get a specific user's listening sessions (admin, paginated).
-  Future<Map<String, dynamic>?> getUserListeningSessions(String userId, {int page = 0, int itemsPerPage = 10}) async {
+  Future<Map<String, dynamic>?> getUserListeningSessions(
+    String userId, {
+    int page = 0,
+    int itemsPerPage = 10,
+  }) async {
     try {
       final response = await _authGet(
-        Uri.parse('$_cleanBaseUrl/api/users/$userId/listening-sessions?itemsPerPage=$itemsPerPage&page=$page'),
-        timeout: const Duration(seconds: 10));
+        Uri.parse(
+          '$_cleanBaseUrl/api/users/$userId/listening-sessions?itemsPerPage=$itemsPerPage&page=$page',
+        ),
+        timeout: const Duration(seconds: 10),
+      );
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
@@ -1378,7 +1524,9 @@ class ApiService {
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
-      debugPrint('[API] getLibrarySeries page=$page: HTTP ${response.statusCode}');
+      debugPrint(
+        '[API] getLibrarySeries page=$page: HTTP ${response.statusCode}',
+      );
     } catch (e) {
       debugPrint('[API] getLibrarySeries page=$page failed: $e');
     }
@@ -1387,7 +1535,8 @@ class ApiService {
 
   /// Build an author image URL.
   String getAuthorImageUrl(String authorId, {int width = 200, int? updatedAt}) {
-    var url = '$_cleanBaseUrl/api/authors/$authorId/image?width=$width&token=$token';
+    var url =
+        '$_cleanBaseUrl/api/authors/$authorId/image?width=$width&token=$token';
     if (updatedAt != null) url += '&ts=$updatedAt';
     return url;
   }
@@ -1419,11 +1568,10 @@ class ApiService {
   }) async {
     try {
       final filterValue = base64Encode(utf8.encode(authorId));
-      final url = '$_cleanBaseUrl/api/libraries/$libraryId/items'
+      final url =
+          '$_cleanBaseUrl/api/libraries/$libraryId/items'
           '?filter=authors.$filterValue&sort=media.metadata.title&limit=$limit';
-      final response = await _authGet(
-        Uri.parse(url),
-      );
+      final response = await _authGet(Uri.parse(url));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -1467,12 +1615,16 @@ class ApiService {
     try {
       final sw = Stopwatch()..start();
       final response = await _authGet(
-        Uri.parse('$_cleanBaseUrl/api/libraries/$libraryId/authors'
-            '?limit=$limit&page=$page&sort=$sort&desc=$desc'),
+        Uri.parse(
+          '$_cleanBaseUrl/api/libraries/$libraryId/authors'
+          '?limit=$limit&page=$page&sort=$sort&desc=$desc',
+        ),
         timeout: const Duration(seconds: 30),
       );
-      debugPrint('[API] getLibraryAuthorsPage page=$page: HTTP '
-          '${response.statusCode} in ${sw.elapsedMilliseconds}ms');
+      debugPrint(
+        '[API] getLibraryAuthorsPage page=$page: HTTP '
+        '${response.statusCode} in ${sw.elapsedMilliseconds}ms',
+      );
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
@@ -1485,7 +1637,8 @@ class ApiService {
   /// Fetch several items by id in one request. One indexed query server-side,
   /// unlike the filtered items listing, which sorts the whole library first.
   Future<List<Map<String, dynamic>>> getLibraryItemsBatch(
-      List<String> ids) async {
+    List<String> ids,
+  ) async {
     if (ids.isEmpty) return const [];
     try {
       final sw = Stopwatch()..start();
@@ -1494,8 +1647,10 @@ class ApiService {
         body: jsonEncode({'libraryItemIds': ids}),
         timeout: const Duration(seconds: 30),
       );
-      debugPrint('[API] getLibraryItemsBatch ${ids.length} ids: HTTP '
-          '${response.statusCode} in ${sw.elapsedMilliseconds}ms');
+      debugPrint(
+        '[API] getLibraryItemsBatch ${ids.length} ids: HTTP '
+        '${response.statusCode} in ${sw.elapsedMilliseconds}ms',
+      );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         return (data['libraryItems'] as List<dynamic>? ?? const [])
@@ -1563,11 +1718,10 @@ class ApiService {
   }) async {
     try {
       final filterValue = base64Encode(utf8.encode(narratorName));
-      final url = '$_cleanBaseUrl/api/libraries/$libraryId/items'
+      final url =
+          '$_cleanBaseUrl/api/libraries/$libraryId/items'
           '?filter=narrators.$filterValue&sort=media.metadata.title&limit=$limit';
-      final response = await _authGet(
-        Uri.parse(url),
-      );
+      final response = await _authGet(Uri.parse(url));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -1580,13 +1734,14 @@ class ApiService {
   }
 
   /// Get full author details including description/bio.
-  Future<Map<String, dynamic>?> getAuthorById(String authorId, {String? libraryId}) async {
+  Future<Map<String, dynamic>?> getAuthorById(
+    String authorId, {
+    String? libraryId,
+  }) async {
     try {
       var url = '$_cleanBaseUrl/api/authors/$authorId?include=items,series';
       if (libraryId != null) url += '&library=$libraryId';
-      final response = await _authGet(
-        Uri.parse(url),
-      );
+      final response = await _authGet(Uri.parse(url));
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
@@ -1628,7 +1783,9 @@ class ApiService {
         }
         return {'ok': true, 'author': data['author'] ?? data};
       }
-    } catch (e) { debugPrint('updateAuthor error: $e'); }
+    } catch (e) {
+      debugPrint('updateAuthor error: $e');
+    }
     return {'ok': false};
   }
 
@@ -1714,7 +1871,9 @@ class ApiService {
       );
       debugPrint('[API] updateAuthorImageFromUrl $authorId -> ${r.statusCode}');
       return r.statusCode == 200;
-    } catch (e) { debugPrint('updateAuthorImageFromUrl error: $e'); }
+    } catch (e) {
+      debugPrint('updateAuthorImageFromUrl error: $e');
+    }
     return false;
   }
 
@@ -1726,7 +1885,9 @@ class ApiService {
         Uri.parse('$_cleanBaseUrl/api/authors/$authorId/image'),
       );
       return r.statusCode == 200;
-    } catch (e) { debugPrint('deleteAuthorImage error: $e'); }
+    } catch (e) {
+      debugPrint('deleteAuthorImage error: $e');
+    }
     return false;
   }
 
@@ -1739,12 +1900,11 @@ class ApiService {
   }) async {
     try {
       final filterValue = base64Encode(utf8.encode(seriesId));
-      final url = '$_cleanBaseUrl/api/libraries/$libraryId/items'
+      final url =
+          '$_cleanBaseUrl/api/libraries/$libraryId/items'
           '?filter=series.$filterValue'
           '&sort=media.metadata.series.sequence&limit=$limit&collapseseries=0';
-      final response = await _authGet(
-        Uri.parse(url),
-      );
+      final response = await _authGet(Uri.parse(url));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -1766,7 +1926,8 @@ class ApiService {
   ) async {
     try {
       final filterValue = base64Encode(utf8.encode(seriesId));
-      final url = '$_cleanBaseUrl/api/libraries/$libraryId/items'
+      final url =
+          '$_cleanBaseUrl/api/libraries/$libraryId/items'
           '?filter=series.$filterValue'
           '&sort=media.metadata.series.sequence&limit=0&collapseseries=0';
       final sw = Stopwatch()..start();
@@ -1777,11 +1938,15 @@ class ApiService {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         final results = data['results'] as List<dynamic>? ?? [];
-        debugPrint('[API] getAllBooksBySeries $seriesId: ${results.length} books '
-            '(total=${data['total']}) in ${sw.elapsedMilliseconds}ms');
+        debugPrint(
+          '[API] getAllBooksBySeries $seriesId: ${results.length} books '
+          '(total=${data['total']}) in ${sw.elapsedMilliseconds}ms',
+        );
         return results;
       }
-      debugPrint('[API] getAllBooksBySeries $seriesId: HTTP ${response.statusCode}');
+      debugPrint(
+        '[API] getAllBooksBySeries $seriesId: HTTP ${response.statusCode}',
+      );
     } catch (e) {
       debugPrint('[API] getAllBooksBySeries error: $e');
     }
@@ -1794,22 +1959,32 @@ class ApiService {
   /// The device descriptor ABS attaches to playback sessions. Shared by the
   /// /play session calls and the client-owned local-session calls.
   Map<String, dynamic> get _deviceInfo => {
-        'clientName': 'Absorb',
-        'clientVersion': appVersion,
-        'deviceId': deviceId,
-        'deviceName': '${deviceManufacturer.isNotEmpty ? "$deviceManufacturer " : ""}$deviceModel'.trim(),
-        'manufacturer': deviceManufacturer,
-        'model': deviceModel,
-      };
+    'clientName': 'Absorb',
+    'clientVersion': appVersion,
+    'deviceId': deviceId,
+    'deviceName':
+        '${deviceManufacturer.isNotEmpty ? "$deviceManufacturer " : ""}$deviceModel'
+            .trim(),
+    'manufacturer': deviceManufacturer,
+    'model': deviceModel,
+  };
 
   /// Start a playback session for a library item.
   /// POST /api/items/:id/play
   /// Returns the full session object including audioTracks with contentUrl.
-  Future<Map<String, dynamic>?> startPlaybackSession(String itemId, {String? episodeId, bool forceDirectPlay = false, bool forceTranscode = false, double? startOffset}) async {
+  Future<Map<String, dynamic>?> startPlaybackSession(
+    String itemId, {
+    String? episodeId,
+    bool forceDirectPlay = false,
+    bool forceTranscode = false,
+    double? startOffset,
+  }) async {
     try {
       final epPath = episodeId != null ? '/$episodeId' : '';
       final url = '$_cleanBaseUrl/api/items/$itemId/play$epPath';
-      debugPrint('[ABS] Starting playback session: POST $url (forceDirectPlay: $forceDirectPlay, forceTranscode: $forceTranscode)');
+      debugPrint(
+        '[ABS] Starting playback session: POST $url (forceDirectPlay: $forceDirectPlay, forceTranscode: $forceTranscode)',
+      );
       final body = <String, dynamic>{
         'deviceInfo': _deviceInfo,
         'forceDirectPlay': !forceTranscode,
@@ -1833,11 +2008,13 @@ class ApiService {
           'audio/x-ms-wma',
         ],
       };
-      if (startOffset != null && startOffset > 0) body['startOffset'] = startOffset;
+      if (startOffset != null && startOffset > 0)
+        body['startOffset'] = startOffset;
       final response = await _authPost(
         Uri.parse(url),
         body: jsonEncode(body),
-        timeout: const Duration(seconds: 20));
+        timeout: const Duration(seconds: 20),
+      );
 
       debugPrint('[ABS] Play session response: ${response.statusCode}');
       if (response.statusCode == 200) {
@@ -1847,7 +2024,9 @@ class ApiService {
         debugPrint('[ABS] Audio tracks: ${tracks?.length ?? 0}');
         if (tracks != null && tracks.isNotEmpty) {
           final firstTrack = tracks.first as Map<String, dynamic>;
-          debugPrint('[ABS] First track contentUrl: ${firstTrack['contentUrl']}');
+          debugPrint(
+            '[ABS] First track contentUrl: ${firstTrack['contentUrl']}',
+          );
         }
         return data;
       } else {
@@ -1968,7 +2147,8 @@ class ApiService {
           // (the server derives it from the session).
           'duration': duration,
         }),
-        timeout: const Duration(seconds: 10));
+        timeout: const Duration(seconds: 10),
+      );
       return response.statusCode;
     } catch (_) {
       return null;
@@ -1981,7 +2161,8 @@ class ApiService {
     try {
       await _authPost(
         Uri.parse('$_cleanBaseUrl/api/session/$sessionId/close'),
-        timeout: const Duration(seconds: 10));
+        timeout: const Duration(seconds: 10),
+      );
     } catch (_) {}
   }
 
@@ -1990,7 +2171,9 @@ class ApiService {
   /// client-supplied date/timestamps, unlike /play which forces Direct Play.
   /// [session] is a fully-built session map; deviceInfo/mediaPlayer/playMethod
   /// are stamped here so they can't be omitted.
-  Future<LocalSessionResult> syncLocalSession(Map<String, dynamic> session) async {
+  Future<LocalSessionResult> syncLocalSession(
+    Map<String, dynamic> session,
+  ) async {
     try {
       final body = {
         ...session,
@@ -2001,7 +2184,8 @@ class ApiService {
       final resp = await _authPost(
         Uri.parse('$_cleanBaseUrl/api/session/local'),
         body: jsonEncode(body),
-        timeout: const Duration(seconds: 10));
+        timeout: const Duration(seconds: 10),
+      );
       return LocalSessionResult(
         ok: resp.statusCode == 200,
         serverTooOld: resp.statusCode == 404 || resp.statusCode == 501,
@@ -2014,8 +2198,10 @@ class ApiService {
   /// Batch-upsert local sessions, used to replay the offline queue on reconnect.
   /// POST /api/session/local-all
   Future<LocalSessionResult> syncLocalSessionsAll(
-      List<Map<String, dynamic>> sessions) async {
-    if (sessions.isEmpty) return const LocalSessionResult(ok: true, serverTooOld: false);
+    List<Map<String, dynamic>> sessions,
+  ) async {
+    if (sessions.isEmpty)
+      return const LocalSessionResult(ok: true, serverTooOld: false);
     try {
       final body = {
         'sessions': sessions
@@ -2026,7 +2212,8 @@ class ApiService {
       final resp = await _authPost(
         Uri.parse('$_cleanBaseUrl/api/session/local-all'),
         body: jsonEncode(body),
-        timeout: const Duration(seconds: 20));
+        timeout: const Duration(seconds: 20),
+      );
       return LocalSessionResult(
         ok: resp.statusCode == 200,
         serverTooOld: resp.statusCode == 404 || resp.statusCode == 501,
@@ -2046,7 +2233,8 @@ class ApiService {
       final resp = await _authPost(
         Uri.parse('$_cleanBaseUrl/api/session/local'),
         body: jsonEncode(session),
-        timeout: const Duration(seconds: 10));
+        timeout: const Duration(seconds: 10),
+      );
       return resp.statusCode == 200;
     } catch (_) {
       return false;
@@ -2059,7 +2247,8 @@ class ApiService {
     try {
       final resp = await _authDelete(
         Uri.parse('$_cleanBaseUrl/api/sessions/$sessionId'),
-        timeout: const Duration(seconds: 10));
+        timeout: const Duration(seconds: 10),
+      );
       return resp.statusCode == 200;
     } catch (_) {
       return false;
@@ -2077,7 +2266,8 @@ class ApiService {
           : itemId;
       final resp = await _authGet(
         Uri.parse('$_cleanBaseUrl/api/me/progress/$progressPath'),
-        timeout: const Duration(seconds: 10));
+        timeout: const Duration(seconds: 10),
+      );
       if (resp.statusCode == 200) {
         return jsonDecode(resp.body) as Map<String, dynamic>;
       }
@@ -2210,10 +2400,14 @@ class ApiService {
           : itemId;
       final url = Uri.parse('$_cleanBaseUrl/api/me/progress/$progressPath');
       if (isFinished == false) {
-        final unfinish = await _authPatch(url,
-            body: jsonEncode({'isFinished': false}),
-            timeout: const Duration(seconds: 10));
-        debugPrint('[API] updateProgress unfinish $progressPath: ${unfinish.statusCode}');
+        final unfinish = await _authPatch(
+          url,
+          body: jsonEncode({'isFinished': false}),
+          timeout: const Duration(seconds: 10),
+        );
+        debugPrint(
+          '[API] updateProgress unfinish $progressPath: ${unfinish.statusCode}',
+        );
         return unfinish.statusCode < 500;
       }
       final body = jsonEncode({
@@ -2224,10 +2418,14 @@ class ApiService {
       });
       debugPrint('[API] updateProgress PATCH /api/me/progress/$progressPath');
       debugPrint('[API] updateProgress body: currentTime=$currentTime');
-      final resp = await _authPatch(url,
+      final resp = await _authPatch(
+        url,
         body: body,
-        timeout: const Duration(seconds: 10));
-      debugPrint('[API] updateProgress response: ${resp.statusCode} ${resp.body}');
+        timeout: const Duration(seconds: 10),
+      );
+      debugPrint(
+        '[API] updateProgress response: ${resp.statusCode} ${resp.body}',
+      );
       return resp.statusCode < 500;
     } catch (e) {
       debugPrint('[API] updateProgress error: $e');
@@ -2256,13 +2454,19 @@ class ApiService {
       final progressPath = itemId.length > 36
           ? '${itemId.substring(0, 36)}/${itemId.substring(37)}'
           : itemId;
-      debugPrint('[API] updateEbookProgress PATCH /api/me/progress/$progressPath');
-      final resp = await http.patch(
-        Uri.parse('$_cleanBaseUrl/api/me/progress/$progressPath'),
-        headers: _headers,
-        body: body,
-      ).timeout(const Duration(seconds: 10));
-      debugPrint('[API] updateEbookProgress response: ${resp.statusCode} ${resp.body}');
+      debugPrint(
+        '[API] updateEbookProgress PATCH /api/me/progress/$progressPath',
+      );
+      final resp = await http
+          .patch(
+            Uri.parse('$_cleanBaseUrl/api/me/progress/$progressPath'),
+            headers: _headers,
+            body: body,
+          )
+          .timeout(const Duration(seconds: 10));
+      debugPrint(
+        '[API] updateEbookProgress response: ${resp.statusCode} ${resp.body}',
+      );
       return resp.statusCode >= 200 && resp.statusCode < 300;
     } catch (e) {
       debugPrint('[API] updateEbookProgress error: $e');
@@ -2281,7 +2485,8 @@ class ApiService {
   }
 
   /// Mark a book as not finished (reset progress to a position).
-  Future<void> markNotFinished(String itemId, {
+  Future<void> markNotFinished(
+    String itemId, {
     required double currentTime,
     required double duration,
   }) async {
@@ -2295,8 +2500,11 @@ class ApiService {
 
   /// Reset progress to zero. [progressId] is the server's progress record id
   /// when one is known; the delete route only accepts that.
-  Future<bool> resetProgress(String itemId, double duration,
-      {String? progressId}) async {
+  Future<bool> resetProgress(
+    String itemId,
+    double duration, {
+    String? progressId,
+  }) async {
     try {
       final progressPath = itemId.length > 36
           ? '${itemId.substring(0, 36)}/${itemId.substring(37)}'
@@ -2308,11 +2516,18 @@ class ApiService {
       if (progressId != null) await deleteMediaProgress(progressId);
 
       // Start session at 0 and close — forces server to update position
-      final sessionData = await startPlaybackSession(apiItemId, episodeId: episodeId);
+      final sessionData = await startPlaybackSession(
+        apiItemId,
+        episodeId: episodeId,
+      );
       if (sessionData != null) {
         final sessionId = sessionData['id'] as String?;
         if (sessionId != null) {
-          await syncPlaybackSession(sessionId, currentTime: 0, duration: duration);
+          await syncPlaybackSession(
+            sessionId,
+            currentTime: 0,
+            duration: duration,
+          );
           await closePlaybackSession(sessionId);
         }
       }
@@ -2327,7 +2542,8 @@ class ApiService {
           'hideFromContinueListening': true,
           'lastUpdate': DateTime.now().millisecondsSinceEpoch,
         }),
-        timeout: const Duration(seconds: 10));
+        timeout: const Duration(seconds: 10),
+      );
 
       return true;
     } catch (e) {
@@ -2341,8 +2557,11 @@ class ApiService {
   Future<bool> removeSeriesFromContinueListening(String seriesId) async {
     try {
       final resp = await _authGet(
-        Uri.parse('$_cleanBaseUrl/api/me/series/$seriesId/remove-from-continue-listening'),
-        timeout: const Duration(seconds: 10));
+        Uri.parse(
+          '$_cleanBaseUrl/api/me/series/$seriesId/remove-from-continue-listening',
+        ),
+        timeout: const Duration(seconds: 10),
+      );
       return resp.statusCode == 200;
     } catch (e) {
       debugPrint('[API] removeSeriesFromContinueListening error: $e');
@@ -2356,8 +2575,11 @@ class ApiService {
   Future<bool> removeItemFromContinueListening(String mediaProgressId) async {
     try {
       final resp = await _authGet(
-        Uri.parse('$_cleanBaseUrl/api/me/progress/$mediaProgressId/remove-from-continue-listening'),
-        timeout: const Duration(seconds: 10));
+        Uri.parse(
+          '$_cleanBaseUrl/api/me/progress/$mediaProgressId/remove-from-continue-listening',
+        ),
+        timeout: const Duration(seconds: 10),
+      );
       return resp.statusCode == 200;
     } catch (e) {
       debugPrint('[API] removeItemFromContinueListening error: $e');
@@ -2370,10 +2592,15 @@ class ApiService {
   /// Start a playback session for a podcast episode.
   /// POST /api/items/:itemId/play/:episodeId
   Future<Map<String, dynamic>?> startEpisodePlaybackSession(
-      String itemId, String episodeId, {bool forceTranscode = false}) async {
+    String itemId,
+    String episodeId, {
+    bool forceTranscode = false,
+  }) async {
     try {
       final url = '$_cleanBaseUrl/api/items/$itemId/play/$episodeId';
-      debugPrint('[ABS] Starting episode session: POST $url (forceTranscode: $forceTranscode)');
+      debugPrint(
+        '[ABS] Starting episode session: POST $url (forceTranscode: $forceTranscode)',
+      );
       final response = await _authPost(
         Uri.parse(url),
         body: jsonEncode({
@@ -2397,7 +2624,8 @@ class ApiService {
             'audio/x-ms-wma',
           ],
         }),
-        timeout: const Duration(seconds: 20));
+        timeout: const Duration(seconds: 20),
+      );
 
       debugPrint('[ABS] Episode session response: ${response.statusCode}');
       if (response.statusCode == 200) {
@@ -2414,11 +2642,14 @@ class ApiService {
   /// Get server progress for a podcast episode.
   /// GET /api/me/progress/:itemId/:episodeId
   Future<Map<String, dynamic>?> getEpisodeProgress(
-      String itemId, String episodeId) async {
+    String itemId,
+    String episodeId,
+  ) async {
     try {
       final resp = await _authGet(
         Uri.parse('$_cleanBaseUrl/api/me/progress/$itemId/$episodeId'),
-        timeout: const Duration(seconds: 10));
+        timeout: const Duration(seconds: 10),
+      );
       if (resp.statusCode == 200) {
         return jsonDecode(resp.body) as Map<String, dynamic>;
       }
@@ -2441,24 +2672,36 @@ class ApiService {
     bool? isFinished,
   }) async {
     try {
-      final url = Uri.parse('$_cleanBaseUrl/api/me/progress/$itemId/$episodeId');
+      final url = Uri.parse(
+        '$_cleanBaseUrl/api/me/progress/$itemId/$episodeId',
+      );
       if (isFinished == false) {
-        final unfinish = await _authPatch(url,
-            body: jsonEncode({'isFinished': false}),
-            timeout: const Duration(seconds: 10));
-        debugPrint('[API] updateEpisodeProgress unfinish $episodeId: ${unfinish.statusCode}');
+        final unfinish = await _authPatch(
+          url,
+          body: jsonEncode({'isFinished': false}),
+          timeout: const Duration(seconds: 10),
+        );
+        debugPrint(
+          '[API] updateEpisodeProgress unfinish $episodeId: ${unfinish.statusCode}',
+        );
         return unfinish.statusCode < 500;
       }
-      final resp = await _authPatch(url,
+      final resp = await _authPatch(
+        url,
         body: jsonEncode({
           'currentTime': currentTime,
           'duration': duration,
-          'progress': duration > 0 ? (currentTime / duration).clamp(0.0, 1.0) : 0,
+          'progress': duration > 0
+              ? (currentTime / duration).clamp(0.0, 1.0)
+              : 0,
           if (isFinished == true) 'isFinished': true,
         }),
-        timeout: const Duration(seconds: 10));
+        timeout: const Duration(seconds: 10),
+      );
       if (resp.statusCode != 200) {
-        debugPrint('[API] updateEpisodeProgress $episodeId: HTTP ${resp.statusCode}');
+        debugPrint(
+          '[API] updateEpisodeProgress $episodeId: HTTP ${resp.statusCode}',
+        );
       }
       return resp.statusCode < 500;
     } catch (e) {
@@ -2474,7 +2717,8 @@ class ApiService {
     try {
       final resp = await _authDelete(
         Uri.parse('$_cleanBaseUrl/api/me/progress/$progressId'),
-        timeout: const Duration(seconds: 10));
+        timeout: const Duration(seconds: 10),
+      );
       debugPrint('[API] deleteMediaProgress $progressId: ${resp.statusCode}');
       return resp.statusCode >= 200 && resp.statusCode < 300;
     } catch (e) {
@@ -2493,18 +2737,26 @@ class ApiService {
     required double duration,
   }) async {
     try {
-      final url = Uri.parse('$_cleanBaseUrl/api/me/progress/$itemId/$episodeId');
-      final unfinish = await _authPatch(url,
-          body: jsonEncode({'isFinished': false}),
-          timeout: const Duration(seconds: 10));
-      final zero = await _authPatch(url,
-          body: jsonEncode({
-            'currentTime': 0,
-            'duration': duration,
-            'progress': 0,
-          }),
-          timeout: const Duration(seconds: 10));
-      debugPrint('[API] zeroEpisodeProgress: unfinish=${unfinish.statusCode} zero=${zero.statusCode}');
+      final url = Uri.parse(
+        '$_cleanBaseUrl/api/me/progress/$itemId/$episodeId',
+      );
+      final unfinish = await _authPatch(
+        url,
+        body: jsonEncode({'isFinished': false}),
+        timeout: const Duration(seconds: 10),
+      );
+      final zero = await _authPatch(
+        url,
+        body: jsonEncode({
+          'currentTime': 0,
+          'duration': duration,
+          'progress': 0,
+        }),
+        timeout: const Duration(seconds: 10),
+      );
+      debugPrint(
+        '[API] zeroEpisodeProgress: unfinish=${unfinish.statusCode} zero=${zero.statusCode}',
+      );
       return unfinish.statusCode == 200 && zero.statusCode == 200;
     } catch (e) {
       debugPrint('[API] zeroEpisodeProgress error: $e');
@@ -2514,14 +2766,21 @@ class ApiService {
 
   /// Get recent podcast episodes for a library.
   /// GET /api/libraries/:id/recent-episodes
-  Future<List<dynamic>> getRecentEpisodes(String libraryId, {int limit = 25, int page = 0}) async {
+  Future<List<dynamic>> getRecentEpisodes(
+    String libraryId, {
+    int limit = 25,
+    int page = 0,
+  }) async {
     try {
       final resp = await _authGet(
-        Uri.parse('$_cleanBaseUrl/api/libraries/$libraryId/recent-episodes?limit=$limit&page=$page'),
+        Uri.parse(
+          '$_cleanBaseUrl/api/libraries/$libraryId/recent-episodes?limit=$limit&page=$page',
+        ),
       );
       if (resp.statusCode == 200) {
         final data = jsonDecode(resp.body);
-        if (data is Map && data['episodes'] is List) return data['episodes'] as List<dynamic>;
+        if (data is Map && data['episodes'] is List)
+          return data['episodes'] as List<dynamic>;
         if (data is List) return data;
       }
     } catch (e) {
@@ -2534,7 +2793,9 @@ class ApiService {
   Future<Map<String, dynamic>?> getLibraryItem(String itemId) async {
     try {
       final response = await _authGet(
-        Uri.parse('$_cleanBaseUrl/api/items/$itemId?expanded=1&include=progress'),
+        Uri.parse(
+          '$_cleanBaseUrl/api/items/$itemId?expanded=1&include=progress',
+        ),
       );
 
       if (response.statusCode == 200) {
@@ -2553,7 +2814,8 @@ class ApiService {
     try {
       final response = await _authGet(
         Uri.parse('$_cleanBaseUrl/api/me/bookmarks/$itemId'),
-        timeout: const Duration(seconds: 10));
+        timeout: const Duration(seconds: 10),
+      );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         return (data['bookmarks'] as List<dynamic>? ?? const [])
@@ -2574,33 +2836,47 @@ class ApiService {
         }
       }
       return [];
-    } catch (e) { debugPrint('getServerBookmarks error: $e'); }
+    } catch (e) {
+      debugPrint('getServerBookmarks error: $e');
+    }
     return null;
   }
 
   /// Create a bookmark on the server.
   /// POST /api/me/item/:id/bookmark  body: { time, title }
-  Future<bool> createBookmark(String itemId, {required double time, required String title}) async {
+  Future<bool> createBookmark(
+    String itemId, {
+    required double time,
+    required String title,
+  }) async {
     try {
       final r = await _authPost(
         Uri.parse('$_cleanBaseUrl/api/me/item/$itemId/bookmark'),
         body: jsonEncode({'time': time, 'title': title}),
       );
       return r.statusCode == 200;
-    } catch (e) { debugPrint('createBookmark error: $e'); }
+    } catch (e) {
+      debugPrint('createBookmark error: $e');
+    }
     return false;
   }
 
   /// Update a bookmark on the server.
   /// PATCH /api/me/item/:id/bookmark  body: { time, title }
-  Future<bool> updateBookmark(String itemId, {required double time, required String title}) async {
+  Future<bool> updateBookmark(
+    String itemId, {
+    required double time,
+    required String title,
+  }) async {
     try {
       final r = await _authPatch(
         Uri.parse('$_cleanBaseUrl/api/me/item/$itemId/bookmark'),
         body: jsonEncode({'time': time, 'title': title}),
       );
       return r.statusCode == 200;
-    } catch (e) { debugPrint('updateBookmark error: $e'); }
+    } catch (e) {
+      debugPrint('updateBookmark error: $e');
+    }
     return false;
   }
 
@@ -2612,7 +2888,9 @@ class ApiService {
         Uri.parse('$_cleanBaseUrl/api/me/item/$itemId/bookmark/$time'),
       );
       return r.statusCode == 200;
-    } catch (e) { debugPrint('deleteBookmark error: $e'); }
+    } catch (e) {
+      debugPrint('deleteBookmark error: $e');
+    }
     return false;
   }
 
@@ -2627,10 +2905,15 @@ class ApiService {
     try {
       final r = await _authPost(
         Uri.parse('$_cleanBaseUrl/api/emails/send-ebook-to-device'),
-        body: jsonEncode({'libraryItemId': libraryItemId, 'deviceName': deviceName}),
+        body: jsonEncode({
+          'libraryItemId': libraryItemId,
+          'deviceName': deviceName,
+        }),
       );
       return r.statusCode == 200;
-    } catch (e) { debugPrint('[API] sendEBookToDevice error: $e'); }
+    } catch (e) {
+      debugPrint('[API] sendEBookToDevice error: $e');
+    }
     return false;
   }
 
@@ -2647,7 +2930,9 @@ class ApiService {
         return body;
       }
       return null;
-    } catch (e) { debugPrint('[API] getEmailSettings error: $e'); }
+    } catch (e) {
+      debugPrint('[API] getEmailSettings error: $e');
+    }
     return null;
   }
 
@@ -2659,7 +2944,9 @@ class ApiService {
         body: jsonEncode(patch),
       );
       return r.statusCode == 200;
-    } catch (e) { debugPrint('[API] updateEmailSettings error: $e'); }
+    } catch (e) {
+      debugPrint('[API] updateEmailSettings error: $e');
+    }
     return false;
   }
 
@@ -2668,7 +2955,9 @@ class ApiService {
     try {
       final r = await _authPost(Uri.parse('$_cleanBaseUrl/api/emails/test'));
       return r.statusCode == 200;
-    } catch (e) { debugPrint('[API] sendTestEmail error: $e'); }
+    } catch (e) {
+      debugPrint('[API] sendTestEmail error: $e');
+    }
     return false;
   }
 
@@ -2681,7 +2970,9 @@ class ApiService {
         body: jsonEncode({'ereaderDevices': devices}),
       );
       return r.statusCode == 200;
-    } catch (e) { debugPrint('[API] updateEReaderDevices error: $e'); }
+    } catch (e) {
+      debugPrint('[API] updateEReaderDevices error: $e');
+    }
     return false;
   }
 
@@ -2716,7 +3007,12 @@ class ApiService {
     return null;
   }
 
-  Future<Map<String, dynamic>?> getSeries(String seriesId, {String? libraryId, void Function(List<dynamic> books, int total, {double? totalDuration})? onPageLoaded}) async {
+  Future<Map<String, dynamic>?> getSeries(
+    String seriesId, {
+    String? libraryId,
+    void Function(List<dynamic> books, int total, {double? totalDuration})?
+    onPageLoaded,
+  }) async {
     if (libraryId == null) return null;
     try {
       // ABS filter format: series.<base64(seriesId)>
@@ -2730,23 +3026,33 @@ class ApiService {
         final sw = Stopwatch()..start();
         try {
           final resp = await _authGet(
-            Uri.parse('$_cleanBaseUrl/api/libraries/$libraryId/series/$seriesId'),
-            timeout: const Duration(seconds: 30));
-          debugPrint('[API] getSeries $seriesId meta: HTTP ${resp.statusCode} '
-              'in ${sw.elapsedMilliseconds}ms');
+            Uri.parse(
+              '$_cleanBaseUrl/api/libraries/$libraryId/series/$seriesId',
+            ),
+            timeout: const Duration(seconds: 30),
+          );
+          debugPrint(
+            '[API] getSeries $seriesId meta: HTTP ${resp.statusCode} '
+            'in ${sw.elapsedMilliseconds}ms',
+          );
           if (resp.statusCode == 200) {
             return jsonDecode(resp.body) as Map<String, dynamic>;
           }
         } catch (e) {
-          debugPrint('[API] getSeries $seriesId meta failed after '
-              '${sw.elapsedMilliseconds}ms: $e');
+          debugPrint(
+            '[API] getSeries $seriesId meta failed after '
+            '${sw.elapsedMilliseconds}ms: $e',
+          );
         }
         return null;
       }
 
       Future<http.Response> fetchItems(int p) => _authGet(
-        Uri.parse('$_cleanBaseUrl/api/libraries/$libraryId/items?filter=series.$filterValue&sort=media.metadata.series.sequence&limit=$pageSize&page=$p&collapseseries=0'),
-        timeout: const Duration(seconds: 30));
+        Uri.parse(
+          '$_cleanBaseUrl/api/libraries/$libraryId/items?filter=series.$filterValue&sort=media.metadata.series.sequence&limit=$pageSize&page=$p&collapseseries=0',
+        ),
+        timeout: const Duration(seconds: 30),
+      );
 
       // The books are what the sheet shows; the series record only adds the
       // name and total duration. Ask for the first page of books before the
@@ -2758,14 +3064,18 @@ class ApiService {
         final pageSw = Stopwatch()..start();
         final itemsResp = await itemsFuture;
         if (itemsResp.statusCode != 200) {
-          debugPrint('[API] getSeries $seriesId items page $page failed: ${itemsResp.statusCode}');
+          debugPrint(
+            '[API] getSeries $seriesId items page $page failed: ${itemsResp.statusCode}',
+          );
           break;
         }
         final data = jsonDecode(itemsResp.body) as Map<String, dynamic>;
         final results = data['results'] as List<dynamic>? ?? [];
         total = (data['total'] as num?)?.toInt() ?? results.length;
-        debugPrint('[API] getSeries $seriesId items page=$page results=${results.length} '
-            'total=$total in ${pageSw.elapsedMilliseconds}ms');
+        debugPrint(
+          '[API] getSeries $seriesId items page=$page results=${results.length} '
+          'total=$total in ${pageSw.elapsedMilliseconds}ms',
+        );
         allResults.addAll(results);
         onPageLoaded?.call(allResults, total);
         if (allResults.length >= total || results.isEmpty) break;
@@ -2796,31 +3106,44 @@ class ApiService {
   /// Get books in a series with collapseseries=1 to detect sub-series.
   /// Returns items where books sharing another series are collapsed into
   /// a single entry with a 'collapsedSeries' object.
-  Future<List<dynamic>> getSeriesCollapsed(String seriesId, {required String libraryId}) async {
+  Future<List<dynamic>> getSeriesCollapsed(
+    String seriesId, {
+    required String libraryId,
+  }) async {
     try {
       final filterValue = base64Encode(utf8.encode(seriesId));
       final allResults = <dynamic>[];
       int page = 0;
       final sw = Stopwatch()..start();
       while (true) {
-        final url = '$_cleanBaseUrl/api/libraries/$libraryId/items?filter=series.$filterValue&sort=addedAt&limit=100&page=$page&collapseseries=1';
-        final resp = await _authGet(Uri.parse(url), timeout: const Duration(seconds: 60));
+        final url =
+            '$_cleanBaseUrl/api/libraries/$libraryId/items?filter=series.$filterValue&sort=addedAt&limit=100&page=$page&collapseseries=1';
+        final resp = await _authGet(
+          Uri.parse(url),
+          timeout: const Duration(seconds: 60),
+        );
         if (resp.statusCode != 200) {
-          debugPrint('[API] getSeriesCollapsed page $page failed: ${resp.statusCode}');
+          debugPrint(
+            '[API] getSeriesCollapsed page $page failed: ${resp.statusCode}',
+          );
           break;
         }
         final data = jsonDecode(resp.body) as Map<String, dynamic>;
         final results = data['results'] as List<dynamic>? ?? [];
         final total = (data['total'] as num?)?.toInt() ?? results.length;
-        debugPrint('[API] getSeriesCollapsed page=$page results=${results.length} '
-            'total=$total in ${sw.elapsedMilliseconds}ms');
+        debugPrint(
+          '[API] getSeriesCollapsed page=$page results=${results.length} '
+          'total=$total in ${sw.elapsedMilliseconds}ms',
+        );
         sw.reset();
         allResults.addAll(results);
         if (allResults.length >= total || results.isEmpty) break;
         page++;
       }
       return allResults;
-    } catch (e) { debugPrint('[API] getSeriesCollapsed error: $e'); }
+    } catch (e) {
+      debugPrint('[API] getSeriesCollapsed error: $e');
+    }
     return [];
   }
 
@@ -2865,14 +3188,15 @@ class ApiService {
       if (author != null && author.isNotEmpty) {
         params['author'] = author;
       }
-      final uri = Uri.parse('$_cleanBaseUrl/api/search/books')
-          .replace(queryParameters: params);
+      final uri = Uri.parse(
+        '$_cleanBaseUrl/api/search/books',
+      ).replace(queryParameters: params);
       debugPrint('[API] searchBooks: $uri');
-      final response = await _authGet(
-        uri,
-      );
+      final response = await _authGet(uri);
 
-      debugPrint('[API] searchBooks status=${response.statusCode} bodyLen=${response.body.length}');
+      debugPrint(
+        '[API] searchBooks status=${response.statusCode} bodyLen=${response.body.length}',
+      );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -2885,7 +3209,9 @@ class ApiService {
 
         // Some providers may return a Map with results nested under a key
         if (data is Map<String, dynamic>) {
-          debugPrint('[API] searchBooks: got Map with keys: ${data.keys.join(', ')}');
+          debugPrint(
+            '[API] searchBooks: got Map with keys: ${data.keys.join(', ')}',
+          );
           // Try common nesting patterns
           for (final key in ['results', 'items', 'books', 'matches']) {
             final nested = data[key];
@@ -2899,7 +3225,9 @@ class ApiService {
           }
         }
 
-        debugPrint('[API] searchBooks: unexpected response type: ${data.runtimeType}');
+        debugPrint(
+          '[API] searchBooks: unexpected response type: ${data.runtimeType}',
+        );
       }
     } catch (e) {
       debugPrint('[API] searchBooks error: $e');
@@ -2916,9 +3244,13 @@ class ApiService {
     final catalog = await _audibleCatalogRating(asin);
     if (catalog != null) return catalog;
     try {
-      final response = await http.get(
-        Uri.parse('https://api.audnex.us/books/$asin?region=$_region&update=1'),
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .get(
+            Uri.parse(
+              'https://api.audnex.us/books/$asin?region=$_region&update=1',
+            ),
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -2937,19 +3269,24 @@ class ApiService {
     return null;
   }
 
-  static Future<Map<String, dynamic>?> _audibleCatalogRating(String asin) async {
+  static Future<Map<String, dynamic>?> _audibleCatalogRating(
+    String asin,
+  ) async {
     try {
-      final response = await http.get(
-        Uri.parse(
-          'https://api.audible$_audibleTld/1.0/catalog/products/'
-          '${Uri.encodeComponent(asin)}?response_groups=rating',
-        ),
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .get(
+            Uri.parse(
+              'https://api.audible$_audibleTld/1.0/catalog/products/'
+              '${Uri.encodeComponent(asin)}?response_groups=rating',
+            ),
+          )
+          .timeout(const Duration(seconds: 10));
       if (response.statusCode != 200) return null;
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       final product = data['product'] as Map<String, dynamic>?;
-      final overall = (product?['rating'] as Map<String, dynamic>?)
-          ?['overall_distribution'] as Map<String, dynamic>?;
+      final overall =
+          (product?['rating'] as Map<String, dynamic>?)?['overall_distribution']
+              as Map<String, dynamic>?;
       final score = (overall?['average_rating'] as num?)?.toDouble();
       final count = (overall?['num_ratings'] as num?)?.toInt();
       if (score == null || !score.isFinite || score <= 0 || score > 5) {
@@ -2970,7 +3307,9 @@ class ApiService {
   /// library item id. Used so the rating shows immediately on book detail
   /// open even when Audnexus is slow or unreachable, and so a transient
   /// network failure doesn't make a known rating disappear.
-  static Future<Map<String, dynamic>?> getCachedAudibleRating(String itemId) async {
+  static Future<Map<String, dynamic>?> getCachedAudibleRating(
+    String itemId,
+  ) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getString('audible_rating_$itemId');
@@ -2991,16 +3330,23 @@ class ApiService {
   /// Persist a fresh Audible rating so subsequent book detail opens render
   /// the stars instantly without waiting on Audnexus.
   static Future<void> setCachedAudibleRating(
-      String itemId, double rating, String? asin, {int? count}) async {
+    String itemId,
+    double rating,
+    String? asin, {
+    int? count,
+  }) async {
     if (rating <= 0) return;
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('audible_rating_$itemId', jsonEncode({
-        'rating': rating,
-        'count': count,
-        'asin': asin,
-        'fetchedAt': DateTime.now().millisecondsSinceEpoch,
-      }));
+      await prefs.setString(
+        'audible_rating_$itemId',
+        jsonEncode({
+          'rating': rating,
+          'count': count,
+          'asin': asin,
+          'fetchedAt': DateTime.now().millisecondsSinceEpoch,
+        }),
+      );
     } catch (_) {}
   }
 
@@ -3008,7 +3354,9 @@ class ApiService {
   /// then fetch the rating from Audnexus. Used as a fallback when the book's
   /// stored ASIN returns no rating.
   Future<Map<String, dynamic>?> searchAudibleRating(
-      String title, String? author) async {
+    String title,
+    String? author,
+  ) async {
     try {
       // Use the ABS server's search endpoint to query Audible for the book.
       final response = await _authGet(
@@ -3057,9 +3405,18 @@ class ApiService {
   /// Map region code to Audible API TLD.
   static String _audibleTldFor(String region) {
     const tlds = {
-      'us': '.com', 'uk': '.co.uk', 'gb': '.co.uk', 'au': '.com.au',
-      'ca': '.ca', 'de': '.de', 'fr': '.fr', 'it': '.it', 'es': '.es',
-      'jp': '.co.jp', 'in': '.in', 'br': '.com.br',
+      'us': '.com',
+      'uk': '.co.uk',
+      'gb': '.co.uk',
+      'au': '.com.au',
+      'ca': '.ca',
+      'de': '.de',
+      'fr': '.fr',
+      'it': '.it',
+      'es': '.es',
+      'jp': '.co.jp',
+      'in': '.in',
+      'br': '.com.br',
     };
     return tlds[region] ?? '.com';
   }
@@ -3069,7 +3426,10 @@ class ApiService {
   /// Fetch full book metadata from Audnexus by ASIN.
   /// Returns the raw Audnexus response including seriesPrimary, releaseDate, etc.
   /// If [region] is provided, it overrides the device locale region.
-  static Future<Map<String, dynamic>?> getAudnexusBook(String asin, {String? region}) async {
+  static Future<Map<String, dynamic>?> getAudnexusBook(
+    String asin, {
+    String? region,
+  }) async {
     final r = region ?? _region;
     final book = await _getAudnexusBookRaw(asin, r);
     if (book != null || r == 'us') return book;
@@ -3080,15 +3440,20 @@ class ApiService {
     return _getAudnexusBookRaw(asin, 'us');
   }
 
-  static Future<Map<String, dynamic>?> _getAudnexusBookRaw(String asin, String region) async {
+  static Future<Map<String, dynamic>?> _getAudnexusBookRaw(
+    String asin,
+    String region,
+  ) async {
     try {
-      final response = await http.get(
-        Uri.parse('https://api.audnex.us/books/$asin?region=$region'),
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .get(Uri.parse('https://api.audnex.us/books/$asin?region=$region'))
+          .timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
-      debugPrint('[API] getAudnexusBook $asin region=$region status=${response.statusCode}');
+      debugPrint(
+        '[API] getAudnexusBook $asin region=$region status=${response.statusCode}',
+      );
     } catch (e) {
       debugPrint('[API] getAudnexusBook error: $e');
     }
@@ -3097,13 +3462,18 @@ class ApiService {
 
   /// Get all book ASINs in an Audible series using the catalog relationships endpoint.
   /// Returns a list of { asin, sequence, sort } maps.
-  static Future<List<Map<String, dynamic>>> getAudibleSeriesBooks(String seriesAsin, {String? region}) async {
+  static Future<List<Map<String, dynamic>>> getAudibleSeriesBooks(
+    String seriesAsin, {
+    String? region,
+  }) async {
     try {
       final tld = region != null ? _audibleTldFor(region) : _audibleTld;
-      final url = 'https://api.audible$tld/1.0/catalog/products/$seriesAsin'
+      final url =
+          'https://api.audible$tld/1.0/catalog/products/$seriesAsin'
           '?response_groups=relationships';
       debugPrint('[API] getAudibleSeriesBooks: $url');
-      final response = await http.get(Uri.parse(url))
+      final response = await http
+          .get(Uri.parse(url))
           .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
@@ -3133,12 +3503,17 @@ class ApiService {
 
   /// Fetch details for a single book from the Audible catalog API.
   /// Returns title, authors, narrators, release_date, runtime, rating, cover, etc.
-  static Future<Map<String, dynamic>?> getAudibleBookDetails(String asin, {String? region}) async {
+  static Future<Map<String, dynamic>?> getAudibleBookDetails(
+    String asin, {
+    String? region,
+  }) async {
     try {
       final tld = region != null ? _audibleTldFor(region) : _audibleTld;
-      final url = 'https://api.audible$tld/1.0/catalog/products/$asin'
+      final url =
+          'https://api.audible$tld/1.0/catalog/products/$asin'
           '?response_groups=product_attrs,product_desc,product_details,series,rating,media';
-      final response = await http.get(Uri.parse(url))
+      final response = await http
+          .get(Uri.parse(url))
           .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
@@ -3172,7 +3547,9 @@ class ApiService {
       // store too, since these relationship ASINs may not exist regionally.
       relationships = await getAudibleSeriesBooks(seriesAsin, region: 'us');
       if (relationships.isNotEmpty) {
-        debugPrint('[API] discoverAudibleSeries: region $region empty, using us');
+        debugPrint(
+          '[API] discoverAudibleSeries: region $region empty, using us',
+        );
         effectiveRegion = 'us';
       }
     }
@@ -3203,7 +3580,9 @@ class ApiService {
         final seqB = double.tryParse(b['sequence']?.toString() ?? '') ?? 999999;
         return seqB.compareTo(seqA); // descending
       });
-      debugPrint('[API] discoverAudibleSeries: capping ${uniqueBooks.length} books to newest 50');
+      debugPrint(
+        '[API] discoverAudibleSeries: capping ${uniqueBooks.length} books to newest 50',
+      );
       uniqueBooks = uniqueBooks.take(50).toList();
     }
 
@@ -3212,13 +3591,18 @@ class ApiService {
       final batch = uniqueBooks.skip(i).take(10);
       final futures = batch.map((book) async {
         final asin = book['asin'] as String;
-        final details = await getAudibleBookDetails(asin, region: effectiveRegion);
+        final details = await getAudibleBookDetails(
+          asin,
+          region: effectiveRegion,
+        );
         if (details == null) return null;
 
         final authors = (details['authors'] as List<dynamic>? ?? [])
-            .map((a) => (a as Map<String, dynamic>)['name'] ?? '').join(', ');
+            .map((a) => (a as Map<String, dynamic>)['name'] ?? '')
+            .join(', ');
         final narrators = (details['narrators'] as List<dynamic>? ?? [])
-            .map((n) => (n as Map<String, dynamic>)['name'] ?? '').join(', ');
+            .map((n) => (n as Map<String, dynamic>)['name'] ?? '')
+            .join(', ');
         final rating = details['rating'] as Map<String, dynamic>?;
 
         return <String, dynamic>{
@@ -3229,9 +3613,13 @@ class ApiService {
           'narrators': narrators,
           'releaseDate': details['release_date'] ?? '',
           'runtimeMinutes': details['runtime_length_min'] ?? 0,
-          'rating': rating?['overall_distribution']?['display_average_rating'] ?? 0.0,
+          'rating':
+              rating?['overall_distribution']?['display_average_rating'] ?? 0.0,
           'numRatings': rating?['overall_distribution']?['num_ratings'] ?? 0,
-          'coverUrl': details['product_images']?['500'] ?? details['product_images']?['1024'] ?? '',
+          'coverUrl':
+              details['product_images']?['500'] ??
+              details['product_images']?['1024'] ??
+              '',
           'sequence': book['sequence'] ?? '',
           'sort': book['sort'] ?? '0',
           'publisherSummary': details['publisher_summary'] ?? '',
@@ -3269,7 +3657,9 @@ class ApiService {
           }
         }
       }
-    } catch (e) { debugPrint('getUsers error: $e'); }
+    } catch (e) {
+      debugPrint('getUsers error: $e');
+    }
     return [];
   }
 
@@ -3279,11 +3669,15 @@ class ApiService {
       final r = await _authGet(Uri.parse('$_cleanBaseUrl/api/users/online'));
       if (r.statusCode == 200) {
         final data = jsonDecode(r.body);
-        if (data is Map && data['usersOnline'] is List) return data['usersOnline'] as List<dynamic>;
-        if (data is Map && data['openSessions'] is List) return data['openSessions'] as List<dynamic>;
+        if (data is Map && data['usersOnline'] is List)
+          return data['usersOnline'] as List<dynamic>;
+        if (data is Map && data['openSessions'] is List)
+          return data['openSessions'] as List<dynamic>;
         if (data is List) return data;
       }
-    } catch (e) { debugPrint('getOnlineUsers error: $e'); }
+    } catch (e) {
+      debugPrint('getOnlineUsers error: $e');
+    }
     return [];
   }
 
@@ -3297,7 +3691,9 @@ class ApiService {
         final data = jsonDecode(r.body);
         return (data['sessions'] as List<dynamic>?) ?? [];
       }
-    } catch (e) { debugPrint('getAllSessions error: $e'); }
+    } catch (e) {
+      debugPrint('getAllSessions error: $e');
+    }
     return [];
   }
 
@@ -3319,8 +3715,9 @@ class ApiService {
         'desc': desc ? '1' : '0',
         if (userId != null && userId.isNotEmpty) 'user': userId,
       };
-      final uri = Uri.parse('$_cleanBaseUrl/api/sessions')
-          .replace(queryParameters: params);
+      final uri = Uri.parse(
+        '$_cleanBaseUrl/api/sessions',
+      ).replace(queryParameters: params);
       final r = await _authGet(uri, timeout: const Duration(seconds: 15));
       if (r.statusCode == 200) {
         return jsonDecode(r.body) as Map<String, dynamic>;
@@ -3339,7 +3736,9 @@ class ApiService {
         final data = jsonDecode(r.body);
         return (data['backups'] as List<dynamic>?) ?? [];
       }
-    } catch (e) { debugPrint('getBackups error: $e'); }
+    } catch (e) {
+      debugPrint('getBackups error: $e');
+    }
     return [];
   }
 
@@ -3374,10 +3773,7 @@ class ApiService {
     try {
       final response = await _authPost(
         Uri.parse('$_cleanBaseUrl/api/filesystem/pathexists'),
-        body: jsonEncode({
-          'directory': directory,
-          'folderPath': folderPath,
-        }),
+        body: jsonEncode({'directory': directory, 'folderPath': folderPath}),
         timeout: const Duration(seconds: 20),
       );
       if (response.statusCode == 200) {
@@ -3425,24 +3821,30 @@ class ApiService {
       for (var i = 0; i < upload.files.length; i++) {
         final file = upload.files[i];
         if (file.bytes != null) {
-          parts.add(http.MultipartFile.fromBytes(
-            '$i',
-            file.bytes!,
-            filename: file.name,
-          ));
+          parts.add(
+            http.MultipartFile.fromBytes(
+              '$i',
+              file.bytes!,
+              filename: file.name,
+            ),
+          );
         } else if (file.path != null && file.path!.isNotEmpty) {
-          parts.add(await http.MultipartFile.fromPath(
-            '$i',
-            file.path!,
-            filename: file.name,
-          ));
+          parts.add(
+            await http.MultipartFile.fromPath(
+              '$i',
+              file.path!,
+              filename: file.name,
+            ),
+          );
         } else if (file.readStream != null) {
-          parts.add(http.MultipartFile(
-            '$i',
-            file.readStream!,
-            file.size,
-            filename: file.name,
-          ));
+          parts.add(
+            http.MultipartFile(
+              '$i',
+              file.readStream!,
+              file.size,
+              filename: file.name,
+            ),
+          );
         } else {
           return MediaUploadResult(
             success: false,
@@ -3453,26 +3855,32 @@ class ApiService {
 
       // Track every source uniformly, including native file paths. Use actual
       // multipart lengths rather than potentially stale file-picker metadata.
-      final totalBytes = parts.fold<int>(0, (total, part) => total + part.length);
+      final totalBytes = parts.fold<int>(
+        0,
+        (total, part) => total + part.length,
+      );
       var sentBytes = 0;
       onProgress?.call(0, totalBytes);
       for (final part in parts) {
-        request.files.add(http.MultipartFile(
-          part.field,
-          part.finalize().map((chunk) {
-            sentBytes += chunk.length;
-            onProgress?.call(sentBytes, totalBytes);
-            return chunk;
-          }),
-          part.length,
-          filename: part.filename,
-          contentType: part.contentType,
-        ));
+        request.files.add(
+          http.MultipartFile(
+            part.field,
+            part.finalize().map((chunk) {
+              sentBytes += chunk.length;
+              onProgress?.call(sentBytes, totalBytes);
+              return chunk;
+            }),
+            part.length,
+            filename: part.filename,
+            contentType: part.contentType,
+          ),
+        );
       }
 
       // Multipart streams are single-use: never automatically replay an
       // upload after an uncertain server result (which could duplicate a book).
-      final streamedResponse = await (_httpClient?.send(request) ?? request.send());
+      final streamedResponse =
+          await (_httpClient?.send(request) ?? request.send());
       final response = await http.Response.fromStream(streamedResponse);
       if (response.statusCode == 200) {
         onProgress?.call(totalBytes, totalBytes);
@@ -3493,9 +3901,14 @@ class ApiService {
   /// Create a backup (admin only)
   Future<bool> createBackup() async {
     try {
-      final r = await _authPost(Uri.parse('$_cleanBaseUrl/api/backups'), timeout: const Duration(seconds: 60));
+      final r = await _authPost(
+        Uri.parse('$_cleanBaseUrl/api/backups'),
+        timeout: const Duration(seconds: 60),
+      );
       return r.statusCode == 200;
-    } catch (e) { debugPrint('createBackup error: $e'); }
+    } catch (e) {
+      debugPrint('createBackup error: $e');
+    }
     return false;
   }
 
@@ -3504,9 +3917,12 @@ class ApiService {
     try {
       final r = await _authPost(
         Uri.parse('$_cleanBaseUrl/api/libraries/$libraryId/scan'),
-        timeout: const Duration(seconds: 30));
+        timeout: const Duration(seconds: 30),
+      );
       return r.statusCode == 200;
-    } catch (e) { debugPrint('scanLibrary error: $e'); }
+    } catch (e) {
+      debugPrint('scanLibrary error: $e');
+    }
     return false;
   }
 
@@ -3515,9 +3931,12 @@ class ApiService {
     try {
       final r = await _authPost(
         Uri.parse('$_cleanBaseUrl/api/libraries/$libraryId/match'),
-        timeout: const Duration(seconds: 30));
+        timeout: const Duration(seconds: 30),
+      );
       return r.statusCode == 200;
-    } catch (e) { debugPrint('matchLibrary error: $e'); }
+    } catch (e) {
+      debugPrint('matchLibrary error: $e');
+    }
     return false;
   }
 
@@ -3527,17 +3946,25 @@ class ApiService {
       final r = await _authGet(
         Uri.parse('$_cleanBaseUrl/api/libraries/$libraryId/stats'),
       );
-      if (r.statusCode == 200) return jsonDecode(r.body) as Map<String, dynamic>;
-    } catch (e) { debugPrint('getLibraryStats error: $e'); }
+      if (r.statusCode == 200)
+        return jsonDecode(r.body) as Map<String, dynamic>;
+    } catch (e) {
+      debugPrint('getLibraryStats error: $e');
+    }
     return null;
   }
 
   /// Purge server cache (admin only)
   Future<bool> purgeCache() async {
     try {
-      final r = await _authPost(Uri.parse('$_cleanBaseUrl/api/cache/purge'), timeout: const Duration(seconds: 30));
+      final r = await _authPost(
+        Uri.parse('$_cleanBaseUrl/api/cache/purge'),
+        timeout: const Duration(seconds: 30),
+      );
       return r.statusCode == 200;
-    } catch (e) { debugPrint('purgeCache error: $e'); }
+    } catch (e) {
+      debugPrint('purgeCache error: $e');
+    }
     return false;
   }
 
@@ -3546,11 +3973,15 @@ class ApiService {
   /// Returns { posix: bool, directories: [{path, dirname, level}] }.
   Future<Map<String, dynamic>?> getFilesystemPaths({String? path}) async {
     try {
-      final uri = Uri.parse('$_cleanBaseUrl/api/filesystem')
-          .replace(queryParameters: path != null ? {'path': path} : null);
+      final uri = Uri.parse(
+        '$_cleanBaseUrl/api/filesystem',
+      ).replace(queryParameters: path != null ? {'path': path} : null);
       final r = await _authGet(uri, timeout: const Duration(seconds: 20));
-      if (r.statusCode == 200) return jsonDecode(r.body) as Map<String, dynamic>;
-    } catch (e) { debugPrint('[API] getFilesystemPaths error: $e'); }
+      if (r.statusCode == 200)
+        return jsonDecode(r.body) as Map<String, dynamic>;
+    } catch (e) {
+      debugPrint('[API] getFilesystemPaths error: $e');
+    }
     return null;
   }
 
@@ -3559,11 +3990,17 @@ class ApiService {
   /// provider, settings. Returns the new library object on success.
   Future<Map<String, dynamic>?> createLibrary(Map<String, dynamic> body) async {
     try {
-      final r = await _authPost(Uri.parse('$_cleanBaseUrl/api/libraries'),
-          body: jsonEncode(body), timeout: const Duration(seconds: 30));
-      if (r.statusCode == 200) return jsonDecode(r.body) as Map<String, dynamic>;
+      final r = await _authPost(
+        Uri.parse('$_cleanBaseUrl/api/libraries'),
+        body: jsonEncode(body),
+        timeout: const Duration(seconds: 30),
+      );
+      if (r.statusCode == 200)
+        return jsonDecode(r.body) as Map<String, dynamic>;
       debugPrint('[API] createLibrary failed: ${r.statusCode}');
-    } catch (e) { debugPrint('[API] createLibrary error: $e'); }
+    } catch (e) {
+      debugPrint('[API] createLibrary error: $e');
+    }
     return null;
   }
 
@@ -3572,30 +4009,43 @@ class ApiService {
   /// new ones as {fullPath}; omitting a folder DELETES it (cascades on server).
   Future<bool> updateLibrary(String id, Map<String, dynamic> body) async {
     try {
-      final r = await _authPatch(Uri.parse('$_cleanBaseUrl/api/libraries/$id'),
-          body: jsonEncode(body), timeout: const Duration(seconds: 30));
+      final r = await _authPatch(
+        Uri.parse('$_cleanBaseUrl/api/libraries/$id'),
+        body: jsonEncode(body),
+        timeout: const Duration(seconds: 30),
+      );
       return r.statusCode == 200;
-    } catch (e) { debugPrint('[API] updateLibrary error: $e'); }
+    } catch (e) {
+      debugPrint('[API] updateLibrary error: $e');
+    }
     return false;
   }
 
   /// DELETE /api/libraries/:id — removes the library and all its items (admin only).
   Future<bool> deleteLibrary(String id) async {
     try {
-      final r = await _authDelete(Uri.parse('$_cleanBaseUrl/api/libraries/$id'),
-          timeout: const Duration(seconds: 30));
+      final r = await _authDelete(
+        Uri.parse('$_cleanBaseUrl/api/libraries/$id'),
+        timeout: const Duration(seconds: 30),
+      );
       return r.statusCode == 200;
-    } catch (e) { debugPrint('[API] deleteLibrary error: $e'); }
+    } catch (e) {
+      debugPrint('[API] deleteLibrary error: $e');
+    }
     return false;
   }
 
   /// POST /api/libraries/order — body is a raw array [{id, newOrder}] (admin only).
   Future<bool> reorderLibraries(List<Map<String, dynamic>> order) async {
     try {
-      final r = await _authPost(Uri.parse('$_cleanBaseUrl/api/libraries/order'),
-          body: jsonEncode(order));
+      final r = await _authPost(
+        Uri.parse('$_cleanBaseUrl/api/libraries/order'),
+        body: jsonEncode(order),
+      );
       return r.statusCode == 200;
-    } catch (e) { debugPrint('[API] reorderLibraries error: $e'); }
+    } catch (e) {
+      debugPrint('[API] reorderLibraries error: $e');
+    }
     return false;
   }
 
@@ -3605,13 +4055,26 @@ class ApiService {
   /// server (GET /api/custom-metadata-providers, dropdown value custom-<id>).
   Future<List<String>> getMetadataProviders() async {
     final out = <String>[
-      'google', 'openlibrary', 'itunes',
-      'audible', 'audible.ca', 'audible.uk', 'audible.au', 'audible.fr',
-      'audible.de', 'audible.jp', 'audible.it', 'audible.in', 'audible.es',
-      'audnexus', 'fantlab',
+      'google',
+      'openlibrary',
+      'itunes',
+      'audible',
+      'audible.ca',
+      'audible.uk',
+      'audible.au',
+      'audible.fr',
+      'audible.de',
+      'audible.jp',
+      'audible.it',
+      'audible.in',
+      'audible.es',
+      'audnexus',
+      'fantlab',
     ];
     try {
-      final r = await _authGet(Uri.parse('$_cleanBaseUrl/api/custom-metadata-providers'));
+      final r = await _authGet(
+        Uri.parse('$_cleanBaseUrl/api/custom-metadata-providers'),
+      );
       if (r.statusCode == 200) {
         final data = jsonDecode(r.body);
         for (final p in (data['providers'] as List?) ?? []) {
@@ -3621,36 +4084,50 @@ class ApiService {
           }
         }
       }
-    } catch (e) { debugPrint('[API] getMetadataProviders error: $e'); }
+    } catch (e) {
+      debugPrint('[API] getMetadataProviders error: $e');
+    }
     return out;
   }
 
   /// PATCH /api/settings — update server settings (admin only).
   /// There is no GET; read current values from AuthProvider.serverSettings.
   /// Returns the fresh serverSettings map so the caller can re-cache it.
-  Future<Map<String, dynamic>?> updateServerSettings(Map<String, dynamic> patch) async {
+  Future<Map<String, dynamic>?> updateServerSettings(
+    Map<String, dynamic> patch,
+  ) async {
     try {
-      final r = await _authPatch(Uri.parse('$_cleanBaseUrl/api/settings'),
-          body: jsonEncode(patch));
+      final r = await _authPatch(
+        Uri.parse('$_cleanBaseUrl/api/settings'),
+        body: jsonEncode(patch),
+      );
       if (r.statusCode == 200) {
         return jsonDecode(r.body)['serverSettings'] as Map<String, dynamic>?;
       }
       debugPrint('[API] updateServerSettings failed: ${r.statusCode}');
-    } catch (e) { debugPrint('[API] updateServerSettings error: $e'); }
+    } catch (e) {
+      debugPrint('[API] updateServerSettings error: $e');
+    }
     return null;
   }
 
   /// PATCH /api/sorting-prefixes — body { sortingPrefixes: [..] } (admin only).
   /// Returns the fresh serverSettings map (the response also has rowsUpdated).
-  Future<Map<String, dynamic>?> updateSortingPrefixes(List<String> prefixes) async {
+  Future<Map<String, dynamic>?> updateSortingPrefixes(
+    List<String> prefixes,
+  ) async {
     try {
-      final r = await _authPatch(Uri.parse('$_cleanBaseUrl/api/sorting-prefixes'),
-          body: jsonEncode({'sortingPrefixes': prefixes}),
-          timeout: const Duration(seconds: 30));
+      final r = await _authPatch(
+        Uri.parse('$_cleanBaseUrl/api/sorting-prefixes'),
+        body: jsonEncode({'sortingPrefixes': prefixes}),
+        timeout: const Duration(seconds: 30),
+      );
       if (r.statusCode == 200) {
         return jsonDecode(r.body)['serverSettings'] as Map<String, dynamic>?;
       }
-    } catch (e) { debugPrint('[API] updateSortingPrefixes error: $e'); }
+    } catch (e) {
+      debugPrint('[API] updateSortingPrefixes error: $e');
+    }
     return null;
   }
 
@@ -3658,28 +4135,41 @@ class ApiService {
   Future<Map<String, dynamic>?> getServerStats() async {
     try {
       final r = await _authGet(Uri.parse('$_cleanBaseUrl/api/stats/server'));
-      if (r.statusCode == 200) return jsonDecode(r.body) as Map<String, dynamic>;
-    } catch (e) { debugPrint('[API] getServerStats error: $e'); }
+      if (r.statusCode == 200)
+        return jsonDecode(r.body) as Map<String, dynamic>;
+    } catch (e) {
+      debugPrint('[API] getServerStats error: $e');
+    }
     return null;
   }
 
   /// GET /api/stats/year/:year — admin year-in-review stats (admin only).
   Future<Map<String, dynamic>?> getServerYearStats(int year) async {
     try {
-      final r = await _authGet(Uri.parse('$_cleanBaseUrl/api/stats/year/$year'),
-          timeout: const Duration(seconds: 30));
-      if (r.statusCode == 200) return jsonDecode(r.body) as Map<String, dynamic>;
-    } catch (e) { debugPrint('[API] getServerYearStats error: $e'); }
+      final r = await _authGet(
+        Uri.parse('$_cleanBaseUrl/api/stats/year/$year'),
+        timeout: const Duration(seconds: 30),
+      );
+      if (r.statusCode == 200)
+        return jsonDecode(r.body) as Map<String, dynamic>;
+    } catch (e) {
+      debugPrint('[API] getServerYearStats error: $e');
+    }
     return null;
   }
 
   /// GET /api/me/stats/year/:year — the signed-in user's year-in-review stats.
   Future<Map<String, dynamic>?> getMyYearStats(int year) async {
     try {
-      final r = await _authGet(Uri.parse('$_cleanBaseUrl/api/me/stats/year/$year'),
-          timeout: const Duration(seconds: 30));
-      if (r.statusCode == 200) return jsonDecode(r.body) as Map<String, dynamic>;
-    } catch (e) { debugPrint('[API] getMyYearStats error: $e'); }
+      final r = await _authGet(
+        Uri.parse('$_cleanBaseUrl/api/me/stats/year/$year'),
+        timeout: const Duration(seconds: 30),
+      );
+      if (r.statusCode == 200)
+        return jsonDecode(r.body) as Map<String, dynamic>;
+    } catch (e) {
+      debugPrint('[API] getMyYearStats error: $e');
+    }
     return null;
   }
 
@@ -3700,24 +4190,29 @@ class ApiService {
         'isActive': isActive,
       };
       if (permissions != null) body['permissions'] = permissions;
-      if (librariesAccessible != null) body['librariesAccessible'] = librariesAccessible;
+      if (librariesAccessible != null)
+        body['librariesAccessible'] = librariesAccessible;
       final r = await _authPost(
         Uri.parse('$_cleanBaseUrl/api/users'),
         body: jsonEncode(body),
       );
-      if (r.statusCode == 200) return jsonDecode(r.body) as Map<String, dynamic>;
-    } catch (e) { debugPrint('createUser error: $e'); }
+      if (r.statusCode == 200)
+        return jsonDecode(r.body) as Map<String, dynamic>;
+    } catch (e) {
+      debugPrint('createUser error: $e');
+    }
     return null;
   }
 
   /// Get a single user with full details including mediaProgress (admin only)
   Future<Map<String, dynamic>?> getUser(String userId) async {
     try {
-      final r = await _authGet(
-        Uri.parse('$_cleanBaseUrl/api/users/$userId'),
-      );
-      if (r.statusCode == 200) return jsonDecode(r.body) as Map<String, dynamic>;
-    } catch (e) { debugPrint('getUser error: $e'); }
+      final r = await _authGet(Uri.parse('$_cleanBaseUrl/api/users/$userId'));
+      if (r.statusCode == 200)
+        return jsonDecode(r.body) as Map<String, dynamic>;
+    } catch (e) {
+      debugPrint('getUser error: $e');
+    }
     return null;
   }
 
@@ -3729,7 +4224,9 @@ class ApiService {
         body: jsonEncode(updates),
       );
       return r.statusCode == 200;
-    } catch (e) { debugPrint('updateUser error: $e'); }
+    } catch (e) {
+      debugPrint('updateUser error: $e');
+    }
     return false;
   }
 
@@ -3740,7 +4237,9 @@ class ApiService {
         Uri.parse('$_cleanBaseUrl/api/users/$userId'),
       );
       return r.statusCode == 200;
-    } catch (e) { debugPrint('deleteUser error: $e'); }
+    } catch (e) {
+      debugPrint('deleteUser error: $e');
+    }
     return false;
   }
 
@@ -3753,7 +4252,9 @@ class ApiService {
         Uri.parse('$_cleanBaseUrl/api/users/$userId/openid-unlink'),
       );
       return r.statusCode == 200;
-    } catch (e) { debugPrint('unlinkOpenID error: $e'); }
+    } catch (e) {
+      debugPrint('unlinkOpenID error: $e');
+    }
     return false;
   }
 
@@ -3765,10 +4266,13 @@ class ApiService {
       final r = await _authGet(Uri.parse('$_cleanBaseUrl/api/api-keys'));
       if (r.statusCode == 200) {
         final data = jsonDecode(r.body);
-        if (data is Map && data['apiKeys'] is List) return data['apiKeys'] as List<dynamic>;
+        if (data is Map && data['apiKeys'] is List)
+          return data['apiKeys'] as List<dynamic>;
         if (data is List) return data;
       }
-    } catch (e) { debugPrint('getApiKeys error: $e'); }
+    } catch (e) {
+      debugPrint('getApiKeys error: $e');
+    }
     return [];
   }
 
@@ -3782,7 +4286,11 @@ class ApiService {
     bool isActive = true,
   }) async {
     try {
-      final body = <String, dynamic>{'name': name, 'userId': userId, 'isActive': isActive};
+      final body = <String, dynamic>{
+        'name': name,
+        'userId': userId,
+        'isActive': isActive,
+      };
       if (expiresIn != null) body['expiresIn'] = expiresIn;
       final r = await _authPost(
         Uri.parse('$_cleanBaseUrl/api/api-keys'),
@@ -3790,15 +4298,22 @@ class ApiService {
       );
       if (r.statusCode == 200) {
         final data = jsonDecode(r.body);
-        if (data is Map && data['apiKey'] is Map) return Map<String, dynamic>.from(data['apiKey'] as Map);
+        if (data is Map && data['apiKey'] is Map)
+          return Map<String, dynamic>.from(data['apiKey'] as Map);
       }
-    } catch (e) { debugPrint('createApiKey error: $e'); }
+    } catch (e) {
+      debugPrint('createApiKey error: $e');
+    }
     return null;
   }
 
   /// Update an API key (admin only). Only `isActive` and `userId` are mutable
   /// server-side (name and expiry are baked into the JWT).
-  Future<bool> updateApiKey(String keyId, {bool? isActive, String? userId}) async {
+  Future<bool> updateApiKey(
+    String keyId, {
+    bool? isActive,
+    String? userId,
+  }) async {
     try {
       final body = <String, dynamic>{};
       if (isActive != null) body['isActive'] = isActive;
@@ -3808,16 +4323,22 @@ class ApiService {
         body: jsonEncode(body),
       );
       return r.statusCode == 200;
-    } catch (e) { debugPrint('updateApiKey error: $e'); }
+    } catch (e) {
+      debugPrint('updateApiKey error: $e');
+    }
     return false;
   }
 
   /// Delete (revoke) an API key (admin only).
   Future<bool> deleteApiKey(String keyId) async {
     try {
-      final r = await _authDelete(Uri.parse('$_cleanBaseUrl/api/api-keys/$keyId'));
+      final r = await _authDelete(
+        Uri.parse('$_cleanBaseUrl/api/api-keys/$keyId'),
+      );
       return r.statusCode == 200;
-    } catch (e) { debugPrint('deleteApiKey error: $e'); }
+    } catch (e) {
+      debugPrint('deleteApiKey error: $e');
+    }
     return false;
   }
 
@@ -3839,7 +4360,9 @@ class ApiService {
       );
       debugPrint('[API] updateItemMedia $itemId -> ${r.statusCode}: ${r.body}');
       return r.statusCode == 200;
-    } catch (e) { debugPrint('updateItemMedia error: $e'); }
+    } catch (e) {
+      debugPrint('updateItemMedia error: $e');
+    }
     return false;
   }
 
@@ -3849,10 +4372,15 @@ class ApiService {
       final r = await _authPost(
         Uri.parse('$_cleanBaseUrl/api/items/$itemId/cover'),
         body: jsonEncode({'url': url}),
-        timeout: const Duration(seconds: 30));
-      debugPrint('[API] updateItemCoverUrl $itemId -> ${r.statusCode}: ${r.body}');
+        timeout: const Duration(seconds: 30),
+      );
+      debugPrint(
+        '[API] updateItemCoverUrl $itemId -> ${r.statusCode}: ${r.body}',
+      );
       return r.statusCode == 200;
-    } catch (e) { debugPrint('updateItemCoverUrl error: $e'); }
+    } catch (e) {
+      debugPrint('updateItemCoverUrl error: $e');
+    }
     return false;
   }
 
@@ -3862,10 +4390,13 @@ class ApiService {
     try {
       final r = await _authDelete(
         Uri.parse('$_cleanBaseUrl/api/items/$itemId/cover'),
-        timeout: const Duration(seconds: 30));
+        timeout: const Duration(seconds: 30),
+      );
       debugPrint('[API] removeItemCover $itemId -> ${r.statusCode}');
       return r.statusCode == 200;
-    } catch (e) { debugPrint('removeItemCover error: $e'); }
+    } catch (e) {
+      debugPrint('removeItemCover error: $e');
+    }
     return false;
   }
 
@@ -3880,20 +4411,28 @@ class ApiService {
       req.files.add(await http.MultipartFile.fromPath('cover', filePath));
       final res = await req.send().timeout(const Duration(seconds: 60));
       return res.statusCode == 200;
-    } catch (e) { debugPrint('uploadItemCover error: $e'); }
+    } catch (e) {
+      debugPrint('uploadItemCover error: $e');
+    }
     return false;
   }
 
   /// Search provider cover images for a book.
   /// GET /api/search/covers?title=&author=&provider=  ->  { results: [url, ...] }
-  Future<List<String>> searchCovers(String title,
-      {String? author, String provider = 'google'}) async {
+  Future<List<String>> searchCovers(
+    String title, {
+    String? author,
+    String provider = 'google',
+  }) async {
     try {
-      final uri = Uri.parse('$_cleanBaseUrl/api/search/covers').replace(queryParameters: {
-        'title': title,
-        if (author != null && author.trim().isNotEmpty) 'author': author.trim(),
-        'provider': provider,
-      });
+      final uri = Uri.parse('$_cleanBaseUrl/api/search/covers').replace(
+        queryParameters: {
+          'title': title,
+          if (author != null && author.trim().isNotEmpty)
+            'author': author.trim(),
+          'provider': provider,
+        },
+      );
       final r = await _authGet(uri, timeout: const Duration(seconds: 25));
       if (r.statusCode == 200) {
         final data = jsonDecode(r.body);
@@ -3923,19 +4462,24 @@ class ApiService {
   Future<List<dynamic>> searchPodcasts(String query) async {
     try {
       final r = await _authGet(
-        Uri.parse('$_cleanBaseUrl/api/search/podcast?term=${Uri.encodeComponent(query)}'),
+        Uri.parse(
+          '$_cleanBaseUrl/api/search/podcast?term=${Uri.encodeComponent(query)}',
+        ),
       );
       if (r.statusCode == 200) {
         final data = jsonDecode(r.body);
         if (data is List) return data;
         if (data is Map) {
-          if (data['podcasts'] is List) return data['podcasts'] as List<dynamic>;
+          if (data['podcasts'] is List)
+            return data['podcasts'] as List<dynamic>;
           for (final key in data.keys) {
             if (data[key] is List) return data[key] as List<dynamic>;
           }
         }
       }
-    } catch (e) { debugPrint('searchPodcasts error: $e'); }
+    } catch (e) {
+      debugPrint('searchPodcasts error: $e');
+    }
     return [];
   }
 
@@ -3958,10 +4502,16 @@ class ApiService {
       String podcastPath = '';
       try {
         final libs = await getLibraries();
-        final lib = libs.firstWhere((l) => l['id'] == libraryId, orElse: () => <String, dynamic>{});
+        final lib = libs.firstWhere(
+          (l) => l['id'] == libraryId,
+          orElse: () => <String, dynamic>{},
+        );
         final folders = lib['folders'] as List?;
         if (folders != null && folders.isNotEmpty) {
-          final folder = folders.firstWhere((f) => f['id'] == folderId, orElse: () => folders.first);
+          final folder = folders.firstWhere(
+            (f) => f['id'] == folderId,
+            orElse: () => folders.first,
+          );
           final folderPath = folder['fullPath'] as String? ?? '';
           if (folderPath.isNotEmpty) {
             final cleanTitle = title.replaceAll(RegExp(r'[\\/:*?"<>|]'), '');
@@ -3978,7 +4528,10 @@ class ApiService {
           'metadata': {
             'title': title,
             'author': podcastData['artistName'] ?? '',
-            'description': podcastData['description'] ?? podcastData['descriptionPlain'] ?? '',
+            'description':
+                podcastData['description'] ??
+                podcastData['descriptionPlain'] ??
+                '',
             'releaseDate': podcastData['releaseDate'] ?? '',
             'genres': podcastData['genres'] ?? [],
             'feedUrl': feedUrl,
@@ -3997,9 +4550,13 @@ class ApiService {
       final r = await _authPost(
         Uri.parse('$_cleanBaseUrl/api/podcasts'),
         body: bodyJson,
-        timeout: const Duration(seconds: 30));
-      if (r.statusCode == 200) return jsonDecode(r.body) as Map<String, dynamic>;
-    } catch (e) { debugPrint('createPodcast error: $e'); }
+        timeout: const Duration(seconds: 30),
+      );
+      if (r.statusCode == 200)
+        return jsonDecode(r.body) as Map<String, dynamic>;
+    } catch (e) {
+      debugPrint('createPodcast error: $e');
+    }
     return null;
   }
 
@@ -4010,12 +4567,15 @@ class ApiService {
       final r = await _authPost(
         Uri.parse('$_cleanBaseUrl/api/podcasts/feed'),
         body: jsonEncode({'rssFeed': rssFeedUrl}),
-        timeout: const Duration(seconds: 20));
+        timeout: const Duration(seconds: 20),
+      );
       if (r.statusCode == 200) {
         final data = jsonDecode(r.body);
         if (data is Map<String, dynamic>) return data;
       }
-    } catch (e) { debugPrint('getPodcastFeed error: $e'); }
+    } catch (e) {
+      debugPrint('getPodcastFeed error: $e');
+    }
     return null;
   }
 
@@ -4024,22 +4584,33 @@ class ApiService {
     try {
       final r = await _authGet(
         Uri.parse('$_cleanBaseUrl/api/libraries/$libraryId/episode-downloads'),
-        timeout: const Duration(seconds: 10));
-      if (r.statusCode == 200) return jsonDecode(r.body) as Map<String, dynamic>;
-    } catch (e) { debugPrint('getEpisodeDownloads error: $e'); }
+        timeout: const Duration(seconds: 10),
+      );
+      if (r.statusCode == 200)
+        return jsonDecode(r.body) as Map<String, dynamic>;
+    } catch (e) {
+      debugPrint('getEpisodeDownloads error: $e');
+    }
     return null;
   }
 
   /// Download specific podcast episodes
-  Future<bool> downloadPodcastEpisodes(String libraryItemId, List<Map<String, dynamic>> episodes) async {
+  Future<bool> downloadPodcastEpisodes(
+    String libraryItemId,
+    List<Map<String, dynamic>> episodes,
+  ) async {
     try {
       final r = await _authPost(
-        Uri.parse('$_cleanBaseUrl/api/podcasts/$libraryItemId/download-episodes'),
+        Uri.parse(
+          '$_cleanBaseUrl/api/podcasts/$libraryItemId/download-episodes',
+        ),
         body: jsonEncode(episodes),
         timeout: const Duration(seconds: 30),
       );
       return r.statusCode == 200;
-    } catch (e) { debugPrint('downloadPodcastEpisodes error: $e'); }
+    } catch (e) {
+      debugPrint('downloadPodcastEpisodes error: $e');
+    }
     return false;
   }
 
@@ -4061,19 +4632,25 @@ class ApiService {
         try {
           final r = await _authGet(
             Uri.parse('$_cleanBaseUrl/api/podcasts/$id/checknew'),
-            timeout: const Duration(seconds: 10));
+            timeout: const Duration(seconds: 10),
+          );
           if (r.statusCode == 200) success++;
         } catch (_) {}
       }
       return success > 0;
-    } catch (e) { debugPrint('checkNewEpisodes error: $e'); }
+    } catch (e) {
+      debugPrint('checkNewEpisodes error: $e');
+    }
     return false;
   }
 
   /// Check a single podcast for new episodes from its RSS feed
   /// GET /api/podcasts/:id/checknew?limit=N
   /// Returns the list of new episodes found, or null on failure.
-  Future<List<dynamic>?> checkNewPodcastEpisodes(String podcastId, {int? limit}) async {
+  Future<List<dynamic>?> checkNewPodcastEpisodes(
+    String podcastId, {
+    int? limit,
+  }) async {
     try {
       final limitParam = limit != null ? '?limit=$limit' : '';
       final r = await _authGet(
@@ -4083,7 +4660,9 @@ class ApiService {
         final data = jsonDecode(r.body);
         return (data['episodes'] as List<dynamic>?) ?? [];
       }
-    } catch (e) { debugPrint('checkNewPodcastEpisodes error: $e'); }
+    } catch (e) {
+      debugPrint('checkNewPodcastEpisodes error: $e');
+    }
     return null;
   }
 
@@ -4114,7 +4693,9 @@ class ApiService {
       if (r.statusCode == 200) {
         return jsonDecode(r.body) as Map<String, dynamic>;
       }
-    } catch (e) { debugPrint('matchLibraryItem error: $e'); }
+    } catch (e) {
+      debugPrint('matchLibraryItem error: $e');
+    }
     return null;
   }
 
@@ -4122,7 +4703,9 @@ class ApiService {
   /// [chapters] is the full ordered list of {id, start, end, title}. Pass an
   /// empty list to clear all chapters. Returns true on a 200 response.
   Future<bool> updateChapters(
-      String itemId, List<Map<String, dynamic>> chapters) async {
+    String itemId,
+    List<Map<String, dynamic>> chapters,
+  ) async {
     try {
       final r = await _authPost(
         Uri.parse('$_cleanBaseUrl/api/items/$itemId/chapters'),
@@ -4143,10 +4726,14 @@ class ApiService {
   /// GET /api/search/chapters?asin=&region=
   /// Returns the raw result map on 200 (chapters + runtime + brand-intro/outro
   /// durations, or {error, stringKey} when the lookup fails), else null.
-  Future<Map<String, dynamic>?> searchChapters(String asin, String region) async {
+  Future<Map<String, dynamic>?> searchChapters(
+    String asin,
+    String region,
+  ) async {
     try {
-      final uri = Uri.parse('$_cleanBaseUrl/api/search/chapters')
-          .replace(queryParameters: {'asin': asin, 'region': region});
+      final uri = Uri.parse(
+        '$_cleanBaseUrl/api/search/chapters',
+      ).replace(queryParameters: {'asin': asin, 'region': region});
       final r = await _authGet(uri, timeout: const Duration(seconds: 20));
       if (r.statusCode == 200) {
         final data = jsonDecode(r.body);
@@ -4164,8 +4751,9 @@ class ApiService {
   /// files. POST /api/tools/item/:id/embed-metadata?backup=0|1  (admin)
   Future<bool> embedMetadata(String itemId, {bool backup = true}) async {
     try {
-      final uri = Uri.parse('$_cleanBaseUrl/api/tools/item/$itemId/embed-metadata')
-          .replace(queryParameters: {'backup': backup ? '1' : '0'});
+      final uri = Uri.parse(
+        '$_cleanBaseUrl/api/tools/item/$itemId/embed-metadata',
+      ).replace(queryParameters: {'backup': backup ? '1' : '0'});
       final r = await _authPost(uri);
       return r.statusCode == 200;
     } catch (e) {
@@ -4184,11 +4772,13 @@ class ApiService {
   }) async {
     try {
       final uri = Uri.parse('$_cleanBaseUrl/api/tools/item/$itemId/encode-m4b')
-          .replace(queryParameters: {
-        'codec': codec,
-        'bitrate': bitrate,
-        'channels': '$channels',
-      });
+          .replace(
+            queryParameters: {
+              'codec': codec,
+              'bitrate': bitrate,
+              'channels': '$channels',
+            },
+          );
       final r = await _authPost(uri);
       return r.statusCode == 200;
     } catch (e) {
@@ -4199,14 +4789,19 @@ class ApiService {
 
   /// Update podcast media settings (auto-download, etc.)
   /// PATCH /api/items/:id/media  body: mediaUpdates at the media level
-  Future<bool> updatePodcastMedia(String itemId, Map<String, dynamic> mediaUpdates) async {
+  Future<bool> updatePodcastMedia(
+    String itemId,
+    Map<String, dynamic> mediaUpdates,
+  ) async {
     try {
       final r = await _authPatch(
         Uri.parse('$_cleanBaseUrl/api/items/$itemId/media'),
         body: jsonEncode(mediaUpdates),
       );
       return r.statusCode == 200;
-    } catch (e) { debugPrint('updatePodcastMedia error: $e'); }
+    } catch (e) {
+      debugPrint('updatePodcastMedia error: $e');
+    }
     return false;
   }
 
@@ -4216,13 +4811,21 @@ class ApiService {
   /// should surface 403 with a "needs delete permission" message.
   /// [hard] true also deletes the episode's audio file from the server's disk;
   /// false leaves the file and only drops the episode from the database.
-  Future<int> deletePodcastEpisode(String podcastId, String episodeId, {bool hard = false}) async {
+  Future<int> deletePodcastEpisode(
+    String podcastId,
+    String episodeId, {
+    bool hard = false,
+  }) async {
     try {
       final r = await _authDelete(
-        Uri.parse('$_cleanBaseUrl/api/podcasts/$podcastId/episode/$episodeId?hard=${hard ? 1 : 0}'),
+        Uri.parse(
+          '$_cleanBaseUrl/api/podcasts/$podcastId/episode/$episodeId?hard=${hard ? 1 : 0}',
+        ),
       );
       return r.statusCode;
-    } catch (e) { debugPrint('deletePodcastEpisode error: $e'); }
+    } catch (e) {
+      debugPrint('deletePodcastEpisode error: $e');
+    }
     return 0;
   }
 
@@ -4236,7 +4839,9 @@ class ApiService {
         Uri.parse('$_cleanBaseUrl/api/items/$itemId?hard=${hard ? 1 : 0}'),
       );
       return r.statusCode;
-    } catch (e) { debugPrint('deleteLibraryItem error: $e'); }
+    } catch (e) {
+      debugPrint('deleteLibraryItem error: $e');
+    }
     return 0;
   }
 
@@ -4333,7 +4938,9 @@ class ApiService {
           timeout: const Duration(seconds: 30),
         );
         if (resp.statusCode != 200) {
-          debugPrint('[API] $path failed: HTTP ${resp.statusCode} (page $page)');
+          debugPrint(
+            '[API] $path failed: HTTP ${resp.statusCode} (page $page)',
+          );
           return null;
         }
         final data = jsonDecode(resp.body);
@@ -4356,7 +4963,8 @@ class ApiService {
     try {
       final resp = await _authGet(
         Uri.parse('$_cleanBaseUrl/api/playlists/$playlistId'),
-        timeout: const Duration(seconds: 10));
+        timeout: const Duration(seconds: 10),
+      );
       if (resp.statusCode == 200) {
         return jsonDecode(resp.body) as Map<String, dynamic>;
       }
@@ -4378,7 +4986,8 @@ class ApiService {
           'name': name,
           'items': items,
         }),
-        timeout: const Duration(seconds: 10));
+        timeout: const Duration(seconds: 10),
+      );
       if (resp.statusCode == 200) {
         return jsonDecode(resp.body) as Map<String, dynamic>;
       }
@@ -4399,7 +5008,8 @@ class ApiService {
       final resp = await _authPatch(
         Uri.parse('$_cleanBaseUrl/api/playlists/$playlistId'),
         body: jsonEncode(body),
-        timeout: const Duration(seconds: 10));
+        timeout: const Duration(seconds: 10),
+      );
       if (resp.statusCode == 200) {
         return jsonDecode(resp.body) as Map<String, dynamic>;
       }
@@ -4412,7 +5022,8 @@ class ApiService {
     try {
       final resp = await _authDelete(
         Uri.parse('$_cleanBaseUrl/api/playlists/$playlistId'),
-        timeout: const Duration(seconds: 10));
+        timeout: const Duration(seconds: 10),
+      );
       return resp.statusCode == 200;
     } catch (_) {}
     return false;
@@ -4430,7 +5041,8 @@ class ApiService {
       final resp = await _authPost(
         Uri.parse('$_cleanBaseUrl/api/playlists/$playlistId/item'),
         body: jsonEncode(body),
-        timeout: const Duration(seconds: 10));
+        timeout: const Duration(seconds: 10),
+      );
       if (resp.statusCode == 200) {
         return jsonDecode(resp.body) as Map<String, dynamic>;
       }
@@ -4449,7 +5061,8 @@ class ApiService {
       if (episodeId != null) path += '/$episodeId';
       final resp = await _authDelete(
         Uri.parse(path),
-        timeout: const Duration(seconds: 10));
+        timeout: const Duration(seconds: 10),
+      );
       if (resp.statusCode == 200) {
         return jsonDecode(resp.body) as Map<String, dynamic>;
       }
@@ -4470,7 +5083,8 @@ class ApiService {
     try {
       final resp = await _authGet(
         Uri.parse('$_cleanBaseUrl/api/collections/$collectionId'),
-        timeout: const Duration(seconds: 10));
+        timeout: const Duration(seconds: 10),
+      );
       if (resp.statusCode == 200) {
         return jsonDecode(resp.body) as Map<String, dynamic>;
       }
@@ -4495,7 +5109,8 @@ class ApiService {
       final resp = await _authPost(
         Uri.parse('$_cleanBaseUrl/api/collections'),
         body: jsonEncode(body),
-        timeout: const Duration(seconds: 10));
+        timeout: const Duration(seconds: 10),
+      );
       if (resp.statusCode == 200) {
         return jsonDecode(resp.body) as Map<String, dynamic>;
       }
@@ -4518,7 +5133,8 @@ class ApiService {
       final resp = await _authPatch(
         Uri.parse('$_cleanBaseUrl/api/collections/$collectionId'),
         body: jsonEncode(body),
-        timeout: const Duration(seconds: 10));
+        timeout: const Duration(seconds: 10),
+      );
       if (resp.statusCode == 200) {
         return jsonDecode(resp.body) as Map<String, dynamic>;
       }
@@ -4533,7 +5149,8 @@ class ApiService {
     try {
       final resp = await _authDelete(
         Uri.parse('$_cleanBaseUrl/api/collections/$collectionId'),
-        timeout: const Duration(seconds: 10));
+        timeout: const Duration(seconds: 10),
+      );
       return resp.statusCode;
     } catch (_) {}
     return 0;
@@ -4548,7 +5165,8 @@ class ApiService {
       final resp = await _authPost(
         Uri.parse('$_cleanBaseUrl/api/collections/$collectionId/book'),
         body: jsonEncode({'id': libraryItemId}),
-        timeout: const Duration(seconds: 10));
+        timeout: const Duration(seconds: 10),
+      );
       if (resp.statusCode == 200) {
         return jsonDecode(resp.body) as Map<String, dynamic>;
       }
@@ -4563,8 +5181,11 @@ class ApiService {
   ) async {
     try {
       final resp = await _authDelete(
-        Uri.parse('$_cleanBaseUrl/api/collections/$collectionId/book/$libraryItemId'),
-        timeout: const Duration(seconds: 10));
+        Uri.parse(
+          '$_cleanBaseUrl/api/collections/$collectionId/book/$libraryItemId',
+        ),
+        timeout: const Duration(seconds: 10),
+      );
       if (resp.statusCode == 200) {
         return jsonDecode(resp.body) as Map<String, dynamic>;
       }
