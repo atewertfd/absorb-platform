@@ -24,7 +24,7 @@ Absorb Plus builds on the upstream client with desktop-first controls and cross-
 
 ## Audible and Libation workflow
 
-Absorb Plus connects to Audiobookshelf; it does not currently sign in to Audible, store Audible credentials, remove DRM, or bypass Audible protections. If you already have compatible exported files from [Libation](https://github.com/rmcrackan/Libation), open **Manage → Upload → Import Libation exports**. Select audio files for one book and its cover, review the title and server destination, then explicitly select **Upload**. After Audiobookshelf indexes the book, refresh your library. This preserves Audiobookshelf as the source of truth for metadata, playback position, statistics, and downloads.
+Absorb Plus connects to Audiobookshelf; it does not currently sign in to Audible, store Audible credentials, remove DRM, or bypass Audible protections. If you already have compatible exported files from [Libation](https://github.com/rmcrackan/Libation), open **Manage → Upload → Import Libation exports**. Select audio files for one book and its cover, review the title and server destination, then explicitly select **Upload**. After upload, the app briefly checks whether Audiobookshelf has indexed the destination and tells you when indexing is still in progress. This preserves Audiobookshelf as the source of truth for metadata, playback position, statistics, and downloads.
 
 The exporter handoff is distinct from the requested future **Connect Audible** feature, which would work without a separate Libation installation. That integration is not implemented; its authentication, licensing, platform and content-access constraints are documented in the [feasibility record](docs/AUDIBLE-INTEGRATION.md). Other software integrations are deferred.
 

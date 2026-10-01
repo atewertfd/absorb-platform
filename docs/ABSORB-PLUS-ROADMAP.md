@@ -22,7 +22,7 @@ This port keeps the upstream Absorb visual language and adds cross-platform beha
 - GitHub Pages web deployment and release-oriented desktop builds
 - Portable Windows output plus a manually dispatched Inno Setup installer artifact with desktop and Start-menu shortcuts
 - Analysis and regression tests gate web artifacts and Pages publication
-- One-book Libation export handoff in the existing upload UI, duplicate-path checks, explicit confirmation, failure recovery and multipart byte progress for native paths/bytes/streams; [fixture and visual checks](IMPORT-VERIFICATION.md), not real-server verification
+- One-book Libation export handoff in the existing upload UI, duplicate-path checks, explicit confirmation, bounded post-upload indexing feedback, failure recovery and multipart byte progress for native paths/bytes/streams; [fixture and visual checks](IMPORT-VERIFICATION.md), not real-server verification
 - Queue-policy regression coverage for source-specific auto-download, merged/filtered tails, podcast ordering, series ordering, and bounded download windows; settings-sync coverage for safe WebDAV header parsing, round trips, rejection of auth/connection header overrides, and an actual allowlisted HTTP PUT fixture
 
 ## Stability-focused next work
@@ -33,7 +33,7 @@ This port keeps the upstream Absorb visual language and adds cross-platform beha
 - Continue platform-specific verification for Windows and Linux media keys, audio focus, and window resizing
 - Verify real-server playback/sync and audiobook codecs in addition to the isolated WAV/loopback native audio smoke test
 - Finish real-server cross-device settings synchronization verification and verify desktop Whisper extraction; transport filtering, lifecycle wiring, payload allowlisting, and local regression coverage are complete
-- Complete import folder grouping, multi-book queue, cancellation, server indexing feedback and real-server verification; investigate API support before claiming resumable uploads
+- Complete import folder grouping, multi-book queue, cancellation and real-server verification; investigate API support before claiming resumable uploads
 - Investigate the requested in-app Audible login/library/import without a separate Libation installation; [research and constraints](AUDIBLE-INTEGRATION.md). Export-file import is not an equivalent completion
 
 ## Deliberate boundary
