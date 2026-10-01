@@ -1,4 +1,4 @@
-# Absorb desktop ports
+# Absorb platform ports
 
 Unofficial cross-platform desktop and web ports of [Absorb](https://github.com/pounat/absorb), the Audiobookshelf client.
 
@@ -15,7 +15,7 @@ Unofficial cross-platform desktop and web ports of [Absorb](https://github.com/p
 
 ## Downloads
 
-Download desktop builds from the [Releases](../../releases) page. Extract the Windows or Linux archive and run the included executable. The hosted web build is available at the project’s [GitHub Pages site](https://atewertfd.github.io/absorb-ports/).
+Download desktop builds from the [Releases](../../releases) page. Extract the Windows or Linux archive and run the included executable. The hosted web build is available at the project’s [GitHub Pages site](https://atewertfd.github.io/absorb-platform/).
 
 ## Build requirements
 

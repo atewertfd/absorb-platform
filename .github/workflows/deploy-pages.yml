@@ -24,7 +24,7 @@ jobs:
           channel: stable
           flutter-version-file: .flutter-version
       - run: flutter pub get
-      - run: flutter build web --release --base-href /absorb-ports/
+      - run: flutter build web --release --base-href /absorb-platform/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: build/web
