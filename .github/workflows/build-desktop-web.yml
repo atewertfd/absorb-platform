@@ -22,7 +22,9 @@ jobs:
           path: build/web
 
   linux:
-    runs-on: ubuntu-latest
+    # desktop_webview_window currently requires WebKitGTK 4.0, which is
+    # available on Ubuntu 22.04 but not the current Ubuntu 24.04 runner.
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
       - name: Install Linux desktop dependencies
