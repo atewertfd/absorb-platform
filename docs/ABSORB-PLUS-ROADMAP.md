@@ -22,7 +22,7 @@ This port keeps the upstream Absorb visual language and adds cross-platform beha
 - GitHub Pages web deployment and release-oriented desktop builds
 - Analysis and regression tests gate web artifacts and Pages publication
 - One-book Libation export handoff in the existing upload UI, duplicate-path checks, explicit confirmation, failure recovery and multipart byte progress for native paths/bytes/streams; [fixture and visual checks](IMPORT-VERIFICATION.md), not real-server verification
-- Queue-policy regression coverage for source-specific auto-download, merged/filtered tails, podcast ordering, series ordering, and bounded download windows; settings-sync helper coverage for safe WebDAV header parsing, round trips, and rejection of auth/connection header overrides
+- Queue-policy regression coverage for source-specific auto-download, merged/filtered tails, podcast ordering, series ordering, and bounded download windows; settings-sync coverage for safe WebDAV header parsing, round trips, rejection of auth/connection header overrides, and an actual allowlisted HTTP PUT fixture
 
 ## Stability-focused next work
 
