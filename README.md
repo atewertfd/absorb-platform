@@ -1,36 +1,30 @@
-# Absorb
+# Absorb for Windows
 
-[![Buy Me A Coffee](https://img.shields.io/badge/Buy_Me_A_Coffee-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/BarnabasApps)
-
-A modern audiobookshelf client with a card-based player experience.
+An unofficial native Windows x64 port of [Absorb](https://github.com/pounat/absorb), the Audiobookshelf client.
 
 > [!WARNING]
-> This repository is an unofficial, experimental Windows port of Absorb. The Windows port was substantially AI-generated with human-directed build and verification work. It is not an official release of Absorb and may contain incomplete, incorrect, or platform-specific behavior. Review and test changes carefully before relying on it with production data.
+> This Windows port is experimental and was substantially AI-generated with human direction and verification. It is not an official Absorb release. Review and test changes carefully before relying on it with production data.
 
-This project is derived from the upstream [pounat/absorb](https://github.com/pounat/absorb) repository. Please direct Android/iOS feature requests and upstream bug reports to the original project unless they are specifically Windows-port issues.
+## What this project provides
 
-## Windows port
+- Native Windows x64 executable built with Flutter
+- Audiobookshelf server connectivity
+- Library browsing, covers, metadata, search, playback, seeking, and playback speed support as the primary targets
+- Resizable desktop application window
 
-This fork adds an experimental native Windows x64 target. It is built from the same Flutter codebase and is intended for desktop use without an Android emulator.
+## Download
 
-### Current status
+Download the latest Windows build from the [Releases](../../releases) page, extract the ZIP, and run `absorb.exe`.
 
-- Native Windows release build succeeds with Flutter 3.47.3 stable.
-- Audiobookshelf networking, library browsing, metadata, and core playback are the primary targets.
-- Android-only features such as Android Auto, Chromecast, home-screen widgets, Android background services, and APK self-updating are not included in the Windows target.
-- The Windows target is experimental and needs broader runtime testing against real Audiobookshelf servers.
+## Build requirements
 
-### Build on Windows
-
-Requirements:
-
-- Windows 10/11 x64
+- Windows 10 or 11 x64
 - Flutter stable with Windows desktop support
 - Visual Studio with the **Desktop development with C++** workload
 - Windows Developer Mode enabled, or an elevated build environment for plugin symlinks
 - NuGet CLI available on `PATH` for the WebView plugin
 
-Commands:
+## Build
 
 ```powershell
 flutter pub get
@@ -39,116 +33,14 @@ flutter build windows --release
 
 The executable is produced under `build/windows/x64/runner/Release/`.
 
-The original Android and iOS targets remain available. This fork preserves the upstream GPL-3.0 license and credits the original Absorb project.
+## Limitations
 
-> **A note on AI:** Absorb is developed by a human with AI assistance (mostly Claude Code) helping write, refactor, and review code. It's not "vibe coded" or auto-generated, every change is reviewed, tested, and shipped intentionally. That said, I'm all in on AI as a development tool. It massively speeds up the work and lets a solo developer ship features and fixes at a pace that wouldn't be possible otherwise. I'm sharing this openly so you know what's behind the app.
+Android-only or mobile-specific features are not included in the Windows target, including Android Auto, Chromecast, home-screen widgets, Android background services, and APK self-updating. Some features require Windows-specific implementations and further testing.
 
-## Screenshots
+## Attribution
 
-<p align="center">
-  <img src="screenshots/absorbing.png" width="200">
-  &nbsp;
-  <img src="screenshots/library.png" width="200">
-  &nbsp;
-  <img src="screenshots/details.png" width="200">
-</p>
-<p align="center">
-  <img src="screenshots/fullScreen.png" width="200">
-  &nbsp;
-  <img src="screenshots/stats.png" width="200">
-</p>
-
-## Features
-
-- **Card-based player** — full-screen "Absorbing" cards replace the traditional player screen
-- **Audiobookshelf integration** — connects to your self-hosted audiobookshelf server
-- **Offline playback** — download books for listening without a connection
-- **Podcast support** — chaptered podcasts with rich HTML descriptions
-- **Backup & restore** — export all settings to a `.absorb` file and import on any device, with optional account credentials for seamless device migration
-- **Multi-account** — sign into multiple servers and switch between them
-- **Sleep timer** with visual fill bar countdown, auto-sleep scheduling, and shake-to-reset
-- **Playback speed** control with fine-grained slider and per-book speed memory
-- **Auto-rewind** — configurable rewind after pausing based on how long you were away
-- **Equalizer** — built-in audio EQ with bands and presets
-- **Bookmarks** — save and jump to moments in any book
-- **Chapter navigation** with dual progress bars (book + chapter)
-- **Search & filtering** — full-text search, filter by progress/genre/series, multiple sort modes
-- **Audible ratings** — see star ratings from Audible on your books
-- **Auto-play next** — automatically continue to the next book in a series or next podcast episode
-- **Android Auto & Apple CarPlay** — browse and listen from your car
-- **Chromecast** — cast playback to Google Cast devices (Android only)
-- **Custom headers** — add custom HTTP headers for reverse proxy setups
-- **OIDC/SSO login** — OpenID Connect support alongside standard auth
-- **Server admin** — manage users, backups, and podcasts from the app
-- **Listening stats** — track your listening history
-- **Audnexus metadata** — enriched book covers, descriptions, and series info
-- **Find missing future books** — discovers upcoming books in a series via Audible's catalog, so you know what's coming next
-- **Notes** — per book or episode
-- **Playlists & collections** — create, manage, and play from custom groupings
-- **Recently played** — quick access to your listening history
-- **Real-time sync** — progress, library changes, and series updates via socket.io
-- **Homescreen widgets** — now-playing widget on Android and iOS
-- **Car mode** — large-button driving UI for use without Android Auto
-- **Localization** — community translations via Crowdin
-
-## Translations
-
-[![Crowdin](https://badges.crowdin.net/absorb/localized.svg)](https://crowdin.com/project/absorb)
-
-Absorb is translated by the community on [Crowdin](https://crowdin.com/project/absorb). Want your language added or improved? Jump in, no coding needed.
-
-## Install
-
-[![Get it on GitHub](https://img.shields.io/badge/Get_it_on-GitHub-blue?style=for-the-badge&logo=github)](../../releases)
-[![Get it on Obtainium](https://img.shields.io/badge/Get_it_on-Obtainium-teal?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZD0iTTEyIDJMMiAyMmgyMEwxMiAyeiIgZmlsbD0id2hpdGUiLz48L3N2Zz4=)](https://apps.obtainium.imranr.dev/redirect.html?r=obtainium://add/https://github.com/pounat/absorb)
-[![Get it on Google Play](https://img.shields.io/badge/Google_Play-Open_Beta-414141?style=for-the-badge&logo=google-play&logoColor=white)](https://play.google.com/store/apps/details?id=com.barnabas.absorb)
-[![Download on the App Store](https://img.shields.io/badge/App_Store-iOS-007AFF?style=for-the-badge&logo=apple&logoColor=white)](https://apps.apple.com/us/app/absorb-for-audiobookshelf/id6760673498)
-[![Join TestFlight](https://img.shields.io/badge/TestFlight-iOS-007AFF?style=for-the-badge&logo=apple&logoColor=white)](https://testflight.apple.com/join/GgUbDbve)
-
-### Release Tracks
-
-**GitHub Pre-Releases (Alpha)** - Frequent updates with new features and bug fixes. In Obtainium you can toggle pre-releases on or off.
-
-**GitHub Full Releases (Beta/Stable)** - Once a pre-release is solid, it gets promoted to a full release. These match what's pushed to Google Play and the App Store.
-
-### Google Play
-
-Open testing is live - [join the open beta on Google Play](https://play.google.com/store/apps/details?id=com.barnabas.absorb). Open testing and production releases match GitHub full releases. Internal testing (alpha) matches GitHub pre-releases - join the [Discord](https://discord.gg/dW4Y4zCxRp) to request access to the internal track.
-
-### App Store
-
-Live on the [App Store](https://apps.apple.com/us/app/absorb-for-audiobookshelf/id6760673498). App Store releases match GitHub full releases. Some features are still Android-only or in progress, see iOS section below.
-
-### iOS TestFlight (Alpha)
-
-TestFlight is the iOS alpha track, matching GitHub pre-releases. Builds are more frequent and less polished than the App Store version. [Join the TestFlight](https://testflight.apple.com/join/GgUbDbve). If you want stable builds, use the App Store instead.
-
-### iOS Alpha (Sideload)
-
-Alpha `.ipa` files are included in GitHub pre-releases alongside the Android APK. If you know how to sideload IPAs (via AltStore, Sideloadly, etc.), you can grab the latest alpha build from the [releases page](../../releases). For most users, TestFlight is easier - automatic updates and no sideloading setup.
-
-## Android Auto
-
-Absorb supports Android Auto for browsing and listening from your car. If you are using the github version, you'll need to enable unknown sources in Android Auto:
-
-> 1. Open **Android Auto** settings on your phone
-> 2. Tap **Version** at the bottom repeatedly to enable Developer mode
-> 3. Tap the three-dot menu (top right) and select **Developer settings**
-> 4. Enable **Unknown sources**
->
-> This is required because Absorb from Github is not distributed through Google Play's production track.
-
-## Requirements
-
-- An [audiobookshelf](https://www.audiobookshelf.org/) server (self-hosted)
-- Android 7.0+ / iOS 16+
+This project is derived from the upstream [pounat/absorb](https://github.com/pounat/absorb) repository. Android and iOS development remains upstream. Please report Windows-port issues here and direct Android/iOS issues to the original project.
 
 ## License
 
-Copyright (C) 2026 Nathan Poulson
-
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License along with this program. If not, see <https://www.gnu.org/licenses/>.
+Absorb is distributed under the GNU General Public License v3.0. See [LICENSE](LICENSE).
