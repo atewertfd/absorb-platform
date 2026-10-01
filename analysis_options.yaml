@@ -11,6 +11,9 @@ analyzer:
     - windows/**
     - macos/**
     - linux/**
+    # Vendored plugin trees are separate packages. Their own examples and
+    # package-level lint baselines are intentionally not part of this app.
+    - packages/**
 
 linter:
   rules:
