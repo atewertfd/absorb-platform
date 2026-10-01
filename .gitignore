@@ -61,9 +61,6 @@ android/key.properties
 # Build scripts (local only)
 *.sh
 
-# Tests (local only)
-/test/
-
 # Battery profiling output
 /battery-reports/
 

@@ -9,6 +9,7 @@ This port keeps the upstream Absorb visual language and adds cross-platform beha
 - Audiobookshelf library, playback, seeking, playback speed, covers, metadata, and statistics
 - Playlists, queue modes, auto-downloads, offline playback, and custom themes
 - Download byte progress, transfer speed, estimated time remaining, and accessible progress announcements
+- Audiobookshelf token-refresh recovery coverage and an app-shell widget smoke test
 - Global media controls where the host platform exposes them
 - Optional native Whisper bookmark transcription
 - GitHub Pages web deployment and release-oriented desktop builds

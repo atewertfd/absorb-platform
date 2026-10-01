@@ -48,6 +48,12 @@ flutter build web --release
 
 Outputs are produced under `build/windows/x64/runner/Release/`, `build/linux/x64/release/bundle/`, and `build/web/`. Every push to `main` rebuilds the web site through GitHub Actions and deploys it to GitHub Pages.
 
+Run the local regression tests with:
+
+```powershell
+flutter test
+```
+
 ## Limitations
 
 Android-only or mobile-specific features are not included in desktop/web targets, including Android Auto, Chromecast, home-screen widgets, Android background services, and APK self-updating. Some features require platform-specific implementations and further testing. Linux builds are produced in CI when a native Linux toolchain is not available.
