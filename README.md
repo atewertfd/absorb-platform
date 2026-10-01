@@ -1,6 +1,6 @@
-# Absorb platform ports
+# Absorb Plus
 
-Unofficial cross-platform desktop and web ports of [Absorb](https://github.com/pounat/absorb), the Audiobookshelf client.
+An unofficial enhanced cross-platform edition of [Absorb](https://github.com/pounat/absorb), the Audiobookshelf client, for Windows, Linux, and the web.
 
 > [!WARNING]
 > These ports are experimental and were substantially AI-generated with human direction and verification. They are not official Absorb releases. Review and test changes carefully before relying on them with production data.
@@ -9,9 +9,15 @@ Unofficial cross-platform desktop and web ports of [Absorb](https://github.com/p
 
 - Native Windows x64 and Linux desktop executables built with Flutter
 - Browser build for modern web browsers
+- Desktop keyboard controls: Space play/pause, Left/Right rewind or fast-forward, Ctrl+F search, Ctrl+L Library, and Ctrl+N Now Playing
 - Audiobookshelf server connectivity
 - Library browsing, covers, metadata, search, playback, seeking, and playback speed support as the primary targets
 - Resizable desktop application window
+- Download/offline playback tools, listening statistics, custom themes, and optional on-device Whisper bookmark transcription
+
+## Plus features
+
+Absorb Plus builds on the upstream client with desktop-first controls and cross-platform improvements. Existing upstream features remain the foundation; platform-specific features are enabled where the target supports them. Media-key behavior depends on the operating system and browser, while optional Whisper transcription is currently native-only and is intentionally unavailable in the web build.
 
 ## Downloads
 

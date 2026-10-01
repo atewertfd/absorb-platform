@@ -442,7 +442,7 @@ class AbsorbApp extends StatelessWidget {
 
             return MaterialApp(
               navigatorKey: rootNavigatorKey,
-              title: 'Absorb',
+              title: 'Absorb Plus',
               debugShowCheckedModeBanner: false,
               locale: overrideLocale,
               localizationsDelegates: AppLocalizations.localizationsDelegates,
