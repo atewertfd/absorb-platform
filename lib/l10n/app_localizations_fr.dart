@@ -6078,6 +6078,15 @@ class AppLocalizationsFr extends AppLocalizations {
   String get playlistDetailDefaultName => 'Liste de lecture';
 
   @override
+  String get playlistDetailAddBooks => 'Add books to playlist';
+
+  @override
+  String get playlistDetailSwitchToList => 'Switch to list view';
+
+  @override
+  String get playlistDetailSwitchToGrid => 'Switch to grid view';
+
+  @override
   String playlistDetailItemCount(int count) {
     return '$count éléments';
   }

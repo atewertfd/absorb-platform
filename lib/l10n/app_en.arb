@@ -3483,6 +3483,9 @@
   "homeScreenEpisodeFallback": "Episode",
   "libraryScreenUnknownTitle": "Unknown Title",
   "playlistDetailDefaultName": "Playlist",
+  "playlistDetailAddBooks": "Add books to playlist",
+  "playlistDetailSwitchToList": "Switch to list view",
+  "playlistDetailSwitchToGrid": "Switch to grid view",
   "playlistDetailItemCount": "{count} items",
   "@playlistDetailItemCount": {
     "placeholders": {

@@ -10485,6 +10485,24 @@ abstract class AppLocalizations {
   /// **'Playlist'**
   String get playlistDetailDefaultName;
 
+  /// No description provided for @playlistDetailAddBooks.
+  ///
+  /// In en, this message translates to:
+  /// **'Add books to playlist'**
+  String get playlistDetailAddBooks;
+
+  /// No description provided for @playlistDetailSwitchToList.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch to list view'**
+  String get playlistDetailSwitchToList;
+
+  /// No description provided for @playlistDetailSwitchToGrid.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch to grid view'**
+  String get playlistDetailSwitchToGrid;
+
   /// No description provided for @playlistDetailItemCount.
   ///
   /// In en, this message translates to:

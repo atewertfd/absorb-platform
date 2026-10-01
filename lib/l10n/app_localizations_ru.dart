@@ -6031,6 +6031,15 @@ class AppLocalizationsRu extends AppLocalizations {
   String get playlistDetailDefaultName => 'Playlist';
 
   @override
+  String get playlistDetailAddBooks => 'Add books to playlist';
+
+  @override
+  String get playlistDetailSwitchToList => 'Switch to list view';
+
+  @override
+  String get playlistDetailSwitchToGrid => 'Switch to grid view';
+
+  @override
   String playlistDetailItemCount(int count) {
     return '$count items';
   }
