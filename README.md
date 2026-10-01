@@ -1,41 +1,43 @@
-# Absorb for Windows
+# Absorb desktop ports
 
-An unofficial native Windows x64 port of [Absorb](https://github.com/pounat/absorb), the Audiobookshelf client.
+Unofficial native Windows, Linux, and web ports of [Absorb](https://github.com/pounat/absorb), the Audiobookshelf client.
 
 > [!WARNING]
 > This Windows port is experimental and was substantially AI-generated with human direction and verification. It is not an official Absorb release. Review and test changes carefully before relying on it with production data.
 
 ## What this project provides
 
-- Native Windows x64 executable built with Flutter
+- Native Windows x64 and Linux desktop executables built with Flutter
+- Browser build for modern web browsers
 - Audiobookshelf server connectivity
 - Library browsing, covers, metadata, search, playback, seeking, and playback speed support as the primary targets
 - Resizable desktop application window
 
-## Download
+## Downloads
 
-Download the latest Windows build from the [Releases](../../releases) page, extract the ZIP, and run `absorb.exe`.
+Download desktop builds from the [Releases](../../releases) page. Extract the Windows or Linux archive and run the included executable. Web builds are published as static files and can be hosted by any static web server.
 
 ## Build requirements
 
-- Windows 10 or 11 x64
 - Flutter stable with Windows desktop support
-- Visual Studio with the **Desktop development with C++** workload
-- Windows Developer Mode enabled, or an elevated build environment for plugin symlinks
-- NuGet CLI available on `PATH` for the WebView plugin
+- Windows: Visual Studio with the **Desktop development with C++** workload, Windows Developer Mode, and NuGet CLI
+- Linux: GTK 3 development packages, CMake, Ninja, Clang, and pkg-config
+- Web: Flutter web support and a modern browser
 
 ## Build
 
 ```powershell
 flutter pub get
 flutter build windows --release
+flutter build linux --release
+flutter build web --release
 ```
 
-The executable is produced under `build/windows/x64/runner/Release/`.
+Outputs are produced under `build/windows/x64/runner/Release/`, `build/linux/x64/release/bundle/`, and `build/web/`.
 
 ## Limitations
 
-Android-only or mobile-specific features are not included in the Windows target, including Android Auto, Chromecast, home-screen widgets, Android background services, and APK self-updating. Some features require Windows-specific implementations and further testing.
+Android-only or mobile-specific features are not included in desktop/web targets, including Android Auto, Chromecast, home-screen widgets, Android background services, and APK self-updating. Some features require platform-specific implementations and further testing. The Linux build is produced in CI because the native Linux toolchain is not available on a normal Windows host.
 
 ## Attribution
 
