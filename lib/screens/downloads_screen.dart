@@ -817,13 +817,20 @@ class _ActiveDownloadCard extends StatelessWidget {
                       Row(
                         children: [
                           Expanded(
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(4),
-                              child: LinearProgressIndicator(
-                                value: progress,
-                                minHeight: 6,
-                                backgroundColor: cs.surfaceContainerHighest,
-                                valueColor: AlwaysStoppedAnimation(cs.primary),
+                            child: Semantics(
+                              label: 'Download progress for ${info.title ?? l.unknown}',
+                              value: '$pct percent complete'
+                                  '${info.bytesDone != null && info.bytesTotal != null ? ', ${_formatDownloadBytes(info.bytesDone!)} of ${_formatDownloadBytes(info.bytesTotal!)}' : ''}'
+                                  '${_downloadRate(info.speedBytesPerSecond).isEmpty ? '' : ', ${_downloadRate(info.speedBytesPerSecond)}'}'
+                                  '${_downloadEta(info.etaSeconds).isEmpty ? '' : ', ${_downloadEta(info.etaSeconds)} remaining'}',
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(4),
+                                child: LinearProgressIndicator(
+                                  value: progress,
+                                  minHeight: 6,
+                                  backgroundColor: cs.surfaceContainerHighest,
+                                  valueColor: AlwaysStoppedAnimation(cs.primary),
+                                ),
                               ),
                             ),
                           ),

@@ -13,11 +13,18 @@ An unofficial enhanced cross-platform edition of [Absorb](https://github.com/pou
 - Audiobookshelf server connectivity
 - Library browsing, covers, metadata, search, playback, seeking, and playback speed support as the primary targets
 - Resizable desktop application window
-- Download/offline playback tools, listening statistics, custom themes, and optional on-device Whisper bookmark transcription
+- Download/offline playback tools with byte progress, transfer speed, and estimated time remaining
+- Listening statistics, custom themes, playlists/queue controls, and optional on-device Whisper bookmark transcription
 
 ## Plus features
 
 Absorb Plus builds on the upstream client with desktop-first controls and cross-platform improvements. Existing upstream features remain the foundation; platform-specific features are enabled where the target supports them. Media-key behavior depends on the operating system and browser, while optional Whisper transcription is currently native-only and is intentionally unavailable in the web build.
+
+## Audible and Libation workflow
+
+Absorb Plus connects to Audiobookshelf; it does not sign in to Audible, store Audible credentials, remove DRM, or bypass Audible protections. If you use [Libation](https://github.com/rmcrackan/Libation), keep that workflow separate: export or organize media with Libation according to its documentation, place the resulting compatible audiobook files in the Audiobookshelf library or ingest location, let Audiobookshelf scan the files, and then refresh Absorb Plus. This preserves Audiobookshelf as the source of truth for metadata, playback position, statistics, and downloads.
+
+The exact formats and export options depend on the titles and rights available in your Audible/Libation setup. Absorb Plus does not attempt to automate protected Audible downloads.
 
 ## Downloads
 
