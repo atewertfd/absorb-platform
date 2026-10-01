@@ -34,4 +34,25 @@ void main() {
     expect(restored.author, original.author);
     expect(restored.libraryId, original.libraryId);
   });
+
+  test('preserves retryable failure metadata across serialization', () {
+    final original = DownloadInfo(
+      itemId: 'book-404',
+      status: DownloadStatus.error,
+      progress: 0.42,
+      title: 'Unavailable audiobook',
+      author: 'Example author',
+      coverUrl: '/api/items/book-404/cover',
+      libraryId: 'library-1',
+    );
+
+    final restored = DownloadInfo.fromJson(original.toJson());
+
+    expect(restored.status, DownloadStatus.error);
+    expect(restored.progress, original.progress);
+    expect(restored.title, original.title);
+    expect(restored.author, original.author);
+    expect(restored.coverUrl, original.coverUrl);
+    expect(restored.libraryId, original.libraryId);
+  });
 }

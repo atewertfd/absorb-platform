@@ -628,34 +628,39 @@ class _FailedDownloadCard extends StatelessWidget {
     final title = info.title ?? l.unknown;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: Card(
-        elevation: 0,
-        color: cs.errorContainer.withValues(alpha: 0.45),
-        child: ListTile(
-          leading: Icon(Icons.error_outline_rounded, color: cs.error),
-          title: Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w600),
-          ),
-          subtitle: Text(l.downloadFailedGeneric(title)),
-          trailing: Wrap(
-            spacing: 0,
-            children: [
-              IconButton(
-                tooltip: l.retry,
-                icon: const Icon(Icons.refresh_rounded),
-                onPressed: () {
-                  onRetry();
-                },
-              ),
-              IconButton(
-                tooltip: l.delete,
-                icon: const Icon(Icons.close_rounded),
-                onPressed: onDismiss,
-              ),
-            ],
+      child: Semantics(
+        container: true,
+        label: title,
+        value: l.downloadFailedGeneric(title),
+        child: Card(
+          elevation: 0,
+          color: cs.errorContainer.withValues(alpha: 0.45),
+          child: ListTile(
+            leading: Icon(Icons.error_outline_rounded, color: cs.error),
+            title: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+            ),
+            subtitle: Text(l.downloadFailedGeneric(title)),
+            trailing: Wrap(
+              spacing: 0,
+              children: [
+                IconButton(
+                  tooltip: l.retry,
+                  icon: const Icon(Icons.refresh_rounded),
+                  onPressed: () {
+                    onRetry();
+                  },
+                ),
+                IconButton(
+                  tooltip: l.delete,
+                  icon: const Icon(Icons.close_rounded),
+                  onPressed: onDismiss,
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -913,8 +918,10 @@ class _ActiveDownloadCard extends StatelessWidget {
                         children: [
                           Expanded(
                             child: Semantics(
-                              label: 'Download progress for ${info.title ?? l.unknown}',
-                              value: '$pct percent complete'
+                              label:
+                                  'Download progress for ${info.title ?? l.unknown}',
+                              value:
+                                  '$pct percent complete'
                                   '${info.bytesDone != null && info.bytesTotal != null ? ', ${_formatDownloadBytes(info.bytesDone!)} of ${_formatDownloadBytes(info.bytesTotal!)}' : ''}'
                                   '${_downloadRate(info.speedBytesPerSecond).isEmpty ? '' : ', ${_downloadRate(info.speedBytesPerSecond)}'}'
                                   '${_downloadEta(info.etaSeconds).isEmpty ? '' : ', ${_downloadEta(info.etaSeconds)} remaining'}',
@@ -924,7 +931,9 @@ class _ActiveDownloadCard extends StatelessWidget {
                                   value: progress,
                                   minHeight: 6,
                                   backgroundColor: cs.surfaceContainerHighest,
-                                  valueColor: AlwaysStoppedAnimation(cs.primary),
+                                  valueColor: AlwaysStoppedAnimation(
+                                    cs.primary,
+                                  ),
                                 ),
                               ),
                             ),
