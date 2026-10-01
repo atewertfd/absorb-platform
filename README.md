@@ -4,6 +4,11 @@
 
 A modern audiobookshelf client with a card-based player experience.
 
+> [!WARNING]
+> This repository is an unofficial, experimental Windows port of Absorb. The Windows port was substantially AI-generated with human-directed build and verification work. It is not an official release of Absorb and may contain incomplete, incorrect, or platform-specific behavior. Review and test changes carefully before relying on it with production data.
+
+This project is derived from the upstream [pounat/absorb](https://github.com/pounat/absorb) repository. Please direct Android/iOS feature requests and upstream bug reports to the original project unless they are specifically Windows-port issues.
+
 ## Windows port
 
 This fork adds an experimental native Windows x64 target. It is built from the same Flutter codebase and is intended for desktop use without an Android emulator.

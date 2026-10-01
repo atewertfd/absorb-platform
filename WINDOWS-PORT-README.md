@@ -2,6 +2,8 @@
 
 This is an experimental native Windows x64 build of Absorb from the official `pounat/absorb` source repository.
 
+> **AI-port warning:** This Windows port was substantially AI-generated with human direction and verification. It is unofficial and experimental. Review and test changes carefully; do not assume feature parity with the upstream Android/iOS applications.
+
 ## Build
 
 - Flutter: 3.47.3 stable
