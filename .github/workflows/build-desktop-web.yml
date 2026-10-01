@@ -37,6 +37,10 @@ jobs:
           flutter-version-file: .flutter-version
       - run: flutter config --enable-linux-desktop
       - run: flutter pub get
+      - name: Patch desktop_webview_window for current GLib API
+        run: |
+          sed -i 's/g_date_time_get_seconds/g_date_time_get_second/g' \
+            linux/flutter/ephemeral/.plugin_symlinks/desktop_webview_window/linux/webview_window.cc
       - run: flutter build linux --release
       - uses: actions/upload-artifact@v4
         with:
