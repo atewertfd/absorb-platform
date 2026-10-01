@@ -50,9 +50,36 @@ jobs:
           }
           Get-ChildItem $out | Select-Object Name, Length
 
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress --yes
+
+      - name: Build Windows installer
+        shell: pwsh
+        env:
+          APP_VERSION: ${{ steps.version.outputs.name }}
+        run: |
+          $rawVersion = (Select-String -Path pubspec.yaml -Pattern '^version:' | ForEach-Object { $_.Line.Split(':', 2)[1].Trim() })
+          $installerVersion = ($rawVersion -split '\+')[0]
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { throw "Inno Setup compiler not found at $iscc" }
+          & $iscc `
+            "/DAppVersion=$installerVersion" `
+            "/DSourceDir=$((Resolve-Path 'build\windows\x64\runner\Release').Path)" `
+            "installer\Absorb.iss"
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed with exit code $LASTEXITCODE" }
+          Get-ChildItem build\windows\installer
+
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.version.outputs.name }}
           path: build/windows/x64/runner/Release
+          if-no-files-found: error
+          retention-days: 14
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.version.outputs.name }}-installer
+          path: build/windows/installer/*.exe
           if-no-files-found: error
           retention-days: 14

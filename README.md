@@ -34,7 +34,7 @@ See [import verification](docs/IMPORT-VERIFICATION.md) for tests, visual checks,
 
 ## Downloads
 
-Download desktop builds from the [Releases](../../releases) page. Extract the **entire** Windows or Linux archive and run the included executable; keep its libraries and data alongside it. Windows bundles its native audio decoder. Linux requires a system libmpv runtime (`libmpv1` on Ubuntu 22.04, `libmpv2` on Ubuntu 24.04) and a desktop session bus for MPRIS controls. The hosted web build is available at the project’s [GitHub Pages site](https://atewertfd.github.io/absorb-platform/).
+Download desktop builds from the [Releases](../../releases) page. Windows builds include a portable archive and an optional **Absorb-*-Setup.exe** installer that creates desktop and Start-menu shortcuts; the installer contains the complete Flutter bundle and can be removed from Windows Apps. Extract the **entire** portable archive if you use that option, and keep its libraries and data alongside it. Windows bundles its native audio decoder. Linux requires a system libmpv runtime (`libmpv1` on Ubuntu 22.04, `libmpv2` on Ubuntu 24.04) and a desktop session bus for MPRIS controls. The hosted web build is available at the project’s [GitHub Pages site](https://atewertfd.github.io/absorb-platform/).
 
 ## Build requirements
 
