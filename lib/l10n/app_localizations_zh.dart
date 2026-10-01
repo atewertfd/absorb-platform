@@ -139,6 +139,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get downloads => '下载';
 
   @override
+  String get downloadsFailed => 'Failed downloads';
+
+  @override
   String get noDownloadedBooks => '暂无已下载书籍';
 
   @override

@@ -140,6 +140,9 @@ class AppLocalizationsRu extends AppLocalizations {
   String get downloads => 'Downloads';
 
   @override
+  String get downloadsFailed => 'Failed downloads';
+
+  @override
   String get noDownloadedBooks => 'Нет загруженных книг';
 
   @override

@@ -47,6 +47,7 @@
   "discover": "Discover",
   "newEpisodes": "New Episodes",
   "downloads": "Downloads",
+  "downloadsFailed": "Failed downloads",
   "noDownloadedBooks": "No downloaded books",
   "yourLibraryIsEmpty": "Your library is empty",
   "downloadBooksWhileOnline": "Download books while online to listen offline",

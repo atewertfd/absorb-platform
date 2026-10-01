@@ -370,6 +370,12 @@ abstract class AppLocalizations {
   /// **'Downloads'**
   String get downloads;
 
+  /// No description provided for @downloadsFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed downloads'**
+  String get downloadsFailed;
+
   /// No description provided for @noDownloadedBooks.
   ///
   /// In en, this message translates to:

@@ -140,6 +140,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get downloads => 'Téléchargements';
 
   @override
+  String get downloadsFailed => 'Failed downloads';
+
+  @override
   String get noDownloadedBooks => 'Aucun livre téléchargé';
 
   @override

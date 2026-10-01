@@ -490,7 +490,7 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
                                   bottom: 8,
                                 ),
                                 child: Text(
-                                  l.downloadFailedGeneric(''),
+                                  l.downloadsFailed,
                                   style: tt.labelMedium?.copyWith(
                                     color: cs.error,
                                     fontWeight: FontWeight.w600,

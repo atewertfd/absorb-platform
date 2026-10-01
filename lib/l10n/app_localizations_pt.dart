@@ -139,6 +139,9 @@ class AppLocalizationsPt extends AppLocalizations {
   String get downloads => 'Downloads';
 
   @override
+  String get downloadsFailed => 'Failed downloads';
+
+  @override
   String get noDownloadedBooks => 'No downloaded books';
 
   @override
