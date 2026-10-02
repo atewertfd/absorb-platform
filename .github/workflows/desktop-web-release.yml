@@ -221,3 +221,80 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ needs.prepare.outputs.tag }}
         run: gh release upload "$TAG" build/web/release/* --clobber
+
+  android:
+    name: Android APK and optional Play Store bundle
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version-file: .flutter-version
+          cache: true
+      - run: flutter pub get
+      - name: Configure Android signing
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          KEYSTORE="$RUNNER_TEMP/absorb-upload-key.jks"
+          if [ -n "${KEYSTORE_B64:-}" ] && [ -n "${STORE_PASSWORD:-}" ] && [ -n "${KEY_PASSWORD:-}" ] && [ -n "${KEY_ALIAS:-}" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$KEYSTORE"
+            echo "playstore_signing=true" >> "$GITHUB_ENV"
+          else
+            echo "Android signing secrets are not configured; using a temporary CI key for installable APKs."
+            keytool -genkeypair -v -keystore "$KEYSTORE" -storepass android -keypass android \
+              -alias upload -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Absorb CI, OU=Build, O=Absorb, C=US"
+            STORE_PASSWORD=android
+            KEY_PASSWORD=android
+            KEY_ALIAS=upload
+            echo "playstore_signing=false" >> "$GITHUB_ENV"
+          fi
+          cat > android/key.properties <<EOF
+          storePassword=$STORE_PASSWORD
+          keyPassword=$KEY_PASSWORD
+          keyAlias=$KEY_ALIAS
+          storeFile=$KEYSTORE
+          EOF
+      - name: Build Android APKs
+        run: bash scripts/build-github-apks
+      - name: Build Play Store AAB when signing is configured
+        if: env.playstore_signing == 'true'
+        run: flutter build appbundle --release --flavor playstore --dart-define=PLAYSTORE_BUILD=true
+      - name: Package Android files
+        env:
+          NAME: ${{ needs.prepare.outputs.name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/android/release
+          shopt -s nullglob
+          apks=(build/app/outputs/apk/github/release/*.apk)
+          [ "${#apks[@]}" -gt 0 ] || { echo 'No Android APKs were produced'; exit 1; }
+          for apk in "${apks[@]}"; do
+            kind=$(basename "$apk" | sed -E 's/.*-((universal|armeabi-v7a|arm64-v8a|x86_64))\.apk$/\1/')
+            cp "$apk" "build/android/release/$NAME-android-$kind.apk"
+          done
+          if [ "${playstore_signing:-false}" = true ]; then
+            aab=(build/app/outputs/bundle/playstoreRelease/*.aab)
+            [ "${#aab[@]}" -eq 1 ] || { echo 'Play Store AAB was not produced'; exit 1; }
+            cp "${aab[0]}" "build/android/release/$NAME-android-playstore.aab"
+          fi
+          sha256sum build/android/release/* > "build/android/release/$NAME-android-SHA256SUMS.txt"
+      - name: Upload Android files
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: gh release upload "$TAG" build/android/release/* --clobber
