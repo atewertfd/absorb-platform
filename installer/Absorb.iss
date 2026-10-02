@@ -12,6 +12,9 @@ AppId={{B7E20A8A-2D5B-4B63-9B6D-AB8C4E5C2F91}
 AppName=Absorb Plus
 AppVersion={#AppVersion}
 AppPublisher=Absorb Plus contributors
+AppPublisherURL=https://github.com/atewertfd/absorb-platform
+AppSupportURL=https://github.com/atewertfd/absorb-platform/issues
+AppUpdatesURL=https://github.com/atewertfd/absorb-platform/releases
 DefaultDirName={autopf}\Absorb Plus
 DefaultGroupName=Absorb Plus
 DisableProgramGroupPage=yes
@@ -20,11 +23,14 @@ OutputBaseFilename=Absorb-{#AppVersion}-Setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
-ArchitecturesInstallIn64BitMode=x64
+ArchitecturesInstallIn64BitMode=x64compatible
 UninstallDisplayIcon={app}\absorb.exe
 SetupIconFile=..\windows\runner\resources\app_icon.ico
 PrivilegesRequired=lowest
 ChangesAssociations=no
+; The uninstaller removes only files installed under {app}. Absorb's user
+; settings, cache, and downloads are stored outside {app} and are intentionally
+; preserved so uninstall/reinstall cannot destroy personal data.
 
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
