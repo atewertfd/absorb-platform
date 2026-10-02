@@ -76,11 +76,29 @@ jobs:
             args=(--title "$TAG" --generate-notes)
             [ "$PRE" = true ] && args+=(--prerelease)
             gh release create "$TAG" "${args[@]}"
+
+  quality:
+    name: Analyze and test before release
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version-file: .flutter-version
+          cache: true
+      - run: flutter pub get
+      - name: Analyze Dart and Flutter code
+        run: flutter analyze --no-pub --no-fatal-infos
+      - name: Run automated tests
+        run: flutter test --no-pub --reporter expanded
           fi
 
   windows:
     name: Windows installer and portable
-    needs: prepare
+    needs: [prepare, quality]
     runs-on: windows-2022
     timeout-minutes: 90
     steps:
@@ -190,7 +208,7 @@ jobs:
 
   linux:
     name: Linux tarball and Debian package
-    needs: prepare
+    needs: [prepare, quality]
     runs-on: ubuntu-22.04
     timeout-minutes: 90
     steps:
@@ -335,7 +353,7 @@ jobs:
 
   web:
     name: Web ZIP
-    needs: prepare
+    needs: [prepare, quality]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -363,7 +381,7 @@ jobs:
 
   android:
     name: Android APK and optional Play Store bundle
-    needs: prepare
+    needs: [prepare, quality]
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -422,9 +440,11 @@ jobs:
           shopt -s nullglob
           apks=(build/app/outputs/apk/github/release/*.apk)
           [ "${#apks[@]}" -gt 0 ] || { echo 'No Android APKs were produced'; exit 1; }
+          suffix=""
+          [ "${playstore_signing:-false}" = true ] || suffix="-ci"
           for apk in "${apks[@]}"; do
             kind=$(basename "$apk" | sed -E 's/.*-((universal|armeabi-v7a|arm64-v8a|x86_64))\.apk$/\1/')
-            cp "$apk" "build/android/release/$NAME-android-$kind.apk"
+            cp "$apk" "build/android/release/$NAME-android-$kind$suffix.apk"
           done
           if [ "${playstore_signing:-false}" = true ]; then
             aab=(build/app/outputs/bundle/playstoreRelease/*.aab)
