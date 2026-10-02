@@ -131,10 +131,28 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: subosito/flutter-action@v2
+        id: flutter_arm
         with:
           channel: stable
           flutter-version-file: .flutter-version
+          # Use the x64 host SDK, then refresh its Dart/Windows ARM64 engine.
+          architecture: x64
           cache: true
+      - name: Switch Flutter SDK to Windows ARM64 engine
+        shell: pwsh
+        run: |
+          $flutterRoot = '${{ steps.flutter_arm.outputs.CACHE-PATH }}'
+          if (-not (Test-Path "$flutterRoot\bin\internal\update_dart_sdk.ps1")) {
+            throw "Flutter SDK internals not found at $flutterRoot"
+          }
+          Remove-Item "$flutterRoot\bin\cache\engine-dart-sdk.stamp" -Force -ErrorAction SilentlyContinue
+          & "$flutterRoot\bin\internal\update_dart_sdk.ps1"
+          $dartVersion = (& "$flutterRoot\bin\dart.bat" --version 2>&1 | Out-String)
+          Write-Host $dartVersion
+          if ($dartVersion -notmatch 'windows_arm64') {
+            throw "Expected Windows ARM64 Dart SDK, received: $dartVersion"
+          }
+          & "$flutterRoot\bin\flutter.bat" precache --windows
       - run: flutter pub get
       - run: flutter build windows --release --no-pub
       - name: Add ARM64 VC++ runtime
