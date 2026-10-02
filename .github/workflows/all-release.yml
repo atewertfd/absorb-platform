@@ -261,7 +261,70 @@ jobs:
           status: ${{ inputs.play_release && 'completed' || 'draft' }}
           whatsNewDirectory: ${{ env.PLAY_WHATSNEW }}
 
-  # iOS must build on macOS; runs in parallel with the Android jobs above.
+  # Windows desktop release. This deliberately lives in the same draft release
+  # as mobile builds so desktop users get a signed-by-GitHub, reproducible
+  # installer and a portable fallback from one release action.
+  windows:
+    name: Windows installer + portable
+    needs: prepare
+    runs-on: windows-2022
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.0
+          cache: true
+
+      - name: Build Windows release
+        shell: pwsh
+        run: flutter build windows --release --no-pub
+
+      - name: Bundle runtime libraries
+        shell: pwsh
+        run: |
+          $crt = Get-ChildItem "$env:RUNNER_TOOL_CACHE\Python\*\x64\vcruntime140.dll" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($crt) { Copy-Item $crt.FullName "build\windows\x64\runner\Release\vcruntime140.dll" -Force }
+          $crt2 = Get-ChildItem "$env:RUNNER_TOOL_CACHE\Python\*\x64\vcruntime140_1.dll" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($crt2) { Copy-Item $crt2.FullName "build\windows\x64\runner\Release\vcruntime140_1.dll" -Force }
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Build installer and portable archive
+        shell: pwsh
+        env:
+          FNAME: ${{ needs.prepare.outputs.fname }}
+          RAW_VERSION: ${{ needs.prepare.outputs.raw }}
+        run: |
+          New-Item -ItemType Directory -Force build\windows\installer | Out-Null
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" `
+            "/DAppVersion=$env:RAW_VERSION" `
+            "/DSourceDir=$PWD\build\windows\x64\runner\Release" `
+            installer\Absorb.iss
+          Compress-Archive -Path build\windows\x64\runner\Release\* `
+            -DestinationPath "build\windows\installer\$env:FNAME-windows-portable.zip" -Force
+
+      - name: Write SHA-256 checksums
+        shell: pwsh
+        env:
+          FNAME: ${{ needs.prepare.outputs.fname }}
+        run: |
+          Get-ChildItem "build\windows\installer\$env:FNAME*.exe", "build\windows\installer\$env:FNAME*.zip" |
+            ForEach-Object { "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash)  $($_.Name)" } |
+            Set-Content "build\windows\installer\$env:FNAME-windows-SHA256SUMS.txt"
+
+      - name: Upload Windows artifacts to draft release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION_TAG: ${{ needs.prepare.outputs.tag }}
+        run: gh release upload $env:VERSION_TAG build\windows\installer\* --clobber
+
+  # iOS must build on macOS; runs in parallel with the Android and Windows jobs.
   ios:
     name: iOS IPA + TestFlight
     needs: prepare
@@ -417,7 +480,7 @@ jobs:
   # Single Discord ping once both halves finish, success or fail.
   notify:
     name: Notify Discord (finished)
-    needs: [prepare, android, ios]
+    needs: [prepare, android, windows, ios]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -428,9 +491,10 @@ jobs:
           VERSION: ${{ needs.prepare.outputs.raw }}
           RUN_URL: ${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}
           ANDROID_RESULT: ${{ needs.android.result }}
+          WINDOWS_RESULT: ${{ needs.windows.result }}
           IOS_RESULT: ${{ needs.ios.result }}
         run: |
-          if [ "$ANDROID_RESULT" = "success" ] && [ "$IOS_RESULT" = "success" ]; then
+          if [ "$ANDROID_RESULT" = "success" ] && [ "$WINDOWS_RESULT" = "success" ] && [ "$IOS_RESULT" = "success" ]; then
             TITLE="Build successful"
             COLOR=3066993
           else
@@ -439,5 +503,5 @@ jobs:
           fi
           curl -sS -X POST "$DISCORD_WEBHOOK_URL" \
             -H "Content-Type: application/json" \
-            -d "{\"embeds\":[{\"title\":\"$TITLE\",\"description\":\"**All Platforms Release** v$VERSION (android: $ANDROID_RESULT, ios: $IOS_RESULT)\\n[Build log]($RUN_URL)\",\"color\":$COLOR}]}" \
+            -d "{\"embeds\":[{\"title\":\"$TITLE\",\"description\":\"**All Platforms Release** v$VERSION (android: $ANDROID_RESULT, windows: $WINDOWS_RESULT, ios: $IOS_RESULT)\\n[Build log]($RUN_URL)\",\"color\":$COLOR}]}" \
             > /dev/null 2>&1 || true

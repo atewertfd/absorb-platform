@@ -1,12 +1,16 @@
 {
     "name": "Absorb Plus",
     "short_name": "Absorb Plus",
-    "start_url": ".",
+    "start_url": "./",
+    "scope": "./",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
-    "orientation": "portrait-primary",
+    "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+    "background_color": "#101014",
+    "theme_color": "#101014",
+    "description": "A cross-platform Audiobookshelf client for listening, downloads, and offline playback.",
+    "lang": "en",
+    "categories": ["music", "entertainment"],
+    "orientation": "any",
     "prefer_related_applications": false,
     "icons": [
         {

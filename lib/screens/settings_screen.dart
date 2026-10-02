@@ -38,6 +38,7 @@ import '../services/wording.dart';
 import '../utils/share_origin.dart';
 import '../widgets/settings_search.dart';
 import 'settings_search_index.dart';
+import 'server_health_screen.dart';
 import '../widgets/absorb_page_header.dart';
 import '../widgets/theme_presets.dart';
 import '../widgets/color_wheel_picker.dart';
@@ -4021,6 +4022,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   isExpanded: _expandedSection == 'Issues & Support',
                   onExpansionChanged: (v) => _onSectionExpanded('Issues & Support', v),
                   children: [
+                    ListTile(
+                      leading: Icon(Icons.health_and_safety_outlined,
+                          color: cs.primary),
+                      title: const Text('Server health'),
+                      subtitle: const Text('Check connectivity, compatibility, and session access'),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) => const ServerHealthScreen(),
+                      )),
+                    ),
+                    const Divider(height: 1, indent: 16, endIndent: 16),
                     ListTile(
                       leading: Icon(Icons.lightbulb_outline_rounded,
                           color: cs.onSurfaceVariant),
