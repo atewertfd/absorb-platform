@@ -152,9 +152,12 @@ jobs:
                  "    gdouble expires = expires_date == nullptr\n"
                  "                           ? -1\n"
                  "                           : static_cast<gdouble>(soup_date_to_time_t(expires_date));")
-          if old not in source:
-              raise SystemExit('desktop_webview_window cookie expiry source changed')
-          path.write_text(source.replace(old, new, 1))
+          if old in source:
+              path.write_text(source.replace(old, new, 1))
+          elif 'SoupDate *expires_date = soup_cookie_get_expires(cookie);' in source:
+              print('desktop_webview_window cookie expiry patch already present')
+          else:
+              raise SystemExit('desktop_webview_window cookie expiry source changed; review required')
           PY
       - run: flutter build linux --release --no-pub
       - name: Package Linux files
