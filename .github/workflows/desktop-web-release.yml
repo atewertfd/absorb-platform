@@ -1,0 +1,219 @@
+name: Desktop and Web Release
+
+# Builds the non-Apple release files and attaches them to one GitHub release.
+# Push a v* tag for automatic publishing, or run this workflow manually with a
+# tag such as v1.11.1-288. Apple jobs are intentionally not part of this file.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag, for example v1.11.1-288'
+        required: true
+        type: string
+      prerelease:
+        description: 'Mark the GitHub release as a prerelease'
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    name: Prepare release
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      name: ${{ steps.version.outputs.name }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Resolve release identity
+        id: version
+        shell: bash
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+          INPUT_PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            TAG="$GITHUB_REF_NAME"
+            PRE=true
+          else
+            TAG="$INPUT_TAG"
+            PRE="$INPUT_PRERELEASE"
+          fi
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]] || {
+            echo "Invalid release tag: $TAG"
+            exit 1
+          }
+          RAW=$(grep '^version:' pubspec.yaml | sed 's/version: *//')
+          BASE="absorb-${RAW//+/-}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "name=$BASE" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$PRE" >> "$GITHUB_OUTPUT"
+
+      - name: Create release if missing
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.version.outputs.tag }}
+          PRE: ${{ steps.version.outputs.prerelease }}
+        shell: bash
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Using existing release $TAG"
+          else
+            args=(--title "$TAG" --generate-notes)
+            [ "$PRE" = true ] && args+=(--prerelease)
+            gh release create "$TAG" "${args[@]}"
+          fi
+
+  windows:
+    name: Windows installer and portable
+    needs: prepare
+    runs-on: windows-2022
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version-file: .flutter-version
+          cache: true
+      - run: flutter build windows --release --no-pub
+      - name: Add VC++ runtime
+        shell: pwsh
+        run: |
+          $out = 'build\windows\x64\runner\Release'
+          $crt = Get-ChildItem 'C:\Program Files\Microsoft Visual Studio\2022\*\VC\Redist\MSVC\*\x64\Microsoft.VC143.CRT' -Directory -ErrorAction SilentlyContinue | Select-Object -Last 1
+          foreach ($dll in 'msvcp140.dll','vcruntime140.dll','vcruntime140_1.dll') {
+            $src = if ($crt) { Join-Path $crt.FullName $dll } else { "C:\Windows\System32\$dll" }
+            if (-not (Test-Path $src)) { throw "Missing VC++ runtime: $dll" }
+            Copy-Item $src $out -Force
+          }
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress --yes
+      - name: Package Windows files
+        shell: pwsh
+        env:
+          TAG: ${{ needs.prepare.outputs.tag }}
+          NAME: ${{ needs.prepare.outputs.name }}
+        run: |
+          $iscc = 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path $iscc)) { throw "Inno Setup compiler not found" }
+          $raw = (Select-String -Path pubspec.yaml -Pattern '^version:' | ForEach-Object { $_.Line.Split(':', 2)[1].Trim() })
+          $version = ($raw -split '\+')[0]
+          & $iscc "/DAppVersion=$version" "/DSourceDir=$((Resolve-Path 'build\windows\x64\runner\Release').Path)" 'installer\Absorb.iss'
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed: $LASTEXITCODE" }
+          New-Item -ItemType Directory -Force build\windows\release | Out-Null
+          Compress-Archive -Path 'build\windows\x64\runner\Release\*' -DestinationPath "build\windows\release\$env:NAME-windows-portable.zip" -Force
+          Copy-Item 'build\windows\installer\*.exe' build\windows\release
+          Get-ChildItem build\windows\release | ForEach-Object { "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash)  $($_.Name)" } | Set-Content "build\windows\release\$env:NAME-windows-SHA256SUMS.txt"
+      - name: Upload Windows files
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: gh release upload $env:TAG build\windows\release\* --clobber
+
+  linux:
+    name: Linux tarball and Debian package
+    needs: prepare
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libwebkit2gtk-4.0-dev libsoup-3.0-dev libmpv-dev dpkg-dev
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version-file: .flutter-version
+          cache: true
+      - run: flutter config --enable-linux-desktop
+      - run: flutter pub get
+      - name: Patch desktop webview compatibility
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('linux/flutter/ephemeral/.plugin_symlinks/desktop_webview_window/linux/webview_window.cc')
+          source = path.read_text()
+          old = '    gdouble expires = g_date_time_get_seconds(soup_cookie_get_expires(cookie));'
+          new = ("    SoupDate *expires_date = soup_cookie_get_expires(cookie);\n"
+                 "    gdouble expires = expires_date == nullptr\n"
+                 "                           ? -1\n"
+                 "                           : static_cast<gdouble>(soup_date_to_time_t(expires_date));")
+          if old not in source:
+              raise SystemExit('desktop_webview_window cookie expiry source changed')
+          path.write_text(source.replace(old, new, 1))
+          PY
+      - run: flutter build linux --release --no-pub
+      - name: Package Linux files
+        env:
+          NAME: ${{ needs.prepare.outputs.name }}
+        run: |
+          mkdir -p build/linux/release build/linux/deb/DEBIAN build/linux/deb/opt/absorb-plus build/linux/deb/usr/share/applications
+          cp -a build/linux/x64/release/bundle/. build/linux/deb/opt/absorb-plus/
+          cat > build/linux/deb/DEBIAN/control <<EOF
+          Package: absorb-plus
+          Version: ${NAME#absorb-}
+          Section: sound
+          Priority: optional
+          Architecture: amd64
+          Maintainer: Absorb Plus contributors
+          Description: Cross-platform Audiobookshelf client
+          EOF
+          cat > build/linux/deb/usr/share/applications/absorb-plus.desktop <<'EOF'
+          [Desktop Entry]
+          Name=Absorb Plus
+          Comment=Audiobookshelf client
+          Exec=/opt/absorb-plus/absorb
+          Icon=/opt/absorb-plus/data/flutter_assets/assets/icon/app_icon.png
+          Terminal=false
+          Type=Application
+          Categories=AudioVideo;Audio;Player;
+          EOF
+          tar -C build/linux/x64/release -czf "build/linux/release/$NAME-linux-x64.tar.gz" bundle
+          dpkg-deb --build --root-owner-group build/linux/deb "build/linux/release/$NAME-linux-amd64.deb"
+          sha256sum build/linux/release/* > "build/linux/release/$NAME-linux-SHA256SUMS.txt"
+      - name: Upload Linux files
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: gh release upload "$TAG" build/linux/release/* --clobber
+
+  web:
+    name: Web ZIP
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version-file: .flutter-version
+          cache: true
+      - run: flutter pub get
+      - run: flutter build web --release --no-pub
+      - name: Package web files
+        env:
+          NAME: ${{ needs.prepare.outputs.name }}
+        run: |
+          mkdir -p build/web/release
+          cd build/web
+          zip -r "release/$NAME-web.zip" . -x 'release/*'
+          cd release
+          sha256sum * > "$NAME-web-SHA256SUMS.txt"
+      - name: Upload web files
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: gh release upload "$TAG" build/web/release/* --clobber
