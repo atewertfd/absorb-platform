@@ -68,6 +68,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.version.outputs.tag }}
           PRE: ${{ steps.version.outputs.prerelease }}
+          SOURCE_SHA: ${{ github.sha }}
         shell: bash
         run: |
           if gh release view "$TAG" >/dev/null 2>&1; then
@@ -76,6 +77,12 @@ jobs:
             args=(--title "$TAG" --generate-notes)
             [ "$PRE" = true ] && args+=(--prerelease)
             gh release create "$TAG" "${args[@]}"
+          fi
+          BODY=$(gh release view "$TAG" --json body --jq '.body')
+          MARKER="Source commit: $SOURCE_SHA"
+          if [[ "$BODY" != *"$MARKER"* ]]; then
+            gh release edit "$TAG" --notes "${BODY}\n\n---\n$MARKER\nSHA-256 checksums are included in the release assets."
+          fi
 
   quality:
     name: Analyze and test before release
@@ -94,7 +101,6 @@ jobs:
         run: flutter analyze --no-pub --no-fatal-infos
       - name: Run automated tests
         run: flutter test --no-pub --reporter expanded
-          fi
 
   windows:
     name: Windows installer and portable
