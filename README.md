@@ -9,7 +9,6 @@ An unofficial enhanced cross-platform edition of [Absorb](https://github.com/pou
 
 - Android APKs for universal, ARM32, and ARM64 devices
 - Native Windows x64 and Linux x64 desktop executables built with Flutter
-- Experimental Windows ARM64 and Linux ARM64 release jobs when the hosted ARM toolchain is available
 - Browser build for modern web browsers
 - Desktop keyboard controls: Space play/pause, Left/Right rewind or fast-forward, Ctrl+F search, Ctrl+L Library, and Ctrl+N Now Playing
 - Tab-accessible queue, stop, refresh, and offline header controls with visible focus and Enter/Space activation
@@ -36,7 +35,7 @@ See [import verification](docs/IMPORT-VERIFICATION.md) for tests, visual checks,
 
 ## Downloads
 
-Download Android, desktop, and web builds from the [Releases](../../releases) page. The combined [Desktop and Web Release workflow](../../actions/workflows/desktop-web-release.yml) publishes Android APKs, a Play Store AAB when signing secrets are configured, Windows x64 installer/portable files, Linux x64 packages, and the web ZIP. APKs marked `-ci` use a temporary CI signing key and are for testing only; use the signed Android release workflow for update-safe distribution. ARM64 desktop jobs are experimental and do not block the stable release when GitHub’s ARM Flutter toolchain is unavailable. The Windows installer creates desktop and Start-menu shortcuts, contains the complete Flutter bundle, and can be removed from Windows Apps. Extract the **entire** portable archive if you use that option, and keep its libraries and data alongside it. Windows bundles its native audio decoder. Linux requires a system libmpv runtime (`libmpv1` on Ubuntu 22.04, `libmpv2` on Ubuntu 24.04) and a desktop session bus for MPRIS controls. The hosted web build is available at the project’s [GitHub Pages site](https://atewertfd.github.io/absorb-platform/).
+Download Android, desktop, and web builds from the [Releases](../../releases) page. The combined [Desktop and Web Release workflow](../../actions/workflows/desktop-web-release.yml) publishes Android APKs, a Play Store AAB when signing secrets are configured, Windows x64 installer/portable files, Linux x64 packages, and the web ZIP. APKs marked `-ci` use a temporary CI signing key and are for testing only; use the signed Android release workflow for update-safe distribution. Windows and Linux desktop releases target x64. The Windows installer creates desktop and Start-menu shortcuts, contains the complete Flutter bundle, and can be removed from Windows Apps. Extract the **entire** portable archive if you use that option, and keep its libraries and data alongside it. Windows bundles its native audio decoder. Linux requires a system libmpv runtime (`libmpv1` on Ubuntu 22.04, `libmpv2` on Ubuntu 24.04) and a desktop session bus for MPRIS controls. The hosted web build is available at the project’s [GitHub Pages site](https://atewertfd.github.io/absorb-platform/).
 
 ## Build requirements
 
@@ -83,7 +82,7 @@ The test generates a silent WAV in a unique temporary directory, initializes the
 
 ## Limitations
 
-Android-only or mobile-specific features are not included in desktop/web targets, including Android Auto, Chromecast, home-screen widgets, Android background services, and APK self-updating. Some features require platform-specific implementations and further testing. Linux builds are produced in CI when a native Linux toolchain is not available. Native desktop ARM64 artifacts are experimental; Android ARM32/ARM64 APKs are the supported ARM distribution path.
+Android-only or mobile-specific features are not included in desktop/web targets, including Android Auto, Chromecast, home-screen widgets, Android background services, and APK self-updating. Some features require platform-specific implementations and further testing. Linux builds are produced in CI when a native Linux toolchain is not available. Android ARM32/ARM64 APKs are supported; Windows desktop releases target x64.
 
 The desktop audio backend does not implement the mobile equalizer or silence skipping. Windows SMTC integration does not currently expose OS timeline scrubbing; use the app's seek controls. Real Audiobookshelf playback, reconnect/sync behavior, physical media keys, and Linux runtime audio still need end-to-end verification. A successful build alone is not evidence that those flows work.
 
