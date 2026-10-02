@@ -42,7 +42,9 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.barnabas.absorb"
+        // This fork must install beside the official Absorb app instead of
+        // being treated as an update to it.
+        applicationId = "com.barnabas.absorb.plus"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

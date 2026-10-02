@@ -28,7 +28,7 @@ class WhatsNewPrompt {
 
     final beta = betaNumberFor(info.version);
     final tag = beta == null ? 'v${info.version}' : 'v${info.version}-$build';
-    final url = Uri.parse('https://github.com/pounat/absorb/releases/tag/$tag');
+    final url = Uri.parse('https://github.com/atewertfd/absorb-platform/releases/tag/$tag');
 
     // Let launch settle so this doesn't land on top of the first frames.
     await Future.delayed(const Duration(milliseconds: 1200));

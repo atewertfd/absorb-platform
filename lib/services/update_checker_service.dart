@@ -47,7 +47,9 @@ int? betaNumberFromReleaseNotes(String notes) {
 }
 
 class UpdateCheckerService {
-  static const _repo = 'pounat/absorb'; // Update this to your repo
+  // Keep the fork updater on the fork's releases. The distinct application ID
+  // prevents Android from offering these APKs as updates to official Absorb.
+  static const _repo = 'atewertfd/absorb-platform';
   static const _checkInterval = Duration(hours: 12);
   static const _dismissedKey = 'update_dismissed_version';
   static const _lastCheckKey = 'update_last_check';
