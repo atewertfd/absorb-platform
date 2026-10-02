@@ -20,6 +20,11 @@ on:
         default: true
         type: boolean
 
+concurrency:
+  # Prevent two builds for the same tag from racing while uploading assets.
+  group: absorb-release-${{ github.ref }}-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
@@ -126,6 +131,9 @@ jobs:
   windows-arm64:
     name: Windows ARM64 portable
     needs: prepare
+    # ARM64 Flutter support is useful but currently depends on preview runner
+    # images and a special SDK bootstrap. It must not block stable releases.
+    continue-on-error: true
     runs-on: windows-11-vs2026-arm
     timeout-minutes: 90
     steps:
@@ -254,6 +262,9 @@ jobs:
   linux-arm64:
     name: Linux ARM64 tarball and Debian package
     needs: prepare
+    # Keep this experimental until an official ARM64 Linux Flutter SDK is
+    # available on the hosted runner image.
+    continue-on-error: true
     runs-on: ubuntu-22.04-arm
     timeout-minutes: 90
     steps:

@@ -1,13 +1,15 @@
 # Absorb Plus
 
-An unofficial enhanced cross-platform edition of [Absorb](https://github.com/pounat/absorb), the Audiobookshelf client, for Windows, Linux, and the web.
+An unofficial enhanced cross-platform edition of [Absorb](https://github.com/pounat/absorb), the Audiobookshelf client, for Android, Windows, Linux, and the web.
 
 > [!WARNING]
 > These ports are experimental and were substantially AI-generated with human direction and verification. They are not official Absorb releases. Review and test changes carefully before relying on them with production data.
 
 ## What this project provides
 
-- Native Windows x64 and Linux desktop executables built with Flutter
+- Android APKs for universal, ARM32, and ARM64 devices
+- Native Windows x64 and Linux x64 desktop executables built with Flutter
+- Experimental Windows ARM64 and Linux ARM64 release jobs when the hosted ARM toolchain is available
 - Browser build for modern web browsers
 - Desktop keyboard controls: Space play/pause, Left/Right rewind or fast-forward, Ctrl+F search, Ctrl+L Library, and Ctrl+N Now Playing
 - Tab-accessible queue, stop, refresh, and offline header controls with visible focus and Enter/Space activation
@@ -34,13 +36,14 @@ See [import verification](docs/IMPORT-VERIFICATION.md) for tests, visual checks,
 
 ## Downloads
 
-Download desktop builds from the [Releases](../../releases) page. The manually dispatched [Windows Desktop Build workflow](../../actions/workflows/windows-build.yml) also produces a portable Windows archive and an optional **Absorb-*-Setup.exe** installer artifact; the installer creates desktop and Start-menu shortcuts, contains the complete Flutter bundle, and can be removed from Windows Apps. Extract the **entire** portable archive if you use that option, and keep its libraries and data alongside it. Windows bundles its native audio decoder. Linux requires a system libmpv runtime (`libmpv1` on Ubuntu 22.04, `libmpv2` on Ubuntu 24.04) and a desktop session bus for MPRIS controls. The hosted web build is available at the project’s [GitHub Pages site](https://atewertfd.github.io/absorb-platform/).
+Download Android, desktop, and web builds from the [Releases](../../releases) page. The combined [Desktop and Web Release workflow](../../actions/workflows/desktop-web-release.yml) publishes Android APKs, a Play Store AAB when signing secrets are configured, Windows x64 installer/portable files, Linux x64 packages, and the web ZIP. ARM64 desktop jobs are experimental and do not block the stable release when GitHub’s ARM Flutter toolchain is unavailable. The Windows installer creates desktop and Start-menu shortcuts, contains the complete Flutter bundle, and can be removed from Windows Apps. Extract the **entire** portable archive if you use that option, and keep its libraries and data alongside it. Windows bundles its native audio decoder. Linux requires a system libmpv runtime (`libmpv1` on Ubuntu 22.04, `libmpv2` on Ubuntu 24.04) and a desktop session bus for MPRIS controls. The hosted web build is available at the project’s [GitHub Pages site](https://atewertfd.github.io/absorb-platform/).
 
 ## Build requirements
 
 - Flutter stable with the desired desktop/web support enabled
 - Windows: Visual Studio with the **Desktop development with C++** workload, Windows Developer Mode, and NuGet CLI
 - Linux: GTK 3 development packages, CMake, Ninja, Clang, pkg-config, libmpv-dev, and WebKitGTK 4.0 development packages (CI uses Ubuntu 22.04)
+- Android: Android SDK, Java 17, and an optional signing keystore for Play Store bundles
 - Web: Flutter web support and a modern browser
 
 ## Build
@@ -80,7 +83,7 @@ The test generates a silent WAV in a unique temporary directory, initializes the
 
 ## Limitations
 
-Android-only or mobile-specific features are not included in desktop/web targets, including Android Auto, Chromecast, home-screen widgets, Android background services, and APK self-updating. Some features require platform-specific implementations and further testing. Linux builds are produced in CI when a native Linux toolchain is not available.
+Android-only or mobile-specific features are not included in desktop/web targets, including Android Auto, Chromecast, home-screen widgets, Android background services, and APK self-updating. Some features require platform-specific implementations and further testing. Linux builds are produced in CI when a native Linux toolchain is not available. Native desktop ARM64 artifacts are experimental; Android ARM32/ARM64 APKs are the supported ARM distribution path.
 
 The desktop audio backend does not implement the mobile equalizer or silence skipping. Windows SMTC integration does not currently expose OS timeline scrubbing; use the app's seek controls. Real Audiobookshelf playback, reconnect/sync behavior, physical media keys, and Linux runtime audio still need end-to-end verification. A successful build alone is not evidence that those flows work.
 
@@ -90,7 +93,7 @@ Windows builds also apply a scoped WebView shutdown fix for [upstream issue #273
 
 ## Attribution
 
-This project is derived from the upstream [pounat/absorb](https://github.com/pounat/absorb) repository. Android and iOS development remains upstream. Please report desktop/web port issues here and direct Android/iOS issues to the original project.
+This project is derived from the upstream [pounat/absorb](https://github.com/pounat/absorb) repository. iOS development remains upstream. Please report desktop/web/Android port issues here and direct upstream iOS issues to the original project.
 
 ## License
 
