@@ -123,6 +123,45 @@ jobs:
           TAG: ${{ needs.prepare.outputs.tag }}
         run: gh release upload $env:TAG build\windows\release\* --clobber
 
+  windows-arm64:
+    name: Windows ARM64 portable
+    needs: prepare
+    runs-on: windows-11-vs2026-arm
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version-file: .flutter-version
+          cache: true
+      - run: flutter pub get
+      - run: flutter build windows --release --no-pub
+      - name: Add ARM64 VC++ runtime
+        shell: pwsh
+        run: |
+          $out = 'build\windows\arm64\runner\Release'
+          $crt = Get-ChildItem 'C:\Program Files\Microsoft Visual Studio\2022\*\VC\Redist\MSVC\*\arm64\Microsoft.VC143.CRT' -Directory -ErrorAction SilentlyContinue | Select-Object -Last 1
+          foreach ($dll in 'msvcp140.dll','vcruntime140.dll','vcruntime140_1.dll') {
+            $src = if ($crt) { Join-Path $crt.FullName $dll } else { "C:\Windows\System32\$dll" }
+            if (-not (Test-Path $src)) { throw "Missing ARM64 VC++ runtime: $dll" }
+            Copy-Item $src $out -Force
+          }
+      - name: Package Windows ARM64 portable
+        shell: pwsh
+        env:
+          NAME: ${{ needs.prepare.outputs.name }}
+        run: |
+          New-Item -ItemType Directory -Force build\windows\arm64\release | Out-Null
+          Compress-Archive -Path 'build\windows\arm64\runner\Release\*' -DestinationPath "build\windows\arm64\release\$env:NAME-windows-arm64-portable.zip" -Force
+          Get-ChildItem build\windows\arm64\release | ForEach-Object { "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash)  $($_.Name)" } | Set-Content "build\windows\arm64\release\$env:NAME-windows-arm64-SHA256SUMS.txt"
+      - name: Upload Windows ARM64 files
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: gh release upload $env:TAG build\windows\arm64\release\* --clobber
+
   linux:
     name: Linux tarball and Debian package
     needs: prepare
@@ -193,6 +232,77 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ needs.prepare.outputs.tag }}
         run: gh release upload "$TAG" build/linux/release/* --clobber
+
+  linux-arm64:
+    name: Linux ARM64 tarball and Debian package
+    needs: prepare
+    runs-on: ubuntu-22.04-arm
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libwebkit2gtk-4.0-dev libsoup-3.0-dev libmpv-dev dpkg-dev
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version-file: .flutter-version
+          cache: true
+      - run: flutter config --enable-linux-desktop
+      - run: flutter pub get
+      - name: Patch desktop webview compatibility
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('linux/flutter/ephemeral/.plugin_symlinks/desktop_webview_window/linux/webview_window.cc')
+          source = path.read_text()
+          old = '    gdouble expires = g_date_time_get_seconds(soup_cookie_get_expires(cookie));'
+          new = ("    SoupDate *expires_date = soup_cookie_get_expires(cookie);\n"
+                 "    gdouble expires = expires_date == nullptr\n"
+                 "                           ? -1\n"
+                 "                           : static_cast<gdouble>(soup_date_to_time_t(expires_date));")
+          if old in source:
+              path.write_text(source.replace(old, new, 1))
+          elif 'SoupDate *expires_date = soup_cookie_get_expires(cookie);' in source:
+              print('desktop_webview_window cookie expiry patch already present')
+          else:
+              raise SystemExit('desktop_webview_window cookie expiry source changed; review required')
+          PY
+      - run: flutter build linux --release --no-pub
+      - name: Package Linux ARM64 files
+        env:
+          NAME: ${{ needs.prepare.outputs.name }}
+        run: |
+          mkdir -p build/linux/arm64/release build/linux/deb/DEBIAN build/linux/deb/opt/absorb-plus build/linux/deb/usr/share/applications
+          cp -a build/linux/arm64/release/bundle/. build/linux/deb/opt/absorb-plus/
+          cat > build/linux/deb/DEBIAN/control <<EOF
+          Package: absorb-plus
+          Version: ${NAME#absorb-}
+          Section: sound
+          Priority: optional
+          Architecture: arm64
+          Maintainer: Absorb Plus contributors
+          Description: Cross-platform Audiobookshelf client
+          EOF
+          cat > build/linux/deb/usr/share/applications/absorb-plus.desktop <<'EOF'
+          [Desktop Entry]
+          Name=Absorb Plus
+          Comment=Audiobookshelf client
+          Exec=/opt/absorb-plus/absorb
+          Icon=/opt/absorb-plus/data/flutter_assets/assets/icon/app_icon.png
+          Terminal=false
+          Type=Application
+          Categories=AudioVideo;Audio;Player;
+          EOF
+          tar -C build/linux/arm64/release -czf "build/linux/arm64/release/$NAME-linux-arm64.tar.gz" bundle
+          dpkg-deb --build --root-owner-group build/linux/deb "build/linux/arm64/release/$NAME-linux-arm64.deb"
+          sha256sum build/linux/arm64/release/* > "build/linux/arm64/release/$NAME-linux-arm64-SHA256SUMS.txt"
+      - name: Upload Linux ARM64 files
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: gh release upload "$TAG" build/linux/arm64/release/* --clobber
 
   web:
     name: Web ZIP
