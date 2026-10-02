@@ -85,6 +85,7 @@ jobs:
           channel: stable
           flutter-version-file: .flutter-version
           cache: true
+      - run: flutter pub get
       - run: flutter build windows --release --no-pub
       - name: Add VC++ runtime
         shell: pwsh
