@@ -4,6 +4,40 @@ import 'package:absorb/services/update_check_policy.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('GitHub builds default to the beta update channel', () {
+    expect(
+      defaultIncludePreReleases(
+        isGithubBuild: true,
+        savedPreference: null,
+      ),
+      isTrue,
+    );
+    expect(
+      defaultIncludePreReleases(
+        isGithubBuild: false,
+        savedPreference: null,
+      ),
+      isFalse,
+    );
+  });
+
+  test('an explicit update-channel preference is preserved', () {
+    expect(
+      defaultIncludePreReleases(
+        isGithubBuild: true,
+        savedPreference: false,
+      ),
+      isFalse,
+    );
+    expect(
+      defaultIncludePreReleases(
+        isGithubBuild: false,
+        savedPreference: true,
+      ),
+      isTrue,
+    );
+  });
+
   test('serializes supported frequencies and falls back safely', () {
     for (final frequency in UpdateCheckFrequency.values) {
       final key = updateCheckFrequencyKey(frequency);

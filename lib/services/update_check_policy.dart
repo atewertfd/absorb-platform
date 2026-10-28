@@ -9,6 +9,16 @@ enum UpdateCheckFrequency {
   never,
 }
 
+/// GitHub-distributed builds are intentionally on the beta channel. New
+/// installs should therefore check GitHub pre-releases by default, while a
+/// user's explicit preference still wins once it has been saved.
+bool defaultIncludePreReleases({
+  required bool isGithubBuild,
+  required bool? savedPreference,
+}) {
+  return savedPreference ?? isGithubBuild;
+}
+
 const updateCheckFrequencyPreferenceKey = 'update_check_frequency';
 
 String updateCheckFrequencyKey(UpdateCheckFrequency frequency) {

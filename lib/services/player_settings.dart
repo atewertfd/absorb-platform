@@ -1187,7 +1187,10 @@ class PlayerSettings {
 
   static Future<bool> getIncludePreReleases() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool('includePreReleases') ?? false;
+    return defaultIncludePreReleases(
+      isGithubBuild: const bool.fromEnvironment('GITHUB_BUILD'),
+      savedPreference: prefs.getBool('includePreReleases'),
+    );
   }
   static Future<void> setIncludePreReleases(bool value) async {
     final prefs = await SharedPreferences.getInstance();
