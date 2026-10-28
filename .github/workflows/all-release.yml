@@ -280,7 +280,7 @@ jobs:
 
       - name: Build Windows release
         shell: pwsh
-        run: flutter build windows --release --no-pub
+        run: flutter build windows --release --no-pub --dart-define=GITHUB_BUILD=true
 
       - name: Bundle runtime libraries
         shell: pwsh
@@ -310,13 +310,6 @@ jobs:
 
       - name: Write SHA-256 checksums
         shell: pwsh
-        env:
-          FNAME: ${{ needs.prepare.outputs.fname }}
-        run: |
-          Get-ChildItem "build\windows\installer\$env:FNAME*.exe", "build\windows\installer\$env:FNAME*.zip" |
-            ForEach-Object { "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash)  $($_.Name)" } |
-            Set-Content "build\windows\installer\$env:FNAME-windows-SHA256SUMS.txt"
-
       - name: Upload Windows artifacts to draft release
         shell: pwsh
         env:

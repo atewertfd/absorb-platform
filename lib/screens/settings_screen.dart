@@ -65,6 +65,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   static const _isPlayStoreBuild = bool.fromEnvironment('PLAYSTORE_BUILD');
   static const _isGithubBuild = bool.fromEnvironment('GITHUB_BUILD');
   static const _isDevBuild = bool.fromEnvironment('DEV_BUILD');
+  static bool get _updatesEnabled => _isGithubBuild || Platform.isWindows;
   // Distribution label shown next to the version. The F-Droid build passes
   // no define, so it falls through here.
   static String get _flavorLabel => _isDevBuild
@@ -4268,7 +4269,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         } : null,
                       ),
                     ],
-                    if (_isGithubBuild) ...[
+                    if (_updatesEnabled) ...[
                       const Divider(height: 1, indent: 16, endIndent: 16),
                       SwitchListTile(
                         title: Row(children: [
@@ -4422,7 +4423,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ],
                 )),
 
-                if (_isGithubBuild) ...[
+                if (_updatesEnabled) ...[
                   const SizedBox(height: 4),
                   Center(child: TextButton.icon(
                     onPressed: () async {

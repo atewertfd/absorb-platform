@@ -19,6 +19,7 @@ class UpdateInfo {
   final String releaseNotes;
   final bool isPreRelease;
   final bool isDirectApk;
+  final bool isWindowsInstaller;
   final String? packageLabel;
 
   UpdateInfo({
@@ -28,6 +29,7 @@ class UpdateInfo {
     this.releaseNotes = '',
     this.isPreRelease = false,
     this.isDirectApk = true,
+    this.isWindowsInstaller = false,
     this.packageLabel,
   });
 
@@ -138,14 +140,18 @@ class UpdateCheckerService {
         assets: releaseAssets,
         supportedAbis: supportedAbis,
       );
+      final selectedWindowsAsset = !kIsWeb && Platform.isWindows
+          ? selectWindowsUpdateAsset(assets: releaseAssets)
+          : null;
+      final selectedDirectAsset = selectedWindowsAsset ?? selectedAsset;
       final currentVersion = await currentInstalledVersion();
-      final downloadUrl = selectedAsset?.downloadUrl ??
+      final downloadUrl = selectedDirectAsset?.downloadUrl ??
           data['html_url'] as String? ??
           '';
-      if (selectedAsset != null) {
+      if (selectedDirectAsset != null) {
         debugPrint(
-          '[UpdateChecker] Selected ${selectedAsset.name} for '
-          '${supportedAbis.join(', ')}',
+          '[UpdateChecker] Selected ${selectedDirectAsset.name} for '
+          '${Platform.isWindows ? 'Windows' : supportedAbis.join(', ')}',
         );
       }
 
@@ -156,9 +162,12 @@ class UpdateCheckerService {
         releaseNotes: body,
         isPreRelease: isPreRelease,
         isDirectApk: selectedAsset != null,
-        packageLabel: selectedAsset == null
+        isWindowsInstaller: selectedWindowsAsset != null,
+        packageLabel: selectedDirectAsset == null
             ? null
-            : androidUpdatePackageLabel(selectedAsset),
+            : selectedWindowsAsset != null
+                ? 'Windows installer'
+                : androidUpdatePackageLabel(selectedAsset!),
       );
 
       if (!info.hasUpdate) return null;
@@ -249,6 +258,120 @@ class ApkUpdater {
   ) async {
     final dir = await getTemporaryDirectory();
     final filename = Uri.parse(info.downloadUrl).pathSegments.last;
+    final file = File('${dir.path}/$filename');
+    if (await file.exists()) await file.delete();
+
+    final client = http.Client();
+    _activeClient = client;
+    try {
+      final request = http.Request('GET', Uri.parse(info.downloadUrl));
+      final response = await client.send(request);
+      if (response.statusCode != 200) {
+        throw HttpException('HTTP ${response.statusCode}');
+      }
+      final total = response.contentLength ?? 0;
+      var received = 0;
+      final sink = file.openWrite();
+      try {
+        await for (final chunk in response.stream) {
+          if (_activeClient != client) {
+            await sink.close();
+            throw const _CancelledException();
+          }
+          sink.add(chunk);
+          received += chunk.length;
+          onProgress(received, total);
+        }
+        await sink.flush();
+      } finally {
+        await sink.close();
+      }
+      return file;
+    } finally {
+      if (_activeClient == client) _activeClient = null;
+      client.close();
+    }
+  }
+}
+
+enum WindowsInstallStatus {
+  ok,
+  downloadFailed,
+  launchFailed,
+  cancelled,
+}
+
+class WindowsInstallResult {
+  final WindowsInstallStatus status;
+  final String? message;
+
+  const WindowsInstallResult(this.status, [this.message]);
+}
+
+/// Downloads and launches the Inno Setup installer for a Windows update.
+///
+/// Absorb exits after starting the detached installer so the installer can
+/// replace the running executable. Inno Setup reuses the existing AppId and
+/// install directory, preserving the application registration and user data.
+class WindowsUpdater {
+  static http.Client? _activeClient;
+
+  static Future<WindowsInstallResult> downloadAndLaunch(
+    UpdateInfo info, {
+    required void Function(int received, int total) onProgress,
+  }) async {
+    if (!Platform.isWindows) {
+      return const WindowsInstallResult(
+        WindowsInstallStatus.launchFailed,
+        'Windows only',
+      );
+    }
+
+    final File file;
+    try {
+      file = await _download(info, onProgress);
+    } on _CancelledException {
+      return const WindowsInstallResult(WindowsInstallStatus.cancelled);
+    } catch (error) {
+      debugPrint('[WindowsUpdater] Download failed: $error');
+      return WindowsInstallResult(
+        WindowsInstallStatus.downloadFailed,
+        error.toString(),
+      );
+    }
+
+    try {
+      await Process.start(
+        file.path,
+        const <String>[],
+        mode: ProcessStartMode.detached,
+      );
+    } catch (error) {
+      debugPrint('[WindowsUpdater] Installer launch failed: $error');
+      return WindowsInstallResult(
+        WindowsInstallStatus.launchFailed,
+        error.toString(),
+      );
+    }
+
+    // Give the detached installer time to open before the Flutter process
+    // exits. The installer owns the rest of the update flow.
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+    exit(0);
+  }
+
+  static void cancel() {
+    _activeClient?.close();
+    _activeClient = null;
+  }
+
+  static Future<File> _download(
+    UpdateInfo info,
+    void Function(int, int) onProgress,
+  ) async {
+    final dir = await getTemporaryDirectory();
+    final rawName = Uri.parse(info.downloadUrl).pathSegments.last;
+    final filename = rawName.isEmpty ? 'Absorb-Update-Setup.exe' : rawName;
     final file = File('${dir.path}/$filename');
     if (await file.exists()) await file.delete();
 

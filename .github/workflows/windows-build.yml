@@ -34,7 +34,7 @@ jobs:
           echo "name=absorb-${full/+/-}-windows" >> "$GITHUB_OUTPUT"
 
       - name: Build
-        run: flutter build windows --release
+        run: flutter build windows --release --dart-define=GITHUB_BUILD=true
 
       # The runner folder needs the VC++ runtime next to the exe on machines
       # that never installed the redistributable.

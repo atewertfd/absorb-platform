@@ -505,8 +505,10 @@ class _AppShellState extends State<AppShell>
 
   static const _isGithubBuild = bool.fromEnvironment('GITHUB_BUILD');
 
+  static bool get _updatesEnabled => _isGithubBuild || Platform.isWindows;
+
   void _checkForUpdate() async {
-    if (!_isGithubBuild) return;
+    if (!_updatesEnabled) return;
     final includePreReleases = await PlayerSettings.getIncludePreReleases();
     final info = await UpdateCheckerService.check(
       includePreReleases: includePreReleases,

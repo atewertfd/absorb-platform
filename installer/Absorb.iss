@@ -17,6 +17,7 @@ AppSupportURL=https://github.com/atewertfd/absorb-platform/issues
 AppUpdatesURL=https://github.com/atewertfd/absorb-platform/releases
 DefaultDirName={autopf}\Absorb Plus
 DefaultGroupName=Absorb Plus
+UsePreviousAppDir=yes
 DisableProgramGroupPage=yes
 OutputDir=..\build\windows\installer
 OutputBaseFilename=Absorb-{#AppVersion}-Setup
@@ -27,6 +28,8 @@ ArchitecturesInstallIn64BitMode=x64compatible
 UninstallDisplayIcon={app}\absorb.exe
 SetupIconFile=..\windows\runner\resources\app_icon.ico
 PrivilegesRequired=lowest
+CloseApplications=yes
+RestartApplications=yes
 ChangesAssociations=no
 ; The uninstaller removes only files installed under {app}. Absorb's user
 ; settings, cache, and downloads are stored outside {app} and are intentionally

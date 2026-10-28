@@ -35,6 +35,11 @@ See [import verification](docs/IMPORT-VERIFICATION.md) for tests, visual checks,
 
 ## Downloads
 
+The Windows GitHub build includes **Settings → Check for update** and an
+optional pre-release channel. Running a newer installer with the same Inno
+Setup application ID upgrades the existing installation in place and preserves
+user data; portable copies remain manual-update.
+
 Download Android, desktop, and web builds from the [Releases](../../releases) page. The combined [Desktop and Web Release workflow](../../actions/workflows/desktop-web-release.yml) publishes Android APKs, a Play Store AAB when signing secrets are configured, Windows x64 installer/portable files, Linux x64 packages, and the web ZIP. APKs marked `-ci` use a temporary CI signing key and are for testing only; use the signed Android release workflow for update-safe distribution. Windows and Linux desktop releases target x64. The Windows installer creates desktop and Start-menu shortcuts, contains the complete Flutter bundle, and can be removed from Windows Apps. Extract the **entire** portable archive if you use that option, and keep its libraries and data alongside it. Windows bundles its native audio decoder. Linux requires a system libmpv runtime (`libmpv1` on Ubuntu 22.04, `libmpv2` on Ubuntu 24.04) and a desktop session bus for MPRIS controls. The hosted web build is available at the project’s [GitHub Pages site](https://atewertfd.github.io/absorb-platform/).
 
 ## Build requirements

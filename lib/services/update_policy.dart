@@ -42,6 +42,32 @@ UpdateReleaseAsset? selectAndroidUpdateAsset({
   return null;
 }
 
+/// Selects the installer asset for the Windows desktop build.
+///
+/// Release pages may also contain portable archives and Android APKs. The
+/// installed Windows app must use the Inno Setup executable so an update keeps
+/// the existing install registration and user data intact.
+UpdateReleaseAsset? selectWindowsUpdateAsset({
+  required List<UpdateReleaseAsset> assets,
+}) {
+  final installers = assets
+      .where((asset) {
+        final name = asset.name.toLowerCase();
+        return name.endsWith('.exe') &&
+            (name.contains('setup') || name.contains('installer'));
+      })
+      .toList();
+  if (installers.length == 1) return installers.single;
+  if (installers.isEmpty) return null;
+
+  // Prefer the conventional name if a release contains multiple installer
+  // builds, then fall back to the first deterministic result.
+  for (final asset in installers) {
+    if (asset.name.toLowerCase().contains('setup')) return asset;
+  }
+  return installers.first;
+}
+
 String currentUpdateVersion({
   required String versionName,
   required String packageBuildNumber,

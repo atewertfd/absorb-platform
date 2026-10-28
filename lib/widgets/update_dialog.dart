@@ -62,7 +62,7 @@ class UpdateDialog {
 
   static Future<void> _runInstall(BuildContext context, UpdateInfo info) async {
     final l = AppLocalizations.of(context)!;
-    if (!info.isDirectApk) {
+    if (!info.isDirectApk && !info.isWindowsInstaller) {
       await launchUrl(
         Uri.parse(info.downloadUrl),
         mode: LaunchMode.externalApplication,
@@ -98,7 +98,11 @@ class UpdateDialog {
         actions: [
           TextButton(
             onPressed: () {
-              ApkUpdater.cancel();
+              if (info.isWindowsInstaller) {
+                WindowsUpdater.cancel();
+              } else {
+                ApkUpdater.cancel();
+              }
               Navigator.pop(ctx);
             },
             child: Text(l.cancel),
@@ -106,6 +110,32 @@ class UpdateDialog {
         ],
       ),
     ));
+
+    if (info.isWindowsInstaller) {
+      final result = await WindowsUpdater.downloadAndLaunch(
+        info,
+        onProgress: (received, total) {
+          progress.value = total > 0 ? received / total : null;
+        },
+      );
+
+      if (context.mounted && Navigator.canPop(context)) Navigator.pop(context);
+      progress.dispose();
+      if (!context.mounted) return;
+
+      switch (result.status) {
+        case WindowsInstallStatus.ok:
+        case WindowsInstallStatus.cancelled:
+          return;
+        case WindowsInstallStatus.downloadFailed:
+        case WindowsInstallStatus.launchFailed:
+          showOverlayToast(context, l.updateOpeningInBrowser,
+              icon: Icons.open_in_browser_rounded);
+          await launchUrl(Uri.parse(info.downloadUrl),
+              mode: LaunchMode.externalApplication);
+          return;
+      }
+    }
 
     final result = await ApkUpdater.downloadAndInstall(
       info,
