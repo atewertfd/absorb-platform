@@ -15,6 +15,7 @@ import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:palette_generator/palette_generator.dart';
 import '../utils/cover_accent.dart';
+import '../utils/memory_policy.dart';
 import '../main.dart'
     show
         snappyTransitionsNotifier,
@@ -747,6 +748,7 @@ class _AppShellState extends State<AppShell>
   void _handleAppBackgrounded() {
     if (_lifecycleBackgrounded) return;
     _lifecycleBackgrounded = true;
+    trimDecodedImageCacheForBackground(PaintingBinding.instance.imageCache);
     context.read<LibraryProvider>().onAppBackgrounded();
     SleepTimerService().onAppBackgrounded();
     AudioPlayerService.onAppBackgrounded();

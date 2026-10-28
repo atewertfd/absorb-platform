@@ -19,3 +19,12 @@ void configureImageCache(ImageCache cache) {
   cache.maximumSizeBytes = kAbsorbImageCacheMaximumBytes;
   cache.maximumSize = kAbsorbImageCacheMaximumEntries;
 }
+
+/// Releases decoded images that are no longer attached to a live widget.
+///
+/// Live images are deliberately retained so returning from the background
+/// does not flash blank covers. This helper is also intentionally independent
+/// of audio and platform channels.
+void trimDecodedImageCacheForBackground(ImageCache cache) {
+  cache.clear();
+}
