@@ -386,6 +386,10 @@ class _AppShellState extends State<AppShell>
     duration: AppMotion.navigation,
     value: 1.0,
   );
+  late final Animation<double> _fadeAnimation = CurvedAnimation(
+    parent: _fadeController,
+    curve: AppMotion.navigationCurve,
+  );
 
   void _loadStartScreen() {
     PlayerSettings.getStartScreen().then((idx) {
@@ -513,6 +517,7 @@ class _AppShellState extends State<AppShell>
 
   @override
   void dispose() {
+    _fadeAnimation.dispose();
     _fadeController.dispose();
     _detachNavBarListener();
     _navBarAnimController.dispose();
@@ -881,7 +886,7 @@ class _AppShellState extends State<AppShell>
             },
             child: Scaffold(
               body: FadeTransition(
-                opacity: _fadeController,
+                opacity: _fadeAnimation,
                 child: IndexedStack(
                   index: _currentIndex,
                   children: List<Widget>.generate(

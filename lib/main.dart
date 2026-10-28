@@ -87,6 +87,12 @@ class _InstantPageTransitionsBuilder extends PageTransitionsBuilder {
   const _InstantPageTransitionsBuilder();
 
   @override
+  Duration get transitionDuration => Duration.zero;
+
+  @override
+  Duration get reverseTransitionDuration => Duration.zero;
+
+  @override
   Widget buildTransitions<T>(
     PageRoute<T> route,
     BuildContext context,
@@ -615,7 +621,10 @@ class AbsorbApp extends StatelessWidget {
                 ),
                 pageTransitionsTheme: pageTransition,
               ),
-              home: AuthGate(setupLinkStream: setupLinkStream),
+              home: AppMotionScope(
+                mode: motionMode,
+                child: AuthGate(setupLinkStream: setupLinkStream),
+              ),
             );
       },
     );

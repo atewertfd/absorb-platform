@@ -1,4 +1,5 @@
 import 'package:flutter/animation.dart';
+import 'package:flutter/widgets.dart';
 
 /// The motion modes shared by shell, navigation, and desktop input.
 enum AppMotionMode { normal, reduced, instant }
@@ -29,4 +30,22 @@ abstract final class AppMotion {
 
   static Duration duration(Duration requested, AppMotionMode mode) =>
       mode == AppMotionMode.normal ? requested : Duration.zero;
+}
+
+/// Makes the app-wide motion mode available to shared desktop widgets without
+/// importing the app entrypoint into lower-level UI code.
+class AppMotionScope extends InheritedWidget {
+  const AppMotionScope({
+    super.key,
+    required this.mode,
+    required super.child,
+  });
+
+  final AppMotionMode mode;
+
+  static AppMotionMode? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<AppMotionScope>()?.mode;
+
+  @override
+  bool updateShouldNotify(AppMotionScope oldWidget) => mode != oldWidget.mode;
 }

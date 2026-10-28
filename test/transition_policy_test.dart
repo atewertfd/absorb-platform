@@ -1,6 +1,8 @@
-import 'package:absorb/main.dart' show buildAppPageTransitionsTheme;
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'package:absorb/main.dart' show buildAppPageTransitionsTheme;
 
 void main() {
   test('normal motion uses an animated desktop transition builder', () {
@@ -24,5 +26,9 @@ void main() {
     expect(theme.builders[TargetPlatform.android], isNotNull);
     expect(theme.builders[TargetPlatform.iOS], isNotNull);
     expect(theme.builders[TargetPlatform.macOS], isNotNull);
+    expect(theme.builders[TargetPlatform.windows]!.transitionDuration,
+        Duration.zero);
+    expect(theme.builders[TargetPlatform.windows]!.reverseTransitionDuration,
+        Duration.zero);
   });
 }

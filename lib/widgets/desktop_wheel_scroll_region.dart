@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+
 import '../utils/app_motion.dart';
 import '../utils/wheel_scroll_accumulator.dart';
 
@@ -22,23 +25,43 @@ class DesktopWheelScrollRegion extends StatefulWidget {
 class _DesktopWheelScrollRegionState extends State<DesktopWheelScrollRegion> {
   final List<_DiscoveredScrollable> _discoveredScrollables = [];
   final Map<ScrollPosition, _SmoothWheelDriver> _drivers = {};
+  AppMotionMode? _lastMotionMode;
 
-  Duration get _wheelDuration {
+  AppMotionMode get _motionMode {
+    final inherited = AppMotionScope.maybeOf(context);
+    if (inherited != null) return inherited;
     final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
-    final mode = AppMotion.resolveMode(
+    return AppMotion.resolveMode(
       eInk: false,
       snappy: false,
       reduceMotion: reduceMotion,
     );
-    return AppMotion.duration(AppMotion.state, mode);
+  }
+
+  Duration get _wheelDuration =>
+      AppMotion.duration(AppMotion.state, _motionMode);
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final mode = _motionMode;
+    if (_lastMotionMode != null && _lastMotionMode != mode) {
+      for (final driver in _drivers.values) {
+        driver.cancel();
+      }
+    }
+    _lastMotionMode = mode;
   }
 
   void _pruneDrivers() {
-    if (widget.controller != null) return;
-    final activePositions = {
-      for (final candidate in _discoveredScrollables)
-        if (candidate.scrollable.mounted) candidate.scrollable.position,
-    };
+    final activePositions = widget.controller != null
+        ? (widget.controller!.hasClients
+              ? widget.controller!.positions.toSet()
+              : <ScrollPosition>{})
+        : {
+            for (final candidate in _discoveredScrollables)
+              if (candidate.scrollable.mounted) candidate.scrollable.position,
+          };
     _drivers.removeWhere((position, driver) {
       if (activePositions.contains(position)) return false;
       driver.dispose();
@@ -47,6 +70,7 @@ class _DesktopWheelScrollRegionState extends State<DesktopWheelScrollRegion> {
   }
 
   _WheelTarget? _targetFor(PointerScrollEvent event) {
+    _pruneDrivers();
     final controller = widget.controller;
     if (controller != null) {
       if (!controller.hasClients || controller.positions.length != 1) {
@@ -58,7 +82,6 @@ class _DesktopWheelScrollRegionState extends State<DesktopWheelScrollRegion> {
     _discoveredScrollables.removeWhere(
       (candidate) => !candidate.scrollable.mounted,
     );
-    _pruneDrivers();
     _WheelTarget? bestTarget;
     var bestDepth = 1 << 20;
     var bestVisibleArea = -1.0;
@@ -120,19 +143,12 @@ class _DesktopWheelScrollRegionState extends State<DesktopWheelScrollRegion> {
         ? event.scrollDelta.dy
         : event.scrollDelta.dx;
     if (axisDirectionIsReversed(position.axisDirection)) delta = -delta;
-    final target = (position.pixels + delta).clamp(
+    final destination = (position.pixels + delta).clamp(
       position.minScrollExtent,
       position.maxScrollExtent,
     );
-    if (delta == 0 || target == position.pixels) return null;
-    final driver = _drivers[position];
-    final base = driver?.target ?? position.pixels;
-    final destination = (base + delta).clamp(
-      position.minScrollExtent,
-      position.maxScrollExtent,
-    );
-    if (destination == base) return null;
-    return _WheelTarget(position, destination.toDouble());
+    if (delta == 0 || destination == position.pixels) return null;
+    return _WheelTarget(position, delta);
   }
 
   bool _isActive(ScrollableState scrollable) {
@@ -159,12 +175,13 @@ class _DesktopWheelScrollRegionState extends State<DesktopWheelScrollRegion> {
 
   bool _handleScrollNotification(ScrollNotification notification) {
     _rememberPosition(notification.context, notification.depth);
-    // A real drag cancels an in-flight wheel animation. Rebase every active
-    // driver so the next wheel event starts from the user's actual position.
+    // A real drag cancels an in-flight wheel animation. The next wheel event
+    // always starts from the actual position, so rebasing here also covers
+    // scrollbar and keyboard movement that ends before the next wheel event.
     if (notification is ScrollStartNotification &&
         notification.dragDetails != null) {
       for (final driver in _drivers.values) {
-        driver.rebase();
+        driver.cancel();
       }
     }
     return false;
@@ -181,11 +198,31 @@ class _DesktopWheelScrollRegionState extends State<DesktopWheelScrollRegion> {
       if (resolvedEvent is! PointerScrollEvent) return;
       final driver = _drivers.putIfAbsent(
         target.position,
-        () => _SmoothWheelDriver(target.position),
+        () => _SmoothWheelDriver(
+          target.position,
+          isAttached: () => _isPositionActive(target.position),
+        ),
       );
-      driver.setTarget(target.destination, _wheelDuration);
+      driver.addDelta(
+        target.delta,
+        min: target.position.minScrollExtent,
+        max: target.position.maxScrollExtent,
+        duration: _wheelDuration,
+      );
       resolvedEvent.respond(allowPlatformDefault: false);
     });
+  }
+
+  bool _isPositionActive(ScrollPosition position) {
+    final controller = widget.controller;
+    if (controller != null) {
+      return controller.hasClients && controller.positions.contains(position);
+    }
+    return _discoveredScrollables.any(
+      (candidate) =>
+          candidate.scrollable.mounted &&
+          identical(candidate.scrollable.position, position),
+    );
   }
 
   @override
@@ -199,16 +236,27 @@ class _DesktopWheelScrollRegionState extends State<DesktopWheelScrollRegion> {
 
   @override
   Widget build(BuildContext context) {
-    return Listener(
-      behavior: HitTestBehavior.opaque,
-      onPointerSignal: _handlePointerSignal,
-      child: NotificationListener<ScrollMetricsNotification>(
-        onNotification: _handleMetricsNotification,
-        child: NotificationListener<ScrollNotification>(
-          onNotification: _handleScrollNotification,
-          child: widget.child,
-        ),
+    final content = NotificationListener<ScrollMetricsNotification>(
+      onNotification: _handleMetricsNotification,
+      child: NotificationListener<ScrollNotification>(
+        onNotification: _handleScrollNotification,
+        child: widget.child,
       ),
+    );
+    return Stack(
+      children: [
+        content,
+        // Put the pointer-signal listener above descendant Scrollables. This
+        // lets the smooth driver win the resolver for wheel/trackpad input
+        // over the content itself, not only in the surrounding gutters.
+        Positioned.fill(
+          child: Listener(
+            behavior: HitTestBehavior.translucent,
+            onPointerSignal: _handlePointerSignal,
+            child: const SizedBox.expand(),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -221,65 +269,63 @@ class _DiscoveredScrollable {
 }
 
 class _WheelTarget {
-  const _WheelTarget(this.position, this.destination);
+  const _WheelTarget(this.position, this.delta);
 
   final ScrollPosition position;
-  final double destination;
+  final double delta;
 }
 
 class _SmoothWheelDriver {
-  _SmoothWheelDriver(this.position)
+  _SmoothWheelDriver(this.position, {required this.isAttached})
     : _accumulator = WheelScrollAccumulator(initialTarget: position.pixels);
 
   final ScrollPosition position;
+  final bool Function() isAttached;
   final WheelScrollAccumulator _accumulator;
-  Future<void>? _run;
-  Duration _duration = AppMotion.state;
   bool _disposed = false;
 
-  double get target => _accumulator.target;
-
-  void setTarget(double destination, Duration duration) {
-    if (_disposed || !position.hasPixels) return;
-    _duration = duration;
-    _accumulator.rebase(destination);
-    _run ??= _drain();
+  void addDelta(
+    double delta, {
+    required double min,
+    required double max,
+    required Duration duration,
+  }) {
+    if (_disposed || !isAttached() || !position.hasPixels) return;
+    // Start from the real position on every event. This prevents keyboard,
+    // scrollbar, touchpad, and user-drag movement from leaving a stale target
+    // behind while still giving each wheel tick a smooth easing curve.
+    _accumulator.rebase(position.pixels);
+    final destination = _accumulator.add(delta: delta, min: min, max: max);
+    unawaited(_animateTo(destination, duration));
   }
 
-  void rebase() {
-    if (!_disposed && position.hasPixels) {
-      _accumulator.rebase(position.pixels);
+  void cancel() {
+    if (_disposed || !isAttached() || !position.hasPixels) return;
+    // jumpTo at the current value cancels an active animateTo without moving
+    // the user-visible scroll position.
+    position.jumpTo(position.pixels);
+    _accumulator.rebase(position.pixels);
+  }
+
+  Future<void> _animateTo(double destination, Duration duration) async {
+    if (_disposed || !isAttached() || !position.hasPixels) return;
+    if (duration == Duration.zero) {
+      position.jumpTo(destination);
+      return;
     }
-  }
-
-  Future<void> _drain() async {
     try {
-      while (!_disposed && position.hasPixels) {
-        final destination = _accumulator.target;
-        if ((destination - position.pixels).abs() < 0.5) break;
-
-        if (_duration == Duration.zero) {
-          position.jumpTo(destination);
-        } else {
-          await position.animateTo(
-            destination,
-            duration: _duration,
-            curve: AppMotion.curve,
-          );
-        }
-
-        if (destination == _accumulator.target &&
-            (destination - position.pixels).abs() < 0.5) {
-          break;
-        }
-      }
-    } finally {
-      _run = null;
+      await position.animateTo(
+        destination,
+        duration: duration,
+        curve: AppMotion.curve,
+      );
+    } catch (_) {
+      // A scroll position can detach while an input animation is in flight.
+      // Its owner is already going away, so there is no useful recovery here.
     }
   }
 
   void dispose() {
     _disposed = true;
-    _accumulator.rebase(position.hasPixels ? position.pixels : 0);
   }
 }
