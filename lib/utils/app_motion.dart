@@ -1,4 +1,3 @@
-import 'package:flutter/animation.dart';
 import 'package:flutter/widgets.dart';
 
 /// The motion modes shared by shell, navigation, and desktop input.
