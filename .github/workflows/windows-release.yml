@@ -136,4 +136,11 @@ jobs:
             & gh @args
             if ($LASTEXITCODE -ne 0) { throw "gh release create failed with exit code $LASTEXITCODE" }
           }
+          $assetNames = @(gh release view $env:TAG --repo $env:GITHUB_REPOSITORY --json assets --jq '.assets[].name')
+          if ($assetNames -notcontains $installer.Name) {
+            throw "Installer asset was not published: $($installer.Name)"
+          }
+          if ($assetNames -notcontains $portable.Name) {
+            throw "Portable asset was not published: $($portable.Name)"
+          }
           gh release view $env:TAG --repo $env:GITHUB_REPOSITORY

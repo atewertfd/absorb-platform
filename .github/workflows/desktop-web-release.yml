@@ -104,6 +104,10 @@ jobs:
 
   windows:
     name: Windows installer and portable
+    # Windows tag releases are handled by windows-release.yml. Keep this job
+    # available for a manually selected desktop/web release, but do not let a
+    # tag-triggered run race the dedicated Windows publisher on the same assets.
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     needs: [prepare, quality]
     runs-on: windows-2022
     timeout-minutes: 90
