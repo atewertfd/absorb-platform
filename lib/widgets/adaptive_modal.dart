@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../utils/desktop_workspace.dart';
-import 'desktop_wheel_scroll_region.dart';
 
 enum DialogWidthClass {
   action(480),
@@ -213,42 +212,40 @@ Future<T?> showDesktopModalDialog<T>({
     context: context,
     useRootNavigator: true,
     barrierDismissible: isDismissible,
-    builder: (dialogContext) => DesktopWheelScrollRegion(
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: isDismissible
-                ? () => Navigator.of(dialogContext).maybePop()
-                : null,
+    builder: (dialogContext) => Stack(
+      fit: StackFit.expand,
+      children: [
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: isDismissible
+              ? () => Navigator.of(dialogContext).maybePop()
+              : null,
+        ),
+        Dialog(
+          backgroundColor: bg,
+          clipBehavior: Clip.antiAlias,
+          insetPadding: const EdgeInsets.all(24),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.4)),
           ),
-          Dialog(
-            backgroundColor: bg,
-            clipBehavior: Clip.antiAlias,
-            insetPadding: const EdgeInsets.all(24),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-              side: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.4)),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight:
+                  MediaQuery.sizeOf(dialogContext).height * maxHeightFraction,
             ),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight:
-                    MediaQuery.sizeOf(dialogContext).height * maxHeightFraction,
-              ),
-              child: SizedBox(
-                width: maxWidth,
-                child: _DesktopDialogBody(
-                  builder: builder,
-                  closeButton: closeButton,
-                  onRouteCaptured: onRouteCaptured,
-                  onRouteDisposed: onRouteDisposed,
-                ),
+            child: SizedBox(
+              width: maxWidth,
+              child: _DesktopDialogBody(
+                builder: builder,
+                closeButton: closeButton,
+                onRouteCaptured: onRouteCaptured,
+                onRouteDisposed: onRouteDisposed,
               ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     ),
   );
 }

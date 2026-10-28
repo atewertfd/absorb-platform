@@ -39,7 +39,6 @@ void main() {
 
   test('shared durations increase with interaction scope', () {
     expect(AppMotion.micro < AppMotion.state, isTrue);
-    expect(AppMotion.wheel < AppMotion.state, isTrue);
     expect(AppMotion.state < AppMotion.navigation, isTrue);
     expect(AppMotion.navigation < AppMotion.modal, isTrue);
   });
