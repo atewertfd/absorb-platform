@@ -22,6 +22,7 @@ import '../screens/login_screen.dart';
 import '../screens/app_shell.dart';
 import '../build_info.dart';
 import '../services/update_checker_service.dart';
+import '../services/update_check_policy.dart';
 import '../services/audiobookshelf_update_service.dart';
 import '../widgets/update_dialog.dart';
 import '../widgets/nav_hold_options.dart';
@@ -79,6 +80,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
         : '$_flavorLabel - $_appVersion';
     final beta = betaNumberFor(_appVersion);
     return beta == null ? base : '$base (${l.betaLabel(beta)})';
+  }
+
+  String _updateCheckFrequencyLabel(
+    AppLocalizations l,
+    UpdateCheckFrequency frequency,
+  ) {
+    switch (frequency) {
+      case UpdateCheckFrequency.startup:
+        return l.updateCheckOnStartup;
+      case UpdateCheckFrequency.everySixHours:
+        return l.updateCheckEverySixHours;
+      case UpdateCheckFrequency.everyTwelveHours:
+        return l.updateCheckEveryTwelveHours;
+      case UpdateCheckFrequency.daily:
+        return l.updateCheckDaily;
+      case UpdateCheckFrequency.never:
+        return l.updateCheckNever;
+    }
   }
   AutoRewindSettings _rewindSettings = const AutoRewindSettings();
   double _defaultSpeed = 1.0;
@@ -199,6 +218,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late final TextEditingController _localServerController;
   bool _trustAllCerts = false;
   bool _includePreReleases = false;
+  UpdateCheckFrequency _updateCheckFrequency = UpdateCheckFrequency.everyTwelveHours;
   String? _rmabBaseUrl;
   String? _rmabApiToken;
   bool _loaded = false;
@@ -993,10 +1013,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       PlayerSettings.getMediaControlsSpeedBookmark(),                         // 52
       PlayerSettings.getLockSeekBar(),                                        // 53
       PlayerSettings.getCardBackground(),                                     // card background
-      PlayerSettings.getProgressTextScale(),                                  // 54 (kept last — read via results.last)
+      PlayerSettings.getProgressTextScale(),                                  // 54
+      PlayerSettings.getUpdateCheckFrequency(),                               // 55
     ]);
     final s = results[0] as AutoRewindSettings;
-    final progressScale = results.last as double;
+    final progressScale = results[52] as double;
+    final updateCheckFrequency = results[53] as UpdateCheckFrequency;
     final mp3IndexSeek = await PlayerSettings.getMp3IndexSeeking();
     final coverSize = await PlayerSettings.getCoverSize();
     final flatBackground = await PlayerSettings.getFlatBackground();
@@ -1164,6 +1186,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _trustAllCerts = trustCerts;
       _showExplicitBadge = showExplicit;
       _includePreReleases = preReleases;
+      _updateCheckFrequency = updateCheckFrequency;
       _sleepFadeDuration = fadeDur;
       _sleepChime = chime;
       _sleepChimeVolume = chimeVol;
@@ -4667,6 +4690,53 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ],
                 ),
               ),
+                if (Platform.isWindows) ...[
+                  const SizedBox(height: 16),
+                  CollapsibleSection(
+                    key: _keyFor('Windows Settings'),
+                    icon: Icons.desktop_windows_rounded,
+                    title: l.windowsSettingsTitle,
+                    cs: cs,
+                    isExpanded: _expandedSection == 'Windows Settings',
+                    onExpansionChanged: (v) =>
+                        _onSectionExpanded('Windows Settings', v),
+                    children: [
+                      ListTile(
+                        title: Text(l.updateCheckFrequency),
+                        subtitle: Text(
+                          '${_updateCheckFrequencyLabel(l, _updateCheckFrequency)}\n'
+                          '${l.updateCheckFrequencySubtitle}',
+                          style: tt.bodySmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                        trailing: DropdownButton<UpdateCheckFrequency>(
+                          value: _updateCheckFrequency,
+                          underline: const SizedBox.shrink(),
+                          items: [
+                            for (final frequency in UpdateCheckFrequency.values)
+                              DropdownMenuItem(
+                                value: frequency,
+                                child: Text(
+                                  _updateCheckFrequencyLabel(l, frequency),
+                                ),
+                              ),
+                          ],
+                          onChanged: _loaded
+                              ? (frequency) {
+                                  if (frequency == null) return;
+                                  setState(() =>
+                                      _updateCheckFrequency = frequency);
+                                  PlayerSettings.setUpdateCheckFrequency(
+                                    frequency,
+                                  );
+                                }
+                              : null,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               const SizedBox(height: 16),
             ],
 

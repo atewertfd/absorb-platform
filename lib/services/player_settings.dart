@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'scoped_prefs.dart';
+import 'update_check_policy.dart';
 import '../widgets/card_button_config.dart';
 
 typedef QueueModeSnapshot = ({
@@ -1191,6 +1192,26 @@ class PlayerSettings {
   static Future<void> setIncludePreReleases(bool value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('includePreReleases', value);
+  }
+
+  /// Update cadence is a device-level preference, like the existing updater
+  /// cooldown, so switching Audiobookshelf accounts does not change it.
+  static Future<UpdateCheckFrequency> getUpdateCheckFrequency() async {
+    final prefs = await SharedPreferences.getInstance();
+    return updateCheckFrequencyFromKey(
+      prefs.getString(updateCheckFrequencyPreferenceKey),
+    );
+  }
+
+  static Future<void> setUpdateCheckFrequency(
+    UpdateCheckFrequency frequency,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      updateCheckFrequencyPreferenceKey,
+      updateCheckFrequencyKey(frequency),
+    );
+    _notify();
   }
 
   // ── Local server ──

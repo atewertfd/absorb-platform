@@ -148,6 +148,8 @@ List<SettingSearchEntry> settingsSearchEntries(BuildContext context) {
       SettingSearchEntry('Advanced', l.sectionAdvanced, l.mp3IndexSeeking, [l.mp3IndexSeekingOnSubtitle, l.mp3IndexSeekingOffSubtitle]),
     if (const bool.fromEnvironment('GITHUB_BUILD') || Platform.isWindows)
       SettingSearchEntry('Advanced', l.sectionAdvanced, l.includePreReleases, [l.includePreReleasesOnSubtitle, l.includePreReleasesOffSubtitle]),
+    if (Platform.isWindows)
+      SettingSearchEntry('Windows Settings', l.windowsSettingsTitle, l.updateCheckFrequency, [l.updateCheckFrequencySubtitle, l.updateCheckOnStartup, l.updateCheckEverySixHours, l.updateCheckEveryTwelveHours, l.updateCheckDaily, l.updateCheckNever]),
     SettingSearchEntry('Advanced', l.sectionAdvanced, l.adminRmab, [l.adminRmabConnected, l.adminRmabAskAdmin]),
     SettingSearchEntry('Advanced', l.sectionAdvanced, l.transcriptionTitle, [l.transcriptionAdvancedSubtitle]),
   ];

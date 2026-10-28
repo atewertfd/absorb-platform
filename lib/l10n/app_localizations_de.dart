@@ -4085,6 +4085,31 @@ class AppLocalizationsDe extends AppLocalizations {
   String get checkForUpdate => 'Nach Update suchen';
 
   @override
+  String get windowsSettingsTitle => 'Windows Settings';
+
+  @override
+  String get updateCheckFrequency => 'Automatic update checks';
+
+  @override
+  String get updateCheckFrequencySubtitle =>
+      'Checks for updates only; installation is always manual.';
+
+  @override
+  String get updateCheckOnStartup => 'On startup (once per 12 hours)';
+
+  @override
+  String get updateCheckEverySixHours => 'Every 6 hours';
+
+  @override
+  String get updateCheckEveryTwelveHours => 'Every 12 hours';
+
+  @override
+  String get updateCheckDaily => 'Daily';
+
+  @override
+  String get updateCheckNever => 'Never automatically';
+
+  @override
   String get onLatestVersion => 'Du nutzt die neueste Version';
 
   @override

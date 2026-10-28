@@ -7286,6 +7286,54 @@ abstract class AppLocalizations {
   /// **'Check for update'**
   String get checkForUpdate;
 
+  /// No description provided for @windowsSettingsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Windows Settings'**
+  String get windowsSettingsTitle;
+
+  /// No description provided for @updateCheckFrequency.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatic update checks'**
+  String get updateCheckFrequency;
+
+  /// No description provided for @updateCheckFrequencySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Checks for updates only; installation is always manual.'**
+  String get updateCheckFrequencySubtitle;
+
+  /// No description provided for @updateCheckOnStartup.
+  ///
+  /// In en, this message translates to:
+  /// **'On startup (once per 12 hours)'**
+  String get updateCheckOnStartup;
+
+  /// No description provided for @updateCheckEverySixHours.
+  ///
+  /// In en, this message translates to:
+  /// **'Every 6 hours'**
+  String get updateCheckEverySixHours;
+
+  /// No description provided for @updateCheckEveryTwelveHours.
+  ///
+  /// In en, this message translates to:
+  /// **'Every 12 hours'**
+  String get updateCheckEveryTwelveHours;
+
+  /// No description provided for @updateCheckDaily.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily'**
+  String get updateCheckDaily;
+
+  /// No description provided for @updateCheckNever.
+  ///
+  /// In en, this message translates to:
+  /// **'Never automatically'**
+  String get updateCheckNever;
+
   /// No description provided for @onLatestVersion.
   ///
   /// In en, this message translates to:
