@@ -15,6 +15,7 @@ import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:palette_generator/palette_generator.dart';
 import '../utils/cover_accent.dart';
+import '../utils/app_platform.dart';
 import '../main.dart'
     show
         snappyTransitionsNotifier,
@@ -72,6 +73,7 @@ import '../services/update_checker_service.dart';
 import '../widgets/update_dialog.dart';
 import '../widgets/overlay_toast.dart';
 import '../utils/app_motion.dart';
+import '../widgets/desktop_wheel_scroll_region.dart';
 
 class _DesktopPlayPauseIntent extends Intent {
   const _DesktopPlayPauseIntent();
@@ -898,13 +900,16 @@ class _AppShellState extends State<AppShell>
               ),
             },
             child: Scaffold(
-              body: FadeTransition(
-                opacity: _pageOpacity,
-                child: IndexedStack(
-                  index: _currentIndex,
-                  children: List<Widget>.generate(
-                    _pages.length,
-                    (i) => _pages[i] ?? const SizedBox.shrink(),
+              body: DesktopWheelScrollRegion(
+                enabled: AppPlatform.isDesktop,
+                child: FadeTransition(
+                  opacity: _pageOpacity,
+                  child: IndexedStack(
+                    index: _currentIndex,
+                    children: List<Widget>.generate(
+                      _pages.length,
+                      (i) => _pages[i] ?? const SizedBox.shrink(),
+                    ),
                   ),
                 ),
               ),

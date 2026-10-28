@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../utils/app_motion.dart';
 import '../utils/wheel_scroll_accumulator.dart';
@@ -12,10 +13,12 @@ class DesktopWheelScrollRegion extends StatefulWidget {
     super.key,
     required this.child,
     this.controller,
+    this.enabled = true,
   });
 
   final Widget child;
   final ScrollController? controller;
+  final bool enabled;
 
   @override
   State<DesktopWheelScrollRegion> createState() =>
@@ -44,7 +47,7 @@ class _DesktopWheelScrollRegionState extends State<DesktopWheelScrollRegion>
   }
 
   Duration get _wheelDuration =>
-      AppMotion.duration(AppMotion.state, _motionMode);
+      AppMotion.duration(AppMotion.micro, _motionMode);
 
   @override
   void didChangeDependencies() {
@@ -159,6 +162,14 @@ class _DesktopWheelScrollRegionState extends State<DesktopWheelScrollRegion>
   bool _isActive(ScrollableState scrollable) {
     final renderObject = scrollable.context.findRenderObject();
     if (!(renderObject?.attached ?? false)) return false;
+    // AppShell keeps its tabs in an IndexedStack. Offstage pages remain
+    // mounted, but they must never compete for pointer-wheel ownership with
+    // the page currently visible to the user.
+    RenderObject? ancestor = renderObject;
+    while (ancestor != null) {
+      if (ancestor is RenderOffstage && ancestor.offstage) return false;
+      ancestor = ancestor.parent;
+    }
     final route = ModalRoute.of(scrollable.context);
     return (route == null || route.isCurrent) &&
         TickerMode.of(scrollable.context);
@@ -242,6 +253,7 @@ class _DesktopWheelScrollRegionState extends State<DesktopWheelScrollRegion>
 
   @override
   Widget build(BuildContext context) {
+    if (!widget.enabled) return widget.child;
     final content = NotificationListener<ScrollMetricsNotification>(
       onNotification: _handleMetricsNotification,
       child: NotificationListener<ScrollNotification>(

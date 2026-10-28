@@ -66,6 +66,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   static const _isGithubBuild = bool.fromEnvironment('GITHUB_BUILD');
   static const _isDevBuild = bool.fromEnvironment('DEV_BUILD');
   static bool get _updatesEnabled => _isGithubBuild || Platform.isWindows;
+  bool _checkingForUpdate = false;
   // Distribution label shown next to the version. The F-Droid build passes
   // no define, so it falls through here.
   static String get _flavorLabel => _isDevBuild
@@ -4426,17 +4427,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 if (_updatesEnabled) ...[
                   const SizedBox(height: 4),
                   Center(child: TextButton.icon(
-                    onPressed: () async {
-                      final info = await UpdateCheckerService.check(force: true, includePreReleases: _includePreReleases);
-                      if (!mounted) return;
-                      if (info == null || !info.hasUpdate) {
-                        showOverlayToast(context, l.onLatestVersion,
-                            icon: Icons.check_circle_outline_rounded);
-                        return;
-                      }
-                      await UpdateDialog.show(context, info);
-                    },
-                    icon: const Icon(Icons.system_update_rounded, size: 16),
+                    onPressed: _checkingForUpdate
+                        ? null
+                        : () async {
+                            setState(() => _checkingForUpdate = true);
+                            try {
+                              final info = await UpdateCheckerService.check(
+                                force: true,
+                                includePreReleases: _includePreReleases,
+                              );
+                              if (!mounted) return;
+                              if (info == null || !info.hasUpdate) {
+                                showOverlayToast(
+                                  context,
+                                  l.onLatestVersion,
+                                  icon: Icons.check_circle_outline_rounded,
+                                );
+                                return;
+                              }
+                              await UpdateDialog.show(context, info);
+                            } finally {
+                              if (mounted) {
+                                setState(() => _checkingForUpdate = false);
+                              }
+                            }
+                          },
+                    icon: _checkingForUpdate
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.system_update_rounded, size: 16),
                     label: Text(l.checkForUpdate),
                   )),
                 ],
