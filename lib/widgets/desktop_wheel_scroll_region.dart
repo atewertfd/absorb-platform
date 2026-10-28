@@ -47,7 +47,13 @@ class _DesktopWheelScrollRegionState extends State<DesktopWheelScrollRegion>
   }
 
   Duration get _wheelDuration =>
-      AppMotion.duration(AppMotion.micro, _motionMode);
+      AppMotion.duration(AppMotion.wheel, _motionMode);
+
+  // Flutter's Windows engine reports a mouse-wheel notch as a fixed 20-pixel
+  // pointer delta, while trackpads report their actual pixel movement. A
+  // modest mouse-only multiplier restores a useful line-sized scroll without
+  // magnifying precise trackpad input.
+  static const _mouseWheelScale = 2.5;
 
   @override
   void didChangeDependencies() {
@@ -150,6 +156,9 @@ class _DesktopWheelScrollRegionState extends State<DesktopWheelScrollRegion>
     var delta = axis == Axis.vertical
         ? event.scrollDelta.dy
         : event.scrollDelta.dx;
+    if (event.kind == PointerDeviceKind.mouse) {
+      delta *= _mouseWheelScale;
+    }
     if (axisDirectionIsReversed(position.axisDirection)) delta = -delta;
     final destination = (position.pixels + delta).clamp(
       position.minScrollExtent,

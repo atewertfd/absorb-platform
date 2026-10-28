@@ -11,6 +11,7 @@ enum AppMotionMode { normal, reduced, instant }
 /// resulting mode here.
 abstract final class AppMotion {
   static const micro = Duration(milliseconds: 120);
+  static const wheel = Duration(milliseconds: 96);
   static const state = Duration(milliseconds: 180);
   static const navigation = Duration(milliseconds: 220);
   static const modal = Duration(milliseconds: 280);
