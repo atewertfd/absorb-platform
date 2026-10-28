@@ -44,6 +44,7 @@ import 'screens/app_shell.dart';
 import 'widgets/auth_loading_screen.dart';
 import 'widgets/setup_link_login.dart';
 import 'utils/app_motion.dart';
+import 'utils/memory_policy.dart';
 
 /// Global notifier so any widget (e.g. settings) can change the theme instantly.
 final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.dark);
@@ -234,6 +235,7 @@ Future<void> applyOrientationLock() async {
 void main() async {
   HttpOverrides.global = _CertOverrides();
   final widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+  configureImageCache(PaintingBinding.instance.imageCache);
   final appLinks = AppLinks();
 
   // These calls use platform channels that require an Activity. When Android
