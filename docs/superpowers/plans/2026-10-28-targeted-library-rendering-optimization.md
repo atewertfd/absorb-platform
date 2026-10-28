@@ -32,11 +32,11 @@
 - Test: `test/library_item_snapshot_test.dart`
 - Test: `test/cover_decode_test.dart`
 
-- [ ] Write focused tests.
-- [ ] Run them and confirm they fail because the new contracts are missing.
-- [ ] Implement the minimal immutable snapshot and bounded decode helper.
-- [ ] Run focused tests and confirm they pass.
-- [ ] Commit the contracts.
+- [x] Write focused tests.
+- [x] Run them and confirm they fail because the new contracts are missing.
+- [x] Implement the minimal immutable snapshot and bounded decode helper.
+- [x] Run focused tests and confirm they pass.
+- [x] Commit the contracts.
 
 ### Task 2: Use snapshots in library cards
 
@@ -44,16 +44,16 @@
 - Modify: `lib/widgets/book_card.dart`
 - Modify: `lib/widgets/library_grid_tiles.dart`
 
-- [ ] Replace broad `LibraryProvider` watches with per-item `context.select` snapshots.
-- [ ] Preserve the existing download listener in grid tiles for correctness of download badges.
-- [ ] Add display-sized decode hints to the reusable book-card cover, including the small blur layer.
-- [ ] Run card/grid focused tests and the snapshot tests.
-- [ ] Commit the wiring.
+- [x] Replace broad `LibraryProvider` watches with per-item `context.select` snapshots.
+- [x] Preserve the existing download listener in grid tiles for correctness of download badges.
+- [x] Add display-sized decode hints to the reusable book-card cover, including the small blur layer.
+- [x] Run card/grid focused tests and the snapshot tests.
+- [x] Commit the wiring.
 
 ### Task 3: Verify and review
 
-- [ ] Run `flutter test`.
-- [ ] Run `flutter analyze`.
-- [ ] Run `flutter build windows --release --no-pub --dart-define=GITHUB_BUILD=true`.
-- [ ] Run `git diff --check` and confirm `lib/utils/server_url.dart` remains untouched.
-- [ ] Record that runtime RSS reduction still needs before/after profiling.
+- [x] Run `flutter test` — 70 passed, 1 existing skip.
+- [x] Run `flutter analyze` — no issues found.
+- [x] Run `flutter build windows --release --no-pub --dart-define=GITHUB_BUILD=true` — succeeded.
+- [x] Run `git diff --check` and confirm `lib/utils/server_url.dart` remains untouched.
+- [x] Record that runtime RSS reduction still needs before/after profiling.
