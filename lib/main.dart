@@ -42,6 +42,7 @@ import 'screens/login_screen.dart';
 import 'screens/app_shell.dart';
 import 'widgets/auth_loading_screen.dart';
 import 'widgets/setup_link_login.dart';
+import 'utils/app_motion.dart';
 
 /// Global notifier so any widget (e.g. settings) can change the theme instantly.
 final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.dark);
@@ -94,6 +95,28 @@ class _InstantPageTransitionsBuilder extends PageTransitionsBuilder {
     Widget child,
   ) =>
       child;
+}
+
+/// Builds the app-wide route transition policy. Mobile keeps its existing
+/// Cupertino transition; desktop and web use a restrained Material fade/slide
+/// so pushed pages do not appear to snap in from nowhere.
+PageTransitionsTheme buildAppPageTransitionsTheme({required bool instant}) {
+  final mobile = instant
+      ? const _InstantPageTransitionsBuilder()
+      : const CupertinoPageTransitionsBuilder();
+  final desktop = instant
+      ? const _InstantPageTransitionsBuilder()
+      : const FadeUpwardsPageTransitionsBuilder();
+  return PageTransitionsTheme(
+    builders: {
+      TargetPlatform.android: mobile,
+      TargetPlatform.iOS: mobile,
+      TargetPlatform.windows: desktop,
+      TargetPlatform.linux: desktop,
+      TargetPlatform.macOS: desktop,
+      TargetPlatform.fuchsia: desktop,
+    },
+  );
 }
 
 /// Whether to disable the fade animation when switching bottom nav tabs.
@@ -310,6 +333,7 @@ class AbsorbApp extends StatelessWidget {
         gradientIntensityNotifier,
         useColorEverywhereNotifier,
         einkModeNotifier,
+        snappyTransitionsNotifier,
       ]),
       builder: (context, _) {
         final isEink = einkModeNotifier.value;
@@ -426,19 +450,19 @@ class AbsorbApp extends StatelessWidget {
           );
         }
 
-            final pageTransition = isEink
-                ? const PageTransitionsTheme(
-                    builders: {
-                      TargetPlatform.android: _InstantPageTransitionsBuilder(),
-                      TargetPlatform.iOS: _InstantPageTransitionsBuilder(),
-                    },
-                  )
-                : const PageTransitionsTheme(
-                    builders: {
-                      TargetPlatform.android: CupertinoPageTransitionsBuilder(),
-                      TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-                    },
-                  );
+            final reduceMotion = WidgetsBinding
+                .instance
+                .platformDispatcher
+                .accessibilityFeatures
+                .disableAnimations;
+            final motionMode = AppMotion.resolveMode(
+              eInk: isEink,
+              snappy: snappyTransitionsNotifier.value,
+              reduceMotion: reduceMotion,
+            );
+            final pageTransition = buildAppPageTransitionsTheme(
+              instant: motionMode != AppMotionMode.normal,
+            );
 
             return MaterialApp(
               navigatorKey: rootNavigatorKey,

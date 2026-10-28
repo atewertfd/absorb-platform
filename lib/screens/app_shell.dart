@@ -71,6 +71,7 @@ import '../services/settings_sync_service.dart';
 import '../services/update_checker_service.dart';
 import '../widgets/update_dialog.dart';
 import '../widgets/overlay_toast.dart';
+import '../utils/app_motion.dart';
 
 class _DesktopPlayPauseIntent extends Intent {
   const _DesktopPlayPauseIntent();
@@ -220,7 +221,7 @@ class _AppShellState extends State<AppShell>
   // ── Scroll-to-hide bottom nav (driven by Library screen) ──
   late final AnimationController _navBarAnimController = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 250),
+    duration: AppMotion.state,
     value: 1.0,
   );
   VoidCallback? _navBarListener;
@@ -278,7 +279,20 @@ class _AppShellState extends State<AppShell>
     }
     _ensurePageBuilt(index);
     _syncNavBarListener(index);
-    if (snappyTransitionsNotifier.value || einkModeNotifier.value) {
+    final motionMode = AppMotion.resolveMode(
+      eInk: einkModeNotifier.value,
+      snappy: snappyTransitionsNotifier.value,
+      reduceMotion: WidgetsBinding
+          .instance
+          .platformDispatcher
+          .accessibilityFeatures
+          .disableAnimations,
+    );
+    _fadeController.duration = AppMotion.duration(
+      AppMotion.navigation,
+      motionMode,
+    );
+    if (motionMode != AppMotionMode.normal) {
       setState(() => _currentIndex = index);
     } else {
       _fadeController.reverse().then((_) {
@@ -369,7 +383,7 @@ class _AppShellState extends State<AppShell>
 
   late final AnimationController _fadeController = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 200),
+    duration: AppMotion.navigation,
     value: 1.0,
   );
 
