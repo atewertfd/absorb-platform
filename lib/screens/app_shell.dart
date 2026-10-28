@@ -386,7 +386,7 @@ class _AppShellState extends State<AppShell>
     duration: AppMotion.navigation,
     value: 1.0,
   );
-  late final Animation<double> _fadeAnimation = CurvedAnimation(
+  late final CurvedAnimation _fadeAnimation = CurvedAnimation(
     parent: _fadeController,
     curve: AppMotion.navigationCurve,
   );
