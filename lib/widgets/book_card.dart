@@ -10,6 +10,8 @@ import '../services/download_service.dart';
 import 'absorbing_shared.dart';
 import 'book_detail_sheet.dart';
 import 'episode_list_sheet.dart';
+import 'cover_decode.dart';
+import 'library_item_snapshot.dart';
 
 class BookCard extends StatelessWidget {
   final Map<String, dynamic> item;
@@ -46,29 +48,41 @@ class BookCard extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final l = AppLocalizations.of(context)!;
-    final lib = context.watch<LibraryProvider>();
-
     final itemId = item['id'] as String?;
+    final snapshot = context.select<LibraryProvider, LibraryItemSnapshot>((lib) {
+      final isPodcastLibrary = lib.isPodcastLibrary;
+      return LibraryItemSnapshot(
+        coverUrl: lib.getCoverUrl(itemId),
+        progress: lib.getProgress(itemId),
+        isFinished: lib.getProgressData(itemId)?['isFinished'] == true,
+        isPodcastLibrary: isPodcastLibrary,
+        isSubscribed: isPodcastLibrary &&
+            itemId != null &&
+            lib.isPodcastSubscribed(itemId),
+        unfinishedCount: isPodcastLibrary && item['recentEpisode'] == null
+            ? lib.getUnfinishedEpisodeCount(item)
+            : 0,
+        mediaHeaders: lib.mediaHeaders,
+      );
+    });
     final media = item['media'] as Map<String, dynamic>? ?? {};
     final metadata = media['metadata'] as Map<String, dynamic>? ?? {};
 
     final title = metadata['title'] as String? ?? l.bookCardUnknownTitle;
     final subtitle = metadata['subtitle'] as String? ?? '';
     final authorName = metadata['authorName'] as String? ?? '';
-    final coverUrl = lib.getCoverUrl(itemId);
+    final coverUrl = snapshot.coverUrl;
 
     // Progress from LibraryProvider (fetched via /api/me, same source as book detail)
-    final progress = lib.getProgress(itemId);
-    final isFinished = lib.getProgressData(itemId)?['isFinished'] == true;
+    final progress = snapshot.progress;
+    final isFinished = snapshot.isFinished;
     final isExplicit = PlayerSettings.showExplicitBadge && metadata['explicit'] == true;
     final isDownloaded = DownloadService().isDownloaded(itemId ?? '');
     // Only compute for podcast shows that aren't being rendered as an episode
     // (an episode card shows the recentEpisode payload, not show-level info).
-    final unfinishedCount = (lib.isPodcastLibrary && item['recentEpisode'] == null)
-        ? lib.getUnfinishedEpisodeCount(item)
-        : 0;
+    final unfinishedCount = snapshot.unfinishedCount;
 
-    final headers = lib.mediaHeaders;
+    final headers = snapshot.mediaHeaders;
 
     final card = isWide
         ? _buildWideCard(context, cs, tt, l, title, authorName, coverUrl, progress, headers, isExplicit: isExplicit)
@@ -474,35 +488,56 @@ class _CoverImage extends StatelessWidget {
     final isSquare = (coverAspectRatio - 1.0).abs() < 0.01;
     final effectiveFit = isSquare ? BoxFit.contain : fit;
 
-    // Local file path (offline cached cover)
-    if (coverUrl!.startsWith('/')) {
-      final file = File(coverUrl!);
-      if (file.existsSync()) {
-        return EinkCoverTone(child: BlurPaddedCover(
-          enabled: isSquare,
-          blurChild: Image.file(file, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const SizedBox.shrink()),
-          child: Image.file(file, fit: effectiveFit, errorBuilder: (_, __, ___) => _placeholder()),
-        ));
-      }
-      return _placeholder();
-    }
-
-    return EinkCoverTone(child: BlurPaddedCover(
-      enabled: isSquare,
-      blurChild: CachedNetworkImage(
-        imageUrl: coverUrl!,
-        fit: BoxFit.cover,
-        httpHeaders: httpHeaders,
-        errorWidget: (_, __, ___) => const SizedBox.shrink(),
-      ),
-      child: CachedNetworkImage(
-        imageUrl: coverUrl!,
-        fit: effectiveFit,
-        httpHeaders: httpHeaders,
-        placeholder: (_, __) => _placeholder(),
-        errorWidget: (_, __, ___) => _placeholder(),
-      ),
-    ));
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final decodeWidth = coverDecodeWidth(
+          width: constraints.maxWidth,
+          height: constraints.maxHeight,
+          devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+        );
+        if (coverUrl!.startsWith('/')) {
+          final file = File(coverUrl!);
+          if (!file.existsSync()) return _placeholder();
+          return EinkCoverTone(
+            child: BlurPaddedCover(
+              enabled: isSquare,
+              blurChild: Image.file(
+                file,
+                fit: BoxFit.cover,
+                cacheWidth: 32,
+                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+              ),
+              child: Image.file(
+                file,
+                fit: effectiveFit,
+                cacheWidth: decodeWidth,
+                errorBuilder: (_, __, ___) => _placeholder(),
+              ),
+            ),
+          );
+        }
+        return EinkCoverTone(
+          child: BlurPaddedCover(
+            enabled: isSquare,
+            blurChild: CachedNetworkImage(
+              imageUrl: coverUrl!,
+              fit: BoxFit.cover,
+              httpHeaders: httpHeaders,
+              memCacheWidth: 32,
+              errorWidget: (_, __, ___) => const SizedBox.shrink(),
+            ),
+            child: CachedNetworkImage(
+              imageUrl: coverUrl!,
+              fit: effectiveFit,
+              httpHeaders: httpHeaders,
+              memCacheWidth: decodeWidth,
+              placeholder: (_, __) => _placeholder(),
+              errorWidget: (_, __, ___) => _placeholder(),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   /// Home shelves used to show a bare headphones icon here while the library

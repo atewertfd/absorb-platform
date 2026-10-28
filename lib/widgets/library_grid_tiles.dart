@@ -15,6 +15,7 @@ import 'episode_list_sheet.dart';
 import '../services/upcoming_releases_service.dart';
 import 'series_books_sheet.dart';
 import 'author_books_sheet.dart';
+import 'library_item_snapshot.dart';
 
 // ═══════════════════════════════════════════════════════════════
 // Grid book tile (cover + title + author)
@@ -67,22 +68,34 @@ class _GridBookTileState extends State<GridBookTile> {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final l = AppLocalizations.of(context)!;
-    final lib = context.watch<LibraryProvider>();
-
     final itemId = widget.item['id'] as String? ?? '';
+    final lib = context.read<LibraryProvider>();
+    final snapshot = context.select<LibraryProvider, LibraryItemSnapshot>((lib) {
+      final isPodcastLibrary = lib.isPodcastLibrary;
+      return LibraryItemSnapshot(
+        coverUrl: lib.getCoverUrl(itemId),
+        progress: lib.getProgress(itemId),
+        isFinished: lib.getProgressData(itemId)?['isFinished'] == true,
+        isPodcastLibrary: isPodcastLibrary,
+        isSubscribed: isPodcastLibrary && lib.isPodcastSubscribed(itemId),
+        unfinishedCount: isPodcastLibrary
+            ? lib.getUnfinishedEpisodeCount(widget.item)
+            : 0,
+        mediaHeaders: lib.mediaHeaders,
+      );
+    });
     final media = widget.item['media'] as Map<String, dynamic>? ?? {};
     final metadata = media['metadata'] as Map<String, dynamic>? ?? {};
     final title = metadata['title'] as String? ?? l.unknown;
     final subtitle = metadata['subtitle'] as String? ?? '';
     final author = metadata['authorName'] as String? ?? '';
-    final coverUrl = lib.getCoverUrl(itemId);
-    final progress = lib.getProgress(itemId);
+    final coverUrl = snapshot.coverUrl;
+    final progress = snapshot.progress;
     final isExplicit = PlayerSettings.showExplicitBadge && metadata['explicit'] == true;
     final isDownloaded = _dl.isDownloaded(itemId);
-    final isFinished = lib.getProgressData(itemId)?['isFinished'] == true;
-    final isSubscribed = lib.isPodcastLibrary && lib.isPodcastSubscribed(itemId);
-    final unfinishedCount =
-        lib.isPodcastLibrary ? lib.getUnfinishedEpisodeCount(widget.item) : 0;
+    final isFinished = snapshot.isFinished;
+    final isSubscribed = snapshot.isSubscribed;
+    final unfinishedCount = snapshot.unfinishedCount;
 
     return GestureDetector(
       // opaque so taps on the blank space below the title (the tile's tall
@@ -107,7 +120,7 @@ class _GridBookTileState extends State<GridBookTile> {
       // Selection mode owns the gesture instead, so a long-press can't fire a
       // sheet over a grid the user is ticking through.
       onLongPress:
-          (!widget.selectionMode && itemId.isNotEmpty && !lib.isPodcastLibrary)
+          (!widget.selectionMode && itemId.isNotEmpty && !snapshot.isPodcastLibrary)
           ? () => showQuickActionsSheet(context, itemId, initialItem: widget.item)
           : null,
       child: Column(
@@ -123,7 +136,7 @@ class _GridBookTileState extends State<GridBookTile> {
                 children: [
                   // Cover image
                   coverUrl != null
-                      ? _blurCover(coverUrl, lib.mediaHeaders, cs, widget.coverAspectRatio, title, author)
+                      ? _blurCover(coverUrl, snapshot.mediaHeaders, cs, widget.coverAspectRatio, title, author)
                       : CoverPlaceholder(title: title, author: author),
 
                   // Progress bar at bottom of cover
