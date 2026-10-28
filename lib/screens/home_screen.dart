@@ -6,6 +6,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:palette_generator/palette_generator.dart';
 import '../utils/cover_accent.dart';
 import '../widgets/absorbing_shared.dart';
+import '../widgets/cover_decode.dart';
 import '../providers/auth_provider.dart';
 import '../providers/library_provider.dart';
 import '../services/audio_player_service.dart';
@@ -856,14 +857,16 @@ class _ContinueListeningCardState extends State<_ContinueListeningCard> {
     if (coverUrl == null) return fallback;
 
     final isLocal = coverUrl.startsWith('/');
-    Widget image({required BoxFit fit}) {
+    Widget image({required BoxFit fit, bool blurOnly = false}) {
       if (isLocal) {
         return Image.file(File(coverUrl), fit: fit,
+            cacheWidth: blurOnly ? blurCoverDecodeWidth : null,
             errorBuilder: (_, __, ___) => fallback);
       }
       return CachedNetworkImage(
         imageUrl: coverUrl,
         fit: fit,
+        memCacheWidth: blurOnly ? blurCoverDecodeWidth : null,
         httpHeaders: headers,
         fadeInDuration: Duration.zero,
         fadeOutDuration: Duration.zero,
@@ -880,7 +883,7 @@ class _ContinueListeningCardState extends State<_ContinueListeningCard> {
     // copy of the cover (matches the absorbing card aesthetic). Both image()
     // calls share the same cached bytes by URL.
     return BlurPaddedCover(
-      blurChild: image(fit: BoxFit.cover),
+      blurChild: image(fit: BoxFit.cover, blurOnly: true),
       child: image(fit: BoxFit.contain),
     );
   }

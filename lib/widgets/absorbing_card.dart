@@ -26,6 +26,7 @@ import '../services/chromecast_service.dart';
 import 'expanded_card.dart';
 import '../main.dart' show colorSourceNotifier, useColorEverywhereNotifier, manualSeedNotifier, manualColorScheme;
 import 'stable_cached_network_image.dart';
+import 'cover_decode.dart';
 
 class AbsorbingCard extends StatefulWidget {
   final Map<String, dynamic> item;
@@ -942,12 +943,14 @@ class AbsorbingCardState extends State<AbsorbingCard> with AutomaticKeepAliveCli
                                   child: EinkCoverTone(child: coverUrl != null && coverIdentity != null
                                     ? isLocalCover
                                         ? BlurPaddedCover(blurChild: Image.file(File(coverUrl), fit: BoxFit.cover,
+                                            cacheWidth: blurCoverDecodeWidth,
                                             gaplessPlayback: true,
                                             errorBuilder: (_, __, ___) => const SizedBox.shrink()),
                                             enabled: !_rectangleCovers, child: Image.file(File(coverUrl), fit: _rectangleCovers ? BoxFit.cover : BoxFit.contain,
                                             gaplessPlayback: true,
                                             errorBuilder: (_, __, ___) => CoverPlaceholder(title: _title, author: _author)))
                                         : BlurPaddedCover(blurChild: StableCachedNetworkImage(imageUrl: coverUrl, cacheKey: coverIdentity, fit: BoxFit.cover,
+                                              memCacheWidth: blurCoverDecodeWidth,
                                               httpHeaders: mediaHeaders,
                                               errorWidget: (_, __, ___) => const SizedBox.shrink()),
                                             enabled: !_rectangleCovers, child: StableCachedNetworkImage(imageUrl: coverUrl, cacheKey: coverIdentity,

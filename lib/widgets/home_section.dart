@@ -5,6 +5,7 @@ import 'cover_badges.dart';
 import '../providers/library_provider.dart';
 import '../services/download_service.dart';
 import 'absorbing_shared.dart';
+import 'cover_decode.dart';
 import 'book_card.dart';
 import 'author_card.dart';
 import 'series_card.dart';
@@ -399,6 +400,7 @@ class _EpisodeCard extends StatelessWidget {
                     coverUrl.startsWith('/')
                         ? BlurPaddedCover(
                             blurChild: Image.file(File(coverUrl), fit: BoxFit.cover,
+                                cacheWidth: blurCoverDecodeWidth,
                                 errorBuilder: (_, __, ___) => const SizedBox.shrink()),
                             child: Image.file(File(coverUrl), fit: BoxFit.contain,
                                 errorBuilder: (_, __, ___) => Container(
@@ -407,6 +409,7 @@ class _EpisodeCard extends StatelessWidget {
                                     color: cs.onSurfaceVariant.withValues(alpha: 0.3)))))
                         : BlurPaddedCover(
                             blurChild: Image.network(coverUrl, fit: BoxFit.cover,
+                                cacheWidth: blurCoverDecodeWidth,
                                 headers: lib.mediaHeaders,
                                 errorBuilder: (_, __, ___) => const SizedBox.shrink()),
                             child: Image.network(coverUrl, fit: BoxFit.contain,

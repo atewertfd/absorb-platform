@@ -3,6 +3,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:absorb/widgets/cover_decode.dart';
 
 void main() {
+  test('uses a tiny decode width for blur-only cover layers', () {
+    expect(blurCoverDecodeWidth, 32);
+  });
+
   test('uses the largest displayed dimension and device pixel ratio', () {
     expect(coverDecodeWidth(width: 120, height: 180, devicePixelRatio: 2), 360);
   });

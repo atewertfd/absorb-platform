@@ -504,7 +504,7 @@ class _CoverImage extends StatelessWidget {
               blurChild: Image.file(
                 file,
                 fit: BoxFit.cover,
-                cacheWidth: 32,
+                cacheWidth: blurCoverDecodeWidth,
                 errorBuilder: (_, __, ___) => const SizedBox.shrink(),
               ),
               child: Image.file(
@@ -523,7 +523,7 @@ class _CoverImage extends StatelessWidget {
               imageUrl: coverUrl!,
               fit: BoxFit.cover,
               httpHeaders: httpHeaders,
-              memCacheWidth: 32,
+              memCacheWidth: blurCoverDecodeWidth,
               errorWidget: (_, __, ___) => const SizedBox.shrink(),
             ),
             child: CachedNetworkImage(
