@@ -36,6 +36,7 @@ import 'services/episode_notification_service.dart';
 import 'services/home_widget_service.dart';
 import 'services/log_service.dart';
 import 'services/quick_actions_service.dart';
+import 'services/startup_task_coordinator.dart';
 import 'services/setup_link_service.dart';
 import 'services/wording.dart';
 import 'screens/login_screen.dart';
@@ -858,50 +859,46 @@ class _AuthGateState extends State<AuthGate> {
       debugPrint('[Init] Permission request failed: $e');
     }
 
-    // Initialize Chromecast (Android only)
-    if (Platform.isAndroid) {
-      try {
-        await ChromecastService().init();
-      } catch (e) {
-        debugPrint('[Init] Chromecast init failed: $e');
-      }
-    }
-
-    // Initialize download tracker and progress sync
-    debugPrint('[Init] remaining services... (${sw.elapsedMilliseconds}ms)');
-    try {
-      await ProgressSyncService().init();
-      // A killed stream can leave unsynced listening in the streaming buffer;
-      // fold it into the offline ledger so the normal flush ships it.
-      await ProgressSyncService().migrateOrphanStreamingTime();
-      await LocalSessionService().init();
-      await EqualizerService().init();
-      await SleepTimerService().loadAutoSleepSettings();
-      // Watch for settings changes and pull the synced copy on the way in.
-      await SettingsSyncService().startIfEnabled();
-      unawaited(SettingsSyncService().onAppForegrounded());
-      if (Platform.isAndroid) {
-        // Pre-populate Android Auto browse tree in background.
-        Future.microtask(() => AndroidAutoService().refresh());
-      }
-      if (Platform.isIOS) {
-        // Initialize CarPlay browse tree.
-        CarPlayService().init();
-      }
-      if (Platform.isAndroid || Platform.isIOS) {
-        // Initialize homescreen widget
-        await HomeWidgetService().init();
-      }
-      // App-icon long-press shortcuts. On Android the service registers
-      // dynamic shortcuts + handler; on iOS it only wires the handler since
-      // shortcut items themselves are declared statically in Info.plist
-      // (so we get real UIKit system icon types like `.play`, `.search`).
-      // Depends on AudioPlayerService + HomeWidgetService so they're ready
-      // when the shortcut handler fires.
-      await QuickActionsService().init();
-    } catch (e) {
-      debugPrint('[Init] Service init failed: $e');
-    }
+    // Optional integrations do not gate the authenticated first frame. Keep
+    // their internal ordering intact, but let them settle after the core
+    // account/audio/download path is ready.
+    StartupTaskCoordinator.startBackground(
+      [
+        if (Platform.isAndroid)
+          () async {
+            await ChromecastService().init();
+          },
+        () async {
+          debugPrint('[Init] remaining services... (${sw.elapsedMilliseconds}ms)');
+          await ProgressSyncService().init();
+          // A killed stream can leave unsynced listening in the streaming
+          // buffer; fold it into the offline ledger so the normal flush ships
+          // it.
+          await ProgressSyncService().migrateOrphanStreamingTime();
+          await LocalSessionService().init();
+          await EqualizerService().init();
+          await SleepTimerService().loadAutoSleepSettings();
+          // Watch for settings changes and pull the synced copy on the way in.
+          await SettingsSyncService().startIfEnabled();
+          unawaited(SettingsSyncService().onAppForegrounded());
+          if (Platform.isAndroid) {
+            Future.microtask(() => AndroidAutoService().refresh());
+          }
+          if (Platform.isIOS) {
+            CarPlayService().init();
+          }
+          if (Platform.isAndroid || Platform.isIOS) {
+            await HomeWidgetService().init();
+          }
+          // Depends on AudioPlayerService + HomeWidgetService so they're ready
+          // when the shortcut handler fires.
+          await QuickActionsService().init();
+        },
+      ],
+      onError: (error, stackTrace) {
+        debugPrint('[Init] Optional service failed: $error\n$stackTrace');
+      },
+    );
     debugPrint('[Init] _initServices complete (${sw.elapsedMilliseconds}ms)');
     _servicesReady = true;
     _tryHandleSetupLink();
