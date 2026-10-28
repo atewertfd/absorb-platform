@@ -23,6 +23,7 @@ import '../screens/app_shell.dart';
 import '../build_info.dart';
 import '../services/update_checker_service.dart';
 import '../services/update_check_policy.dart';
+import '../services/desktop_shortcuts.dart';
 import '../services/audiobookshelf_update_service.dart';
 import '../widgets/update_dialog.dart';
 import '../widgets/nav_hold_options.dart';
@@ -98,6 +99,69 @@ class _SettingsScreenState extends State<SettingsScreen> {
       case UpdateCheckFrequency.never:
         return l.updateCheckNever;
     }
+  }
+
+  String _desktopShortcutActionLabel(DesktopShortcutAction action) {
+    switch (action) {
+      case DesktopShortcutAction.playPause:
+        return 'Play / pause';
+      case DesktopShortcutAction.rewind:
+        return 'Rewind';
+      case DesktopShortcutAction.forward:
+        return 'Fast-forward';
+      case DesktopShortcutAction.slower:
+        return 'Decrease playback speed';
+      case DesktopShortcutAction.faster:
+        return 'Increase playback speed';
+      case DesktopShortcutAction.normalSpeed:
+        return 'Reset playback speed';
+      case DesktopShortcutAction.search:
+        return 'Open search';
+      case DesktopShortcutAction.library:
+        return 'Open library';
+      case DesktopShortcutAction.nowPlaying:
+        return 'Open now playing';
+    }
+  }
+
+  Future<void> _showDesktopShortcutsDialog() async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Keyboard shortcuts'),
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final shortcut in desktopShortcutDefinitions)
+                  Semantics(
+                    label: '${_desktopShortcutActionLabel(shortcut.action)}, ${shortcut.label}',
+                    child: ListTile(
+                      dense: true,
+                      title: Text(_desktopShortcutActionLabel(shortcut.action)),
+                      trailing: Text(
+                        shortcut.label,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
   }
   AutoRewindSettings _rewindSettings = const AutoRewindSettings();
   double _defaultSpeed = 1.0;
@@ -4701,6 +4765,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     onExpansionChanged: (v) =>
                         _onSectionExpanded('Windows Settings', v),
                     children: [
+                      ListTile(
+                        leading: Icon(Icons.keyboard_rounded, color: cs.primary),
+                        title: const Text('Keyboard shortcuts'),
+                        subtitle: const Text(
+                          'Playback, speed, search, and navigation controls',
+                        ),
+                        trailing: Icon(
+                          Icons.chevron_right_rounded,
+                          color: cs.onSurfaceVariant,
+                        ),
+                        onTap: _showDesktopShortcutsDialog,
+                      ),
                       ListTile(
                         title: Text(l.updateCheckFrequency),
                         subtitle: Text(

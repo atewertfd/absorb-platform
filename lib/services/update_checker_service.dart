@@ -142,8 +142,6 @@ class UpdateCheckerService {
         if (elapsed < effectiveCooldown.inMilliseconds) return null;
       }
 
-      await prefs.setInt(_lastCheckKey, DateTime.now().millisecondsSinceEpoch);
-
       Map<String, dynamic>? data;
 
       if (includePreReleases) {
@@ -157,6 +155,10 @@ class UpdateCheckerService {
             )
             .timeout(const Duration(seconds: 10));
         if (response.statusCode != 200) return null;
+        // Only start the automatic cooldown after GitHub answered. A
+        // transient offline/5xx response should be retried on the next app
+        // start instead of suppressing checks for the full interval.
+        await prefs.setInt(_lastCheckKey, DateTime.now().millisecondsSinceEpoch);
         final releases = jsonDecode(response.body) as List<dynamic>;
         if (releases.isEmpty) return null;
         data = releases.first as Map<String, dynamic>;
@@ -168,6 +170,10 @@ class UpdateCheckerService {
             )
             .timeout(const Duration(seconds: 10));
         if (response.statusCode != 200) return null;
+        // Only start the automatic cooldown after GitHub answered. A
+        // transient offline/5xx response should be retried on the next app
+        // start instead of suppressing checks for the full interval.
+        await prefs.setInt(_lastCheckKey, DateTime.now().millisecondsSinceEpoch);
         data = jsonDecode(response.body) as Map<String, dynamic>;
       }
 

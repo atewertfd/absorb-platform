@@ -69,32 +69,15 @@ import '../widgets/whats_new_prompt.dart';
 import '../services/review_service.dart';
 import '../services/settings_sync_service.dart';
 import '../services/update_checker_service.dart';
+import '../services/desktop_shortcuts.dart';
 import '../widgets/update_dialog.dart';
 import '../widgets/overlay_toast.dart';
 import '../utils/app_motion.dart';
 
-class _DesktopPlayPauseIntent extends Intent {
-  const _DesktopPlayPauseIntent();
-}
+class _DesktopShortcutIntent extends Intent {
+  final DesktopShortcutAction action;
 
-class _DesktopRewindIntent extends Intent {
-  const _DesktopRewindIntent();
-}
-
-class _DesktopForwardIntent extends Intent {
-  const _DesktopForwardIntent();
-}
-
-class _DesktopSearchIntent extends Intent {
-  const _DesktopSearchIntent();
-}
-
-class _DesktopLibraryIntent extends Intent {
-  const _DesktopLibraryIntent();
-}
-
-class _DesktopNowPlayingIntent extends Intent {
-  const _DesktopNowPlayingIntent();
+  const _DesktopShortcutIntent(this.action);
 }
 
 class AppShell extends StatefulWidget {
@@ -844,55 +827,17 @@ class _AppShellState extends State<AppShell>
       child: Focus(
         autofocus: true,
         child: Shortcuts(
-          shortcuts: const <ShortcutActivator, Intent>{
-            SingleActivator(LogicalKeyboardKey.space):
-                _DesktopPlayPauseIntent(),
-            SingleActivator(LogicalKeyboardKey.arrowLeft):
-                _DesktopRewindIntent(),
-            SingleActivator(LogicalKeyboardKey.arrowRight):
-                _DesktopForwardIntent(),
-            SingleActivator(LogicalKeyboardKey.keyF, control: true):
-                _DesktopSearchIntent(),
-            SingleActivator(LogicalKeyboardKey.keyL, control: true):
-                _DesktopLibraryIntent(),
-            SingleActivator(LogicalKeyboardKey.keyN, control: true):
-                _DesktopNowPlayingIntent(),
+          shortcuts: {
+            for (final shortcut in desktopShortcutDefinitions)
+              shortcut.activator: _DesktopShortcutIntent(shortcut.action),
           },
           child: Actions(
             actions: <Type, Action<Intent>>{
-              _DesktopPlayPauseIntent: CallbackAction<Intent>(
-                onInvoke: (_) {
-                  _runNavHoldAction('playPause');
-                  return null;
-                },
-              ),
-              _DesktopRewindIntent: CallbackAction<Intent>(
-                onInvoke: (_) {
-                  unawaited(AudioPlayerService.handler?.rewind());
-                  return null;
-                },
-              ),
-              _DesktopForwardIntent: CallbackAction<Intent>(
-                onInvoke: (_) {
-                  unawaited(AudioPlayerService.handler?.fastForward());
-                  return null;
-                },
-              ),
-              _DesktopSearchIntent: CallbackAction<Intent>(
-                onInvoke: (_) {
-                  _openSearch();
-                  return null;
-                },
-              ),
-              _DesktopLibraryIntent: CallbackAction<Intent>(
-                onInvoke: (_) {
-                  _navigateTo(1);
-                  return null;
-                },
-              ),
-              _DesktopNowPlayingIntent: CallbackAction<Intent>(
-                onInvoke: (_) {
-                  _switchToAbsorbing();
+              _DesktopShortcutIntent: CallbackAction<Intent>(
+                onInvoke: (intent) {
+                  if (intent is _DesktopShortcutIntent) {
+                    _handleDesktopShortcut(intent.action);
+                  }
                   return null;
                 },
               ),
@@ -1381,6 +1326,33 @@ class _AppShellState extends State<AppShell>
         ),
       ),
     );
+  }
+
+  void _handleDesktopShortcut(DesktopShortcutAction action) {
+    switch (action) {
+      case DesktopShortcutAction.playPause:
+        _runNavHoldAction('playPause');
+      case DesktopShortcutAction.rewind:
+        unawaited(AudioPlayerService.handler?.rewind());
+      case DesktopShortcutAction.forward:
+        unawaited(AudioPlayerService.handler?.fastForward());
+      case DesktopShortcutAction.slower:
+        if (_player.hasBook) {
+          unawaited(_player.setSpeed((_player.speed - 0.05).clamp(0.5, 5.0)));
+        }
+      case DesktopShortcutAction.faster:
+        if (_player.hasBook) {
+          unawaited(_player.setSpeed((_player.speed + 0.05).clamp(0.5, 5.0)));
+        }
+      case DesktopShortcutAction.normalSpeed:
+        if (_player.hasBook) unawaited(_player.setSpeed(1.0));
+      case DesktopShortcutAction.search:
+        _openSearch();
+      case DesktopShortcutAction.library:
+        _navigateTo(1);
+      case DesktopShortcutAction.nowPlaying:
+        _switchToAbsorbing();
+    }
   }
 
   void _runNavHoldAction(String id) {

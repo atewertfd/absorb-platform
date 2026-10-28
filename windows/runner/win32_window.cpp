@@ -26,6 +26,12 @@ constexpr const wchar_t kGetPreferredBrightnessRegKey[] =
   L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize";
 constexpr const wchar_t kGetPreferredBrightnessRegValue[] = L"AppsUseLightTheme";
 
+// Keep the desktop window where the user left it without adding a Flutter
+// plugin or another always-running process. Values are physical screen pixels
+// and are restored only when the saved monitor still exists.
+constexpr const wchar_t kWindowStateRegKey[] =
+    L"Software\\Absorb Plus\\Window";
+
 // The number of Win32Window objects that currently exist.
 static int g_active_window_count = 0;
 
@@ -51,6 +57,68 @@ void EnableFullDpiSupportIfAvailable(HWND hwnd) {
     enable_non_client_dpi_scaling(hwnd);
   }
   FreeLibrary(user32_module);
+}
+
+bool ReadWindowStateValue(HKEY key, const wchar_t* name, DWORD* value) {
+  DWORD size = sizeof(*value);
+  return RegGetValueW(key, nullptr, name, RRF_RT_REG_DWORD, nullptr, value,
+                     &size) == ERROR_SUCCESS;
+}
+
+void RestoreWindowPlacement(HWND window) {
+  HKEY key = nullptr;
+  if (RegOpenKeyExW(HKEY_CURRENT_USER, kWindowStateRegKey, 0, KEY_READ, &key) !=
+      ERROR_SUCCESS) {
+    return;
+  }
+
+  DWORD x = 0, y = 0, width = 0, height = 0;
+  const bool complete = ReadWindowStateValue(key, L"x", &x) &&
+                        ReadWindowStateValue(key, L"y", &y) &&
+                        ReadWindowStateValue(key, L"width", &width) &&
+                        ReadWindowStateValue(key, L"height", &height);
+  RegCloseKey(key);
+  if (!complete || width < 800 || height < 500) return;
+
+  const LONG left = static_cast<LONG>(x);
+  const LONG top = static_cast<LONG>(y);
+  RECT requested = {left, top, left + static_cast<LONG>(width),
+                    top + static_cast<LONG>(height)};
+  HMONITOR monitor = MonitorFromRect(&requested, MONITOR_DEFAULTTONULL);
+  if (monitor == nullptr) return;
+
+  SetWindowPos(window, nullptr, requested.left, requested.top,
+               requested.right - requested.left,
+               requested.bottom - requested.top,
+               SWP_NOZORDER | SWP_NOACTIVATE);
+}
+
+void SaveWindowPlacement(HWND window) {
+  if (window == nullptr || IsIconic(window) || IsZoomed(window)) return;
+
+  RECT bounds;
+  if (!GetWindowRect(window, &bounds)) return;
+
+  HKEY key = nullptr;
+  DWORD disposition = 0;
+  if (RegCreateKeyExW(HKEY_CURRENT_USER, kWindowStateRegKey, 0, nullptr, 0,
+                      KEY_WRITE, nullptr, &key, &disposition) != ERROR_SUCCESS) {
+    return;
+  }
+
+  const DWORD values[][2] = {
+      {static_cast<DWORD>(bounds.left), 0},
+      {static_cast<DWORD>(bounds.top), 0},
+      {static_cast<DWORD>(bounds.right - bounds.left), 0},
+      {static_cast<DWORD>(bounds.bottom - bounds.top), 0},
+  };
+  const wchar_t* names[] = {L"x", L"y", L"width", L"height"};
+  for (int i = 0; i < 4; ++i) {
+    RegSetValueExW(key, names[i], 0, REG_DWORD,
+                   reinterpret_cast<const BYTE*>(&values[i][0]),
+                   sizeof(DWORD));
+  }
+  RegCloseKey(key);
 }
 
 }  // namespace
@@ -144,6 +212,8 @@ bool Win32Window::Create(const std::wstring& title,
     return false;
   }
 
+  RestoreWindowPlacement(window);
+
   UpdateTheme(window);
 
   return OnCreate();
@@ -180,6 +250,7 @@ Win32Window::MessageHandler(HWND hwnd,
                             LPARAM const lparam) noexcept {
   switch (message) {
     case WM_DESTROY:
+      SaveWindowPlacement(hwnd);
       window_handle_ = nullptr;
       Destroy();
       if (quit_on_close_) {
@@ -225,6 +296,7 @@ void Win32Window::Destroy() {
   OnDestroy();
 
   if (window_handle_) {
+    SaveWindowPlacement(window_handle_);
     DestroyWindow(window_handle_);
     window_handle_ = nullptr;
   }
