@@ -1,4 +1,5 @@
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart' show SingleActivator;
 
 /// Actions exposed by the desktop shell. Keeping these in one table means the
 /// actual bindings and the accessibility help UI cannot drift apart.
