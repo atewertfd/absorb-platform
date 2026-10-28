@@ -1,6 +1,9 @@
 name: Windows Beta Release
 
 on:
+  push:
+    tags:
+      - 'v*'
   workflow_dispatch:
     inputs:
       prerelease:
@@ -45,8 +48,10 @@ jobs:
           $parts = $raw -split '\+'
           $version = $parts[0]
           $build = $parts[1]
-          $pre = '${{ inputs.prerelease }}' -eq 'true'
-          $tag = if ($pre) { "v$version-$build" } else { "v$version" }
+          $event = '${{ github.event_name }}'
+          $inputPre = '${{ inputs.prerelease }}'
+          $pre = if ($event -eq 'push') { $true } else { $inputPre -eq 'true' }
+          $tag = if ($event -eq 'push') { '${{ github.ref_name }}' } elseif ($pre) { "v$version-$build" } else { "v$version" }
           "raw=$raw" >> $env:GITHUB_OUTPUT
           "version=$version" >> $env:GITHUB_OUTPUT
           "build=$build" >> $env:GITHUB_OUTPUT
@@ -110,9 +115,13 @@ jobs:
           $installer = Get-ChildItem 'build\windows\installer\Absorb-*-Setup.exe' | Select-Object -First 1
           $portable = Get-ChildItem 'build\windows\installer\*-windows-portable.zip' | Select-Object -First 1
           if (-not $installer -or -not $portable) { throw 'Windows release assets were not produced.' }
-          $title = "Absorb Plus $env:VERSION-$env:BUILD (Beta $env:BETA_NUMBER)"
+          $beta = $env:BETA_NUMBER
+          if ([string]::IsNullOrWhiteSpace($beta)) { $beta = $env:BUILD }
+          $notes = $env:NOTES
+          if ([string]::IsNullOrWhiteSpace($notes)) { $notes = 'Windows installer and portable build for testing.' }
+          $title = "Absorb Plus $env:VERSION-$env:BUILD (Beta $beta)"
           $notesFile = Join-Path $env:RUNNER_TEMP 'absorb-release-notes.md'
-          @("## Beta $env:BETA_NUMBER", '', $env:NOTES, '', 'The Windows installer updates an existing Absorb Plus installation in place and preserves its user data.') | Set-Content -Path $notesFile -Encoding utf8
+          @("## Beta $beta", '', $notes, '', 'The Windows installer updates an existing Absorb Plus installation in place and preserves its user data.') | Set-Content -Path $notesFile -Encoding utf8
           gh release view $env:TAG --repo $env:GITHUB_REPOSITORY *> $null
           if ($LASTEXITCODE -eq 0) {
             if ($env:PRE -eq 'true') {
