@@ -469,6 +469,15 @@ class AbsorbApp extends StatelessWidget {
             final pageTransition = buildAppPageTransitionsTheme(
               instant: motionMode != AppMotionMode.normal,
             );
+            final interactionDuration = AppMotion.duration(
+              AppMotion.state,
+              motionMode,
+            );
+            // Keep Material button families on the same short, desktop-sized
+            // timing token without editing every individual button callsite.
+            final buttonMotion = ButtonStyle(
+              animationDuration: interactionDuration,
+            );
 
             return MaterialApp(
               navigatorKey: rootNavigatorKey,
@@ -496,6 +505,17 @@ class AbsorbApp extends StatelessWidget {
                 // Ink ripples ghost on e-ink, so touch feedback goes silent.
                 splashFactory: isEink ? NoSplash.splashFactory : null,
                 highlightColor: isEink ? Colors.transparent : null,
+                elevatedButtonTheme: ElevatedButtonThemeData(
+                  style: buttonMotion,
+                ),
+                filledButtonTheme: FilledButtonThemeData(
+                  style: buttonMotion,
+                ),
+                outlinedButtonTheme: OutlinedButtonThemeData(
+                  style: buttonMotion,
+                ),
+                textButtonTheme: TextButtonThemeData(style: buttonMotion),
+                iconButtonTheme: IconButtonThemeData(style: buttonMotion),
                 cardTheme: CardThemeData(
                   color: lightScheme.surfaceContainerHigh,
                   elevation: 0,
@@ -570,6 +590,17 @@ class AbsorbApp extends StatelessWidget {
                 colorScheme: darkScheme,
                 fontFamilyFallback: cjkFallback,
                 scaffoldBackgroundColor: isFlat ? Colors.black : const Color(0xFF0E0E0E),
+                elevatedButtonTheme: ElevatedButtonThemeData(
+                  style: buttonMotion,
+                ),
+                filledButtonTheme: FilledButtonThemeData(
+                  style: buttonMotion,
+                ),
+                outlinedButtonTheme: OutlinedButtonThemeData(
+                  style: buttonMotion,
+                ),
+                textButtonTheme: TextButtonThemeData(style: buttonMotion),
+                iconButtonTheme: IconButtonThemeData(style: buttonMotion),
                 cardTheme: CardThemeData(
                   color: darkScheme.surfaceContainerHigh,
                   elevation: 0,

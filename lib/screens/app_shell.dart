@@ -215,6 +215,7 @@ class _AppShellState extends State<AppShell>
   bool _expandedIsOpen = false;
   bool _wasCasting = false;
   DateTime? _lastBackPress;
+  int _navigationRequest = 0;
   // Tracks which item's cover we derived the scheme from.
   String? _lastCoverItemId;
 
@@ -292,14 +293,17 @@ class _AppShellState extends State<AppShell>
       AppMotion.navigation,
       motionMode,
     );
+    final request = ++_navigationRequest;
     if (motionMode != AppMotionMode.normal) {
+      _fadeController.stop(canceled: false);
       setState(() => _currentIndex = index);
     } else {
+      // A second click should retarget the same transition rather than leave
+      // two reverse() completions racing to replace the active page.
+      _fadeController.stop(canceled: false);
       _fadeController.reverse().then((_) {
-        if (!mounted) return;
-        setState(() {
-          _currentIndex = index;
-        });
+        if (!mounted || request != _navigationRequest) return;
+        setState(() => _currentIndex = index);
         _fadeController.forward();
       });
     }
@@ -390,6 +394,13 @@ class _AppShellState extends State<AppShell>
     parent: _fadeController,
     curve: AppMotion.navigationCurve,
   );
+  // Keep a little of the old page visible while the index swaps. A full
+  // fade-to-black makes desktop tab changes feel like a route reload; this
+  // still gives the transition a clear motion cue without a blank flash.
+  late final Animation<double> _pageOpacity = Tween<double>(
+    begin: 0.86,
+    end: 1.0,
+  ).animate(_fadeAnimation);
 
   void _loadStartScreen() {
     PlayerSettings.getStartScreen().then((idx) {
@@ -888,7 +899,7 @@ class _AppShellState extends State<AppShell>
             },
             child: Scaffold(
               body: FadeTransition(
-                opacity: _fadeAnimation,
+                opacity: _pageOpacity,
                 child: IndexedStack(
                   index: _currentIndex,
                   children: List<Widget>.generate(
@@ -968,6 +979,10 @@ class _AppShellState extends State<AppShell>
         onLongPressStart: (details) =>
             _onNavLongPress(details.localPosition.dx, destinations.length),
         child: NavigationBar(
+          animationDuration: AppMotion.duration(
+            AppMotion.state,
+            AppMotionScope.maybeOf(context) ?? AppMotionMode.normal,
+          ),
           selectedIndex: _selectedDest(lib, podcastsShown),
           height: isPhoneLandscape ? 56 : null,
           labelBehavior: isPhoneLandscape

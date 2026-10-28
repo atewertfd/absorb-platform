@@ -22,7 +22,12 @@ class DesktopWheelScrollRegion extends StatefulWidget {
       _DesktopWheelScrollRegionState();
 }
 
-class _DesktopWheelScrollRegionState extends State<DesktopWheelScrollRegion> {
+class _DesktopWheelScrollRegionState extends State<DesktopWheelScrollRegion>
+    with TickerProviderStateMixin {
+  // Each discovered scroll position gets one ticker-driven animation. Keeping
+  // the ticker here (rather than calling ScrollPosition.animateTo for every
+  // pointer packet) lets a fast wheel stream retarget the same animation
+  // without producing visible stop/start chunks.
   final List<_DiscoveredScrollable> _discoveredScrollables = [];
   final Map<ScrollPosition, _SmoothWheelDriver> _drivers = {};
   AppMotionMode? _lastMotionMode;
@@ -200,6 +205,7 @@ class _DesktopWheelScrollRegionState extends State<DesktopWheelScrollRegion> {
         target.position,
         () => _SmoothWheelDriver(
           target.position,
+          vsync: this,
           isAttached: () => _isPositionActive(target.position),
         ),
       );
@@ -276,12 +282,22 @@ class _WheelTarget {
 }
 
 class _SmoothWheelDriver {
-  _SmoothWheelDriver(this.position, {required this.isAttached})
-    : _accumulator = WheelScrollAccumulator(initialTarget: position.pixels);
+  _SmoothWheelDriver(
+    this.position, {
+    required TickerProvider vsync,
+    required this.isAttached,
+  }) : _accumulator = WheelScrollAccumulator(initialTarget: position.pixels),
+       _controller = AnimationController.unbounded(
+         vsync: vsync,
+         value: position.pixels,
+       ) {
+    _controller.addListener(_applyFrame);
+  }
 
   final ScrollPosition position;
   final bool Function() isAttached;
   final WheelScrollAccumulator _accumulator;
+  final AnimationController _controller;
   bool _disposed = false;
 
   void addDelta(
@@ -291,41 +307,57 @@ class _SmoothWheelDriver {
     required Duration duration,
   }) {
     if (_disposed || !isAttached() || !position.hasPixels) return;
-    // Start from the real position on every event. This prevents keyboard,
-    // scrollbar, touchpad, and user-drag movement from leaving a stale target
-    // behind while still giving each wheel tick a smooth easing curve.
-    _accumulator.rebase(position.pixels);
+    // Preserve the accumulated target while our animation is running. Only
+    // rebase when another input source moved the position underneath us; if
+    // we rebase every packet, fast wheel input is reduced to repeated small
+    // hops and feels exactly like the old choppy implementation.
+    final wasAnimating = _controller.isAnimating;
+    final externalDrift =
+        (_controller.value - position.pixels).abs() > 0.5;
+    _controller.stop(canceled: false);
+    if (!wasAnimating || externalDrift) {
+      _accumulator.rebase(position.pixels);
+    }
     final destination = _accumulator.add(delta: delta, min: min, max: max);
-    unawaited(_animateTo(destination, duration));
+    if (duration == Duration.zero) {
+      position.jumpTo(destination);
+      _controller.value = destination;
+      return;
+    }
+    _controller.value = position.pixels;
+    unawaited(
+      _controller.animateTo(
+        destination,
+        duration: duration,
+        curve: AppMotion.curve,
+      ),
+    );
   }
 
   void cancel() {
     if (_disposed || !isAttached() || !position.hasPixels) return;
-    // jumpTo at the current value cancels an active animateTo without moving
-    // the user-visible scroll position.
+    _controller.stop(canceled: false);
+    // Rebase at the current visual position without moving the user-visible
+    // scroll position. External input will establish the next target.
     position.jumpTo(position.pixels);
+    _controller.value = position.pixels;
     _accumulator.rebase(position.pixels);
   }
 
-  Future<void> _animateTo(double destination, Duration duration) async {
+  void _applyFrame() {
     if (_disposed || !isAttached() || !position.hasPixels) return;
-    if (duration == Duration.zero) {
-      position.jumpTo(destination);
-      return;
-    }
-    try {
-      await position.animateTo(
-        destination,
-        duration: duration,
-        curve: AppMotion.curve,
-      );
-    } catch (_) {
-      // A scroll position can detach while an input animation is in flight.
-      // Its owner is already going away, so there is no useful recovery here.
+    final target = _controller.value.clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
+    if (target != position.pixels) {
+      position.jumpTo(target);
     }
   }
 
   void dispose() {
     _disposed = true;
+    _controller.removeListener(_applyFrame);
+    _controller.dispose();
   }
 }
