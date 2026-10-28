@@ -10,10 +10,10 @@ enum AppMotionMode { normal, reduced, instant }
 /// tree. Widgets decide whether reduced motion is requested and pass the
 /// resulting mode here.
 abstract final class AppMotion {
-  static const micro = Duration(milliseconds: 120);
-  static const state = Duration(milliseconds: 180);
-  static const navigation = Duration(milliseconds: 220);
-  static const modal = Duration(milliseconds: 280);
+  static const micro = Duration(milliseconds: 90);
+  static const state = Duration(milliseconds: 140);
+  static const navigation = Duration(milliseconds: 170);
+  static const modal = Duration(milliseconds: 220);
 
   static const curve = Curves.easeOutCubic;
   static const navigationCurve = Curves.easeInOutCubic;
