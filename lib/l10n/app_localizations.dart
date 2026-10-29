@@ -5218,6 +5218,12 @@ abstract class AppLocalizations {
   /// **'Search ReadMeABook and choose books to request'**
   String get rmabImportBooksSubtitle;
 
+  /// No description provided for @rmabImportBooksConnectSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect ReadMeABook with a URL and token first'**
+  String get rmabImportBooksConnectSubtitle;
+
   /// No description provided for @rmabRequestCta.
   ///
   /// In en, this message translates to:

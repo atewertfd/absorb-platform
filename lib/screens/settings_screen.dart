@@ -4389,21 +4389,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       trailing: Icon(Icons.chevron_right_rounded, color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
                       onTap: _openRmabSheetFromSettings,
                     ),
-                    if ((_rmabBaseUrl ?? '').isNotEmpty &&
-                        (_rmabApiToken ?? '').isNotEmpty) ...[
-                      const Divider(height: 1, indent: 16, endIndent: 16),
-                      ListTile(
-                        leading: Icon(Icons.library_add_rounded, color: cs.primary),
-                        title: Text(l.rmabImportBooks),
-                        subtitle: Text(
-                          l.rmabImportBooksSubtitle,
-                          style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-                        ),
-                        trailing: Icon(Icons.chevron_right_rounded,
-                            color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
-                        onTap: _openRmabImportFromSettings,
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                    ListTile(
+                      leading: Icon(Icons.library_add_rounded, color: cs.primary),
+                      title: Text(l.rmabImportBooks),
+                      subtitle: Text(
+                        ((_rmabBaseUrl ?? '').isNotEmpty &&
+                                (_rmabApiToken ?? '').isNotEmpty)
+                            ? l.rmabImportBooksSubtitle
+                            : l.rmabImportBooksConnectSubtitle,
+                        style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
                       ),
-                    ],
+                      trailing: Icon(Icons.chevron_right_rounded,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
+                      onTap: ((_rmabBaseUrl ?? '').isNotEmpty &&
+                              (_rmabApiToken ?? '').isNotEmpty)
+                          ? _openRmabImportFromSettings
+                          : _openRmabSheetFromSettings,
+                    ),
                     const Divider(height: 1, indent: 16, endIndent: 16),
                     ListTile(
                       leading: Icon(Icons.record_voice_over_rounded, color: cs.primary),

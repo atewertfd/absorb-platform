@@ -2934,6 +2934,10 @@ class AppLocalizationsFr extends AppLocalizations {
       'Search ReadMeABook and choose books to request';
 
   @override
+  String get rmabImportBooksConnectSubtitle =>
+      'Connect ReadMeABook with a URL and token first';
+
+  @override
   String get rmabRequestCta => 'Demander via ReadMeABook';
 
   @override

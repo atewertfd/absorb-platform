@@ -20,7 +20,7 @@ ReadMeABook is the downloader/importer and already writes completed media into t
 ## UI placement
 
 - Keep the existing ReadMeABook connection tile in Settings → Advanced.
-- Add a separate Import books action there, shown only after a valid connection exists.
+- Add a separate Import books action there. It remains visible before setup and opens connection setup; after a valid connection it opens the native search/request flow.
 - Remove ReadMeABook entries from the optional navigation hold menu so the feature is not surfaced elsewhere.
 - Leave the regular Home, Library, and player UI unchanged.
 
