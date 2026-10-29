@@ -16,6 +16,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:palette_generator/palette_generator.dart';
 import '../utils/cover_accent.dart';
 import '../utils/memory_policy.dart';
+import '../utils/performance_policy.dart';
 import '../main.dart'
     show
         snappyTransitionsNotifier,
@@ -851,7 +852,10 @@ class _AppShellState extends State<AppShell>
                   index: _currentIndex,
                   children: List<Widget>.generate(
                     _pages.length,
-                    (i) => _pages[i] ?? const SizedBox.shrink(),
+                    (i) => withActiveSurfaceTickers(
+                      active: i == _currentIndex,
+                      child: _pages[i] ?? const SizedBox.shrink(),
+                    ),
                   ),
                 ),
               ),

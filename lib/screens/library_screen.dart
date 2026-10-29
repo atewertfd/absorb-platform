@@ -39,6 +39,7 @@ import '../widgets/rmab_config_sheet.dart'
     show kRmabBaseUrlKey, kRmabApiTokenKey;
 import '../widgets/rmab_search_results_sheet.dart';
 import '../widgets/scroll_reveal.dart';
+import '../utils/performance_policy.dart';
 import '../services/scoped_prefs.dart';
 import '../services/user_account_service.dart';
 import '../l10n/app_localizations.dart';
@@ -3465,11 +3466,26 @@ class LibraryScreenState extends State<LibraryScreen>
       child: IndexedStack(
         index: effectiveTab,
         children: [
-          _buildGrid(headerFor(0)),
-          _buildSeriesGrid(headerFor(1)),
-          _buildAuthorsGrid(headerFor(2)),
-          _buildNarratorsGrid(headerFor(3)),
-          _buildListsGrid(headerFor(4)),
+          withActiveSurfaceTickers(
+            active: effectiveTab == 0,
+            child: _buildGrid(headerFor(0)),
+          ),
+          withActiveSurfaceTickers(
+            active: effectiveTab == 1,
+            child: _buildSeriesGrid(headerFor(1)),
+          ),
+          withActiveSurfaceTickers(
+            active: effectiveTab == 2,
+            child: _buildAuthorsGrid(headerFor(2)),
+          ),
+          withActiveSurfaceTickers(
+            active: effectiveTab == 3,
+            child: _buildNarratorsGrid(headerFor(3)),
+          ),
+          withActiveSurfaceTickers(
+            active: effectiveTab == 4,
+            child: _buildListsGrid(headerFor(4)),
+          ),
         ],
       ),
     );
