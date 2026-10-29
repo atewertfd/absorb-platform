@@ -148,7 +148,9 @@ List<String> navHoldAllIds({
 
 /// Whether an id can do anything on this account right now. A choice that
 /// can't (admin pages after losing admin, ReadMeABook before it is set up)
-/// is hidden rather than offered as a dead end.
+/// is hidden rather than offered as a dead end. ReadMeABook is intentionally
+/// kept inside Settings → Advanced so the optional integration does not add
+/// another entry point to everyday navigation.
 bool navHoldIdAvailable(
   String id, {
   required bool isAdmin,
@@ -156,8 +158,7 @@ bool navHoldIdAvailable(
   required bool rmabWeb,
 }) {
   if (id.startsWith('admin') || id.startsWith('scan:')) return isAdmin;
-  if (id == 'rmabWeb') return rmabWeb;
-  if (id.startsWith('rmab')) return rmabConfigured;
+  if (id.startsWith('rmab')) return false;
   return true;
 }
 

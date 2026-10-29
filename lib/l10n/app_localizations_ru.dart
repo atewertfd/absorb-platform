@@ -2881,6 +2881,13 @@ class AppLocalizationsRu extends AppLocalizations {
   String get rmabConfigDisconnectedSnackbar => 'ReadMeABook disconnected';
 
   @override
+  String get rmabImportBooks => 'Import books';
+
+  @override
+  String get rmabImportBooksSubtitle =>
+      'Search ReadMeABook and choose books to request';
+
+  @override
   String get rmabRequestCta => 'Request via ReadMeABook';
 
   @override

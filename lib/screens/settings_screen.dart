@@ -52,6 +52,7 @@ import '../widgets/tips_sheet.dart';
 import '../widgets/feature_hint.dart';
 import '../widgets/welcome_sheet.dart';
 import '../widgets/rmab_config_sheet.dart';
+import '../widgets/rmab_search_results_sheet.dart';
 import '../widgets/server_connection_editor.dart';
 import '../widgets/server_admin_status_badges.dart';
 import '../l10n/app_localizations.dart';
@@ -4388,6 +4389,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       trailing: Icon(Icons.chevron_right_rounded, color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
                       onTap: _openRmabSheetFromSettings,
                     ),
+                    if ((_rmabBaseUrl ?? '').isNotEmpty &&
+                        (_rmabApiToken ?? '').isNotEmpty) ...[
+                      const Divider(height: 1, indent: 16, endIndent: 16),
+                      ListTile(
+                        leading: Icon(Icons.library_add_rounded, color: cs.primary),
+                        title: Text(l.rmabImportBooks),
+                        subtitle: Text(
+                          l.rmabImportBooksSubtitle,
+                          style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                        ),
+                        trailing: Icon(Icons.chevron_right_rounded,
+                            color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
+                        onTap: _openRmabImportFromSettings,
+                      ),
+                    ],
                     const Divider(height: 1, indent: 16, endIndent: 16),
                     ListTile(
                       leading: Icon(Icons.record_voice_over_rounded, color: cs.primary),
@@ -5199,6 +5215,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             : Icons.check_circle_outline_rounded,
       );
     }
+  }
+
+  Future<void> _openRmabImportFromSettings() async {
+    await showRmabSearchResultsSheet(context, initialQuery: '');
   }
 
   void _confirmLogout(BuildContext context) {

@@ -5206,6 +5206,18 @@ abstract class AppLocalizations {
   /// **'ReadMeABook disconnected'**
   String get rmabConfigDisconnectedSnackbar;
 
+  /// No description provided for @rmabImportBooks.
+  ///
+  /// In en, this message translates to:
+  /// **'Import books'**
+  String get rmabImportBooks;
+
+  /// No description provided for @rmabImportBooksSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Search ReadMeABook and choose books to request'**
+  String get rmabImportBooksSubtitle;
+
   /// No description provided for @rmabRequestCta.
   ///
   /// In en, this message translates to:

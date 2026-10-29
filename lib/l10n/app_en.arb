@@ -1444,6 +1444,8 @@
   "rmabConfigErrorGeneric": "Couldn't connect",
   "rmabConfigSavedSnackbar": "ReadMeABook connected",
   "rmabConfigDisconnectedSnackbar": "ReadMeABook disconnected",
+  "rmabImportBooks": "Import books",
+  "rmabImportBooksSubtitle": "Search ReadMeABook and choose books to request",
   "rmabRequestCta": "Request via ReadMeABook",
   "rmabSearchHeader": "Request via ReadMeABook",
   "rmabSearchHint": "Search by title or author",
