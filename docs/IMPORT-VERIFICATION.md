@@ -5,7 +5,7 @@
 Settings → Advanced → **Import Libation exports** (and Manage → Upload → **Import Libation exports**) provides a one-book handoff through the Audiobookshelf uploader:
 
 1. Choose compatible exported audio plus a cover (either by picking individual files or by choosing an exported book folder / Libation output directory), or optionally launch a user-selected Libation desktop executable first.
-2. When a multi-book Libation output directory is scanned, choose which exported book folder to load into the form.
+2. When a multi-book Libation output directory is scanned, choose which exported book folder to load into the form. Books are listed newest export first (by audio file modification time) with their date, so a book just downloaded in Libation is at the top. Scanning shows progress and disables upload until it finishes; a failed scan reports an error and leaves the screen usable.
 3. Review/edit title, author, series, library, and destination folder. Selecting files or scanning a folder does not upload them.
 4. Explicitly select **Upload**.
 5. After a successful upload, the UI checks the destination for up to about 6.5 seconds, reports whether Audiobookshelf has exposed it yet (or is still indexing), and triggers a library refresh.
@@ -31,6 +31,8 @@ Analysis (`flutter analyze --no-fatal-infos`) completes without issues.
 - Server HTTP 403 responses during path checking or upload surface the clear upload-permission message.
 - Opening the upload screen before `LibraryProvider` is populated loads libraries from `ApiService`.
 - Folder import and multi-book Libation output folder scanning list discovered books, populate title/author/files for the chosen book, require explicit upload confirmation, and invoke the post-upload refresh callback.
+- Choosing a different scanned book replaces an author filled in from the previous folder, but keeps an author the user typed.
+- A thrown folder scan shows scan progress while pending (upload disabled), then reports an error and re-enables the controls.
 - The optional desktop Libation launcher prompts for a user-selected executable when unconfigured and launches it only on explicit user action.
 
 `test/media_upload_api_test.dart` checks the multipart upload and Libation helper utilities:
@@ -40,6 +42,8 @@ Analysis (`flutter analyze --no-fatal-infos`) completes without issues.
 - `checkUploadPathExists` flags HTTP 403 as permission denied.
 - Unreadable inputs are rejected before a request is sent.
 - `scanLibationExportDirectory` discovers single-file and multi-chapter exported books across author subfolders, strips trailing `[ASIN]` tags, and skips `.json` and `.aax` files.
+- The scanner orders books newest export first, even when the newest sorts last alphabetically.
+- Single-file title inference strips a trailing `[ASIN]` tag but keeps other bracketed text such as `[Part 1]`.
 - `launchLibationExecutable` rejects empty paths, non-existent files, and non-executable/config extensions.
 
 These are fake-server/fixture tests. No real library, user credentials or user media are touched.

@@ -15684,7 +15684,7 @@ abstract class AppLocalizations {
   /// No description provided for @libationImportSteps.
   ///
   /// In en, this message translates to:
-  /// **'1. Choose exported audio files for one book, plus its cover if available.\n2. Review the title, author, library, and destination above.\n3. Select Upload below when you are ready. After Audiobookshelf scans the files, refresh your library to listen or download for offline use.'**
+  /// **'1. Download the audiobook in Libation first. Libation is a separate app that you install and sign in to yourself.\n2. Choose the exported book folder (or Libation\'s output folder, newest download first), or pick the audio files and cover directly.\n3. Review the title, author, library, and destination above, then select Upload below. After Audiobookshelf scans the files, refresh your library to listen or download for offline use.'**
   String get libationImportSteps;
 
   /// No description provided for @libationImportPrivacy.

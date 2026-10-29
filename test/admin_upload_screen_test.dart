@@ -560,6 +560,90 @@ void main() {
   );
 
   testWidgets(
+    'choosing another scanned book replaces the auto-filled author only',
+    (tester) async {
+      final candidates = [
+        LibationBookCandidate(
+          directoryPath: '/exports/Author One/Book Alpha',
+          title: 'Book Alpha',
+          author: 'Author One',
+          files: [_file('Book Alpha.m4b')],
+        ),
+        LibationBookCandidate(
+          directoryPath: '/exports/Book Beta',
+          title: 'Book Beta',
+          files: [_file('Book Beta.m4b')],
+        ),
+      ];
+      await _render(
+        tester,
+        initialLibationExpanded: true,
+        files: const [],
+        directoryPicker: () async => '/exports',
+        directoryScanner: (_) async => candidates,
+        uploader: (_, {onProgress}) async =>
+            const MediaUploadResult(success: true),
+      );
+
+      Future<void> choose(String title) async {
+        await _tap(tester, AdminUploadScreen.libationFolderKey);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(title).last);
+        await tester.pumpAndSettle();
+      }
+
+      await choose('Book Alpha');
+      expect(_author(tester), 'Author One');
+
+      await choose('Book Beta');
+      expect(_title(tester), 'Book Beta');
+      expect(_author(tester), isEmpty);
+
+      await tester.enterText(
+        find.byKey(AdminUploadScreen.authorFieldKey),
+        'Typed Author',
+      );
+      await choose('Book Alpha');
+      expect(_title(tester), 'Book Alpha');
+      expect(_author(tester), 'Typed Author');
+      await _clearToasts(tester);
+    },
+  );
+
+  testWidgets('a failing folder scan reports an error and stays usable', (
+    tester,
+  ) async {
+    final scan = Completer<List<LibationBookCandidate>>();
+    await _render(
+      tester,
+      initialLibationExpanded: true,
+      files: const [],
+      directoryPicker: () async => '/exports',
+      directoryScanner: (_) => scan.future,
+      uploader: (_, {onProgress}) async =>
+          const MediaUploadResult(success: true),
+    );
+
+    await _tap(tester, AdminUploadScreen.libationFolderKey);
+    await tester.pump();
+    expect(
+      find.byKey(AdminUploadScreen.libationScanProgressKey),
+      findsOneWidget,
+    );
+    ButtonStyleButton button(Key key) =>
+        tester.widget<ButtonStyleButton>(find.byKey(key));
+    expect(button(AdminUploadScreen.libationFolderKey).onPressed, isNull);
+    expect(button(AdminUploadScreen.submitKey).onPressed, isNull);
+
+    scan.completeError(const FileSystemException('denied'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(AdminUploadScreen.libationScanProgressKey), findsNothing);
+    expect(find.text("Couldn't open the selected files."), findsWidgets);
+    expect(button(AdminUploadScreen.libationFolderKey).onPressed, isNotNull);
+    await _clearToasts(tester);
+  });
+
+  testWidgets(
     'explicit Libation launcher configures and launches user-selected executable',
     (tester) async {
       final launched = <String>[];

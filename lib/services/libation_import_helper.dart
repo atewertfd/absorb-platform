@@ -92,14 +92,14 @@ String cleanLibationBookTitle(String rawName) {
 }
 
 /// Infer a book title from selected primary files.
-/// - Single primary file: strips the file extension (preserving exact
-///   single-file behavior).
+/// - Single primary file: strips the file extension and any trailing
+///   Libation `[ASIN]` tag.
 /// - Multiple primary files sharing a parent directory path: uses the cleaned
 ///   parent folder name.
 String? inferTitleFromSelectedFiles(List<MediaUploadFile> primaryFiles) {
   if (primaryFiles.isEmpty) return null;
   if (primaryFiles.length == 1) {
-    return stripFileExtension(primaryFiles.single.name);
+    return cleanLibationBookTitle(stripFileExtension(primaryFiles.single.name));
   }
   String? sharedParent;
   for (final file in primaryFiles) {
@@ -125,12 +125,17 @@ class LibationBookCandidate {
   final List<MediaUploadFile> files;
   final int skippedFilesCount;
 
+  /// Newest modification time among the book's audio files, used to list the
+  /// most recent Libation export first.
+  final DateTime? modified;
+
   const LibationBookCandidate({
     required this.directoryPath,
     required this.title,
     this.author,
     required this.files,
     this.skippedFilesCount = 0,
+    this.modified,
   });
 
   int get audioFileCount =>
@@ -146,10 +151,13 @@ class LibationBookCandidate {
 /// - Never opens or reads the contents of any file during scanning.
 /// - Filters out account/configuration files (`.json`, `.db`, etc.) and
 ///   protected containers (`.aax`, `.aaxc`, `.voucher`, etc.) by extension.
+///
+/// Results are ordered newest export first, so a book just downloaded in
+/// Libation is at the top even in a large output folder.
 Future<List<LibationBookCandidate>> scanLibationExportDirectory(
   String directoryPath, {
   int maxDepth = 3,
-  int maxCandidates = 200,
+  int maxCandidates = 2000,
 }) async {
   if (kIsWeb || directoryPath.trim().isEmpty) {
     return const <LibationBookCandidate>[];
@@ -176,6 +184,7 @@ Future<List<LibationBookCandidate>> scanLibationExportDirectory(
     final coverFiles = <MediaUploadFile>[];
     final subdirs = <Directory>[];
     var skipped = 0;
+    DateTime? newestAudio;
 
     for (final entity in entities) {
       final name = pathBasename(entity.path);
@@ -189,6 +198,9 @@ Future<List<LibationBookCandidate>> scanLibationExportDirectory(
             audioFiles.add(
               MediaUploadFile(name: name, size: stat.size, path: entity.path),
             );
+            if (newestAudio == null || stat.modified.isAfter(newestAudio)) {
+              newestAudio = stat.modified;
+            }
           } catch (_) {}
         } else if (isLibationCoverFile(name)) {
           try {
@@ -223,8 +235,7 @@ Future<List<LibationBookCandidate>> scanLibationExportDirectory(
       if (dirNormalized != rootNormalized) {
         final parentPath = pathDirname(dir.path);
         final parentNormalized = _normalizeComparePath(parentPath);
-        if (parentNormalized.isNotEmpty &&
-            parentNormalized != rootNormalized) {
+        if (parentNormalized.isNotEmpty && parentNormalized != rootNormalized) {
           final parentName = cleanLibationBookTitle(pathBasename(parentPath));
           if (parentName.isNotEmpty && parentName != resolvedTitle) {
             inferredAuthor = parentName;
@@ -239,6 +250,7 @@ Future<List<LibationBookCandidate>> scanLibationExportDirectory(
           author: inferredAuthor,
           files: <MediaUploadFile>[...audioFiles, ...coverFiles],
           skippedFilesCount: skipped,
+          modified: newestAudio,
         ),
       );
     }
@@ -255,7 +267,26 @@ Future<List<LibationBookCandidate>> scanLibationExportDirectory(
   }
 
   await visit(rootDir, 0);
+  candidates.sort(compareLibationCandidatesNewestFirst);
   return candidates;
+}
+
+/// Newest export first; undated candidates last; ties keep path order.
+int compareLibationCandidatesNewestFirst(
+  LibationBookCandidate a,
+  LibationBookCandidate b,
+) {
+  final am = a.modified;
+  final bm = b.modified;
+  if (am != null && bm != null) {
+    final byDate = bm.compareTo(am);
+    if (byDate != 0) return byDate;
+  } else if (am != null) {
+    return -1;
+  } else if (bm != null) {
+    return 1;
+  }
+  return a.directoryPath.toLowerCase().compareTo(b.directoryPath.toLowerCase());
 }
 
 String _normalizeComparePath(String path) {

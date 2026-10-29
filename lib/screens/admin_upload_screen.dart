@@ -52,6 +52,7 @@ class AdminUploadScreen extends StatefulWidget {
   static const libationSetOutputFolderKey = Key(
     'libationImportSetOutputFolder',
   );
+  static const libationScanProgressKey = Key('libationImportScanProgress');
   static const libationScanOutputFolderKey = Key(
     'libationImportScanOutputFolder',
   );
@@ -149,6 +150,12 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
   DateTime _lastProgressUpdate = DateTime.fromMillisecondsSinceEpoch(0);
   String? _libationExecutablePath;
   String? _libationOutputFolderPath;
+  bool _scanning = false;
+  // Author filled in from the last chosen export folder, so choosing another
+  // book replaces it instead of keeping the previous book's author.
+  String _candidateAuthor = '';
+
+  bool get _busy => _uploading || _scanning;
 
   bool get _desktopLibationEnabled =>
       widget.showDesktopLibationControls ??
@@ -467,7 +474,7 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
   }
 
   Future<void> _pickFiles({bool exportedOnly = false}) async {
-    if (_uploading) return;
+    if (_busy) return;
     final l = AppLocalizations.of(context)!;
     try {
       final picked =
@@ -522,7 +529,7 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
   }
 
   Future<void> _pickExportFolder() async {
-    if (_uploading) return;
+    if (_busy) return;
     final l = AppLocalizations.of(context)!;
     try {
       final dirPath =
@@ -541,10 +548,21 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
   }
 
   Future<void> _scanAndSelectFromDirectory(String directoryPath) async {
+    if (_busy) return;
     final l = AppLocalizations.of(context)!;
     final scanner = widget.directoryScanner ?? scanLibationExportDirectory;
-    final candidates = await scanner(directoryPath);
+    setState(() => _scanning = true);
+    List<LibationBookCandidate> candidates;
+    try {
+      candidates = await scanner(directoryPath);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _scanning = false);
+      _showError(l.adminUploadFilePickerFailed);
+      return;
+    }
     if (!mounted) return;
+    setState(() => _scanning = false);
     if (candidates.isEmpty) {
       showOverlayToast(
         context,
@@ -630,10 +648,15 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
                         const Divider(height: 1, indent: 16, endIndent: 16),
                     itemBuilder: (itemContext, index) {
                       final candidate = candidates[index];
+                      final modified = candidate.modified;
                       final details = <String>[
                         if (candidate.author != null &&
                             candidate.author!.isNotEmpty)
                           candidate.author!,
+                        if (modified != null)
+                          MaterialLocalizations.of(
+                            itemContext,
+                          ).formatShortDate(modified.toLocal()),
                         l.adminUploadSelectedFiles(candidate.files.length),
                         _formatBytes(candidate.totalBytes),
                       ].join(' · ');
@@ -682,11 +705,13 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
       if (candidate.title.trim().isNotEmpty) {
         _title.text = candidate.title.trim();
       }
-      if (_author.text.trim().isEmpty &&
-          candidate.author != null &&
-          candidate.author!.trim().isNotEmpty) {
-        _author.text = candidate.author!.trim();
+      final currentAuthor = _author.text.trim();
+      final nextAuthor = candidate.author?.trim() ?? '';
+      // Keep an author the user typed; replace one a previous folder filled.
+      if (currentAuthor.isEmpty || currentAuthor == _candidateAuthor) {
+        _author.text = nextAuthor;
       }
+      _candidateAuthor = nextAuthor;
       _lastMetadataQuery = null;
     });
     if (_autoFetchMetadata) await _fetchMetadata();
@@ -705,7 +730,7 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
   }
 
   Future<void> _configureLibationExecutable() async {
-    if (_uploading) return;
+    if (_busy) return;
     final l = AppLocalizations.of(context)!;
     try {
       final picked = await _pickExecutablePath();
@@ -723,7 +748,7 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
   }
 
   Future<void> _launchLibation() async {
-    if (_uploading) return;
+    if (_busy) return;
     final l = AppLocalizations.of(context)!;
     var exePath = _libationExecutablePath;
     if (exePath == null || exePath.isEmpty) {
@@ -741,7 +766,7 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
   }
 
   Future<void> _configureLibationOutputFolder() async {
-    if (_uploading) return;
+    if (_busy) return;
     final l = AppLocalizations.of(context)!;
     try {
       final picked =
@@ -761,7 +786,7 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
   }
 
   Future<void> _scanConfiguredOutputFolder() async {
-    if (_uploading) return;
+    if (_busy) return;
     var outPath = _libationOutputFolderPath;
     if (outPath == null || outPath.isEmpty) {
       await _configureLibationOutputFolder();
@@ -796,7 +821,7 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
   }
 
   Future<void> _submit() async {
-    if (_uploading) return;
+    if (_busy) return;
     final l = AppLocalizations.of(context)!;
     if (!widget.canUpload) {
       _showError(l.adminUploadPermissionDenied);
@@ -920,6 +945,7 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
           _author.clear();
           _series.clear();
           _files = [];
+          _candidateAuthor = '';
           _lastMetadataQuery = null;
         } else if (mustReselectFiles) {
           _files = [];
@@ -1132,8 +1158,7 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
                                     ],
                                     FilledButton.icon(
                                       key: AdminUploadScreen.submitKey,
-                                      onPressed:
-                                          _uploading || _metadataSearching
+                                      onPressed: _busy || _metadataSearching
                                           ? null
                                           : _submit,
                                       icon: _uploading
@@ -1482,7 +1507,7 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
               children: [
                 OutlinedButton.icon(
                   key: AdminUploadScreen.libationFilesKey,
-                  onPressed: _uploading
+                  onPressed: _busy
                       ? null
                       : () => _pickFiles(exportedOnly: true),
                   icon: const Icon(Icons.audio_file_outlined, size: 18),
@@ -1490,13 +1515,19 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
                 ),
                 OutlinedButton.icon(
                   key: AdminUploadScreen.libationFolderKey,
-                  onPressed: _uploading ? null : _pickExportFolder,
+                  onPressed: _busy ? null : _pickExportFolder,
                   icon: const Icon(Icons.folder_open_rounded, size: 18),
                   label: Text(l.libationImportChooseFolder),
                 ),
               ],
             ),
           ),
+          if (_scanning) ...[
+            const SizedBox(height: 12),
+            const LinearProgressIndicator(
+              key: AdminUploadScreen.libationScanProgressKey,
+            ),
+          ],
           if (showDesktopControls) ...[
             const SizedBox(height: 12),
             Text(
@@ -1512,28 +1543,32 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
                 children: [
                   OutlinedButton.icon(
                     key: AdminUploadScreen.libationLaunchKey,
-                    onPressed: _uploading ? null : _launchLibation,
+                    onPressed: _busy ? null : _launchLibation,
                     icon: const Icon(Icons.open_in_new_rounded, size: 18),
                     label: Text(l.libationImportLaunchApp),
                   ),
                   OutlinedButton.icon(
                     key: AdminUploadScreen.libationSetAppKey,
-                    onPressed: _uploading ? null : _configureLibationExecutable,
-                    icon: const Icon(Icons.settings_applications_outlined, size: 18),
+                    onPressed: _busy ? null : _configureLibationExecutable,
+                    icon: const Icon(
+                      Icons.settings_applications_outlined,
+                      size: 18,
+                    ),
                     label: Text(l.libationImportSetApp),
                   ),
                   OutlinedButton.icon(
                     key: AdminUploadScreen.libationScanOutputFolderKey,
-                    onPressed: _uploading ? null : _scanConfiguredOutputFolder,
+                    onPressed: _busy ? null : _scanConfiguredOutputFolder,
                     icon: const Icon(Icons.library_music_outlined, size: 18),
                     label: Text(l.libationImportScanOutputFolder),
                   ),
                   OutlinedButton.icon(
                     key: AdminUploadScreen.libationSetOutputFolderKey,
-                    onPressed: _uploading
-                        ? null
-                        : _configureLibationOutputFolder,
-                    icon: const Icon(Icons.create_new_folder_outlined, size: 18),
+                    onPressed: _busy ? null : _configureLibationOutputFolder,
+                    icon: const Icon(
+                      Icons.create_new_folder_outlined,
+                      size: 18,
+                    ),
                     label: Text(l.libationImportSetOutputFolder),
                   ),
                 ],
@@ -1570,7 +1605,7 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
               );
               final chooseButton = OutlinedButton.icon(
                 key: AdminUploadScreen.chooseFilesKey,
-                onPressed: _uploading ? null : _pickFiles,
+                onPressed: _busy ? null : _pickFiles,
                 icon: Icon(
                   _files.isEmpty
                       ? Icons.attach_file_rounded

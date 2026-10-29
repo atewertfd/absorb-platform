@@ -161,10 +161,16 @@ void main() {
       final bookOneDir = await Directory(
         '${temp.path}/Jane Doe/First Book [B001234567]',
       ).create(recursive: true);
-      await File('${bookOneDir.path}/02 - Chapter Two.mp3').writeAsBytes([1, 2]);
-      await File('${bookOneDir.path}/01 - Chapter One.mp3').writeAsBytes([3, 4, 5]);
+      await File(
+        '${bookOneDir.path}/02 - Chapter Two.mp3',
+      ).writeAsBytes([1, 2]);
+      await File(
+        '${bookOneDir.path}/01 - Chapter One.mp3',
+      ).writeAsBytes([3, 4, 5]);
       await File('${bookOneDir.path}/cover.jpg').writeAsBytes([6]);
-      await File('${bookOneDir.path}/AccountsSettings.json').writeAsString('{}');
+      await File(
+        '${bookOneDir.path}/AccountsSettings.json',
+      ).writeAsString('{}');
       await File('${bookOneDir.path}/raw.aax').writeAsBytes([7, 8]);
 
       final bookTwoDir = await Directory(
@@ -189,11 +195,52 @@ void main() {
 
       final second = candidates.firstWhere((c) => c.title == 'Second Book');
       expect(second.author, 'John Smith');
-      expect(second.files.map((f) => f.name), [
-        'Second Book [B009876543].m4b',
-      ]);
+      expect(second.files.map((f) => f.name), ['Second Book [B009876543].m4b']);
     },
   );
+
+  test(
+    'scanLibationExportDirectory lists the newest export first past alphabetical order',
+    () async {
+      final temp = await Directory.systemTemp.createTemp(
+        'absorb-libation-order-',
+      );
+      addTearDown(() => temp.delete(recursive: true));
+
+      final base = DateTime(2026, 1, 1);
+      Future<void> book(String name, DateTime modified) async {
+        final dir = await Directory(
+          '${temp.path}/$name [B00000000${name.length}]',
+        ).create(recursive: true);
+        final file = File('${dir.path}/$name.m4b');
+        await file.writeAsBytes([1]);
+        await file.setLastModified(modified);
+      }
+
+      await book('Alpha', base);
+      await book('Mid', base.add(const Duration(days: 1)));
+      await book('Zulu Newest', base.add(const Duration(days: 30)));
+
+      final candidates = await scanLibationExportDirectory(temp.path);
+      expect(candidates.map((c) => c.title), ['Zulu Newest', 'Mid', 'Alpha']);
+      expect(candidates.first.modified, base.add(const Duration(days: 30)));
+    },
+  );
+
+  test('single-file title inference strips a trailing Libation ASIN tag', () {
+    expect(
+      inferTitleFromSelectedFiles([
+        MediaUploadFile(name: 'Project Hail Mary [B08G9PRS1K].m4b', size: 1),
+      ]),
+      'Project Hail Mary',
+    );
+    expect(
+      inferTitleFromSelectedFiles([
+        MediaUploadFile(name: 'Book [Part 1].m4b', size: 1),
+      ]),
+      'Book [Part 1]',
+    );
+  });
 
   test(
     'launchLibationExecutable rejects non-existent or non-executable files',
