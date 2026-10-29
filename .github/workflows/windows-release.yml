@@ -17,10 +17,10 @@ on:
         type: string
         default: "Windows installer and portable build for testing."
       beta_number:
-        description: Beta number shown in the release notes
+        description: Beta number shown in the release notes (blank uses kBetaNumber from lib/build_info.dart)
         required: false
         type: string
-        default: "7"
+        default: ""
 
 permissions:
   contents: write
@@ -116,7 +116,11 @@ jobs:
           $portable = Get-ChildItem 'build\windows\installer\*-windows-portable.zip' | Select-Object -First 1
           if (-not $installer -or -not $portable) { throw 'Windows release assets were not produced.' }
           $beta = $env:BETA_NUMBER
-          if ([string]::IsNullOrWhiteSpace($beta)) { $beta = $env:BUILD }
+          if ([string]::IsNullOrWhiteSpace($beta)) {
+            # Match the "Beta N" the app itself shows.
+            $match = Select-String -Path 'lib\build_info.dart' -Pattern '^const int kBetaNumber = (\d+);' | Select-Object -First 1
+            $beta = if ($match) { $match.Matches[0].Groups[1].Value } else { $env:BUILD }
+          }
           $notes = $env:NOTES
           if ([string]::IsNullOrWhiteSpace($notes)) { $notes = 'Windows installer and portable build for testing.' }
           $title = "Absorb Plus $env:VERSION-$env:BUILD (Beta $beta)"
