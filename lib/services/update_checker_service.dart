@@ -145,11 +145,12 @@ class UpdateCheckerService {
       Map<String, dynamic>? data;
 
       if (includePreReleases) {
-        // Fetch all releases and pick the first (newest) one, which may be a pre-release
+        // Fetch recent releases and pick the highest version, which may be a
+        // pre-release.
         final response = await http
             .get(
               Uri.parse(
-                'https://api.github.com/repos/$_repo/releases?per_page=5',
+                'https://api.github.com/repos/$_repo/releases?per_page=10',
               ),
               headers: {'Accept': 'application/vnd.github.v3+json'},
             )
@@ -158,10 +159,18 @@ class UpdateCheckerService {
         // Only start the automatic cooldown after GitHub answered. A
         // transient offline/5xx response should be retried on the next app
         // start instead of suppressing checks for the full interval.
-        await prefs.setInt(_lastCheckKey, DateTime.now().millisecondsSinceEpoch);
-        final releases = jsonDecode(response.body) as List<dynamic>;
-        if (releases.isEmpty) return null;
-        data = releases.first as Map<String, dynamic>;
+        await prefs.setInt(
+          _lastCheckKey,
+          DateTime.now().millisecondsSinceEpoch,
+        );
+        final releases = (jsonDecode(response.body) as List<dynamic>)
+            .whereType<Map<String, dynamic>>()
+            .toList();
+        data = pickUpdateRelease(
+          releases,
+          preferWindowsInstaller: !kIsWeb && Platform.isWindows,
+        );
+        if (data == null) return null;
       } else {
         final response = await http
             .get(
@@ -173,24 +182,17 @@ class UpdateCheckerService {
         // Only start the automatic cooldown after GitHub answered. A
         // transient offline/5xx response should be retried on the next app
         // start instead of suppressing checks for the full interval.
-        await prefs.setInt(_lastCheckKey, DateTime.now().millisecondsSinceEpoch);
+        await prefs.setInt(
+          _lastCheckKey,
+          DateTime.now().millisecondsSinceEpoch,
+        );
         data = jsonDecode(response.body) as Map<String, dynamic>;
       }
 
       final tagName = data['tag_name'] as String? ?? '';
       final body = data['body'] as String? ?? '';
-      final assets = data['assets'] as List<dynamic>? ?? [];
       final isPreRelease = data['prerelease'] as bool? ?? false;
-
-      final releaseAssets = <UpdateReleaseAsset>[];
-      for (final rawAsset in assets) {
-        if (rawAsset is! Map<String, dynamic>) continue;
-        final name = rawAsset['name'] as String? ?? '';
-        final url = rawAsset['browser_download_url'] as String? ?? '';
-        if (name.isNotEmpty && url.isNotEmpty) {
-          releaseAssets.add(UpdateReleaseAsset(name: name, downloadUrl: url));
-        }
-      }
+      final releaseAssets = releaseAssetsOf(data);
 
       List<String> supportedAbis = const [];
       if (!kIsWeb && Platform.isAndroid) {

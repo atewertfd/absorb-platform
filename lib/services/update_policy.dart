@@ -2,10 +2,7 @@ class UpdateReleaseAsset {
   final String name;
   final String downloadUrl;
 
-  const UpdateReleaseAsset({
-    required this.name,
-    required this.downloadUrl,
-  });
+  const UpdateReleaseAsset({required this.name, required this.downloadUrl});
 }
 
 const supportedAndroidUpdateAbis = <String>{
@@ -50,13 +47,11 @@ UpdateReleaseAsset? selectAndroidUpdateAsset({
 UpdateReleaseAsset? selectWindowsUpdateAsset({
   required List<UpdateReleaseAsset> assets,
 }) {
-  final installers = assets
-      .where((asset) {
-        final name = asset.name.toLowerCase();
-        return name.endsWith('.exe') &&
-            (name.contains('setup') || name.contains('installer'));
-      })
-      .toList();
+  final installers = assets.where((asset) {
+    final name = asset.name.toLowerCase();
+    return name.endsWith('.exe') &&
+        (name.contains('setup') || name.contains('installer'));
+  }).toList();
   if (installers.length == 1) return installers.single;
   if (installers.isEmpty) return null;
 
@@ -89,6 +84,67 @@ int compareUpdateVersions(String a, String b) {
   return 0;
 }
 
+/// Picks the release to offer from GitHub's release list (newest created
+/// first). GitHub orders by creation date rather than version, and a
+/// tag-triggered release exists for several minutes before CI attaches the
+/// Windows installer, so choose the highest-version published release and,
+/// when [preferWindowsInstaller], one that already carries the installer.
+Map<String, dynamic>? pickUpdateRelease(
+  List<Map<String, dynamic>> releases, {
+  bool preferWindowsInstaller = false,
+}) {
+  final published = releases
+      .where(
+        (release) =>
+            release['draft'] != true &&
+            (release['tag_name'] as String? ?? '').isNotEmpty,
+      )
+      .toList();
+
+  // A tag without a trailing build (`v1.11.1-288-web-x86`) ranks below any
+  // tag of the same version that has one; ties keep GitHub's newest-first.
+  int rank(Map<String, dynamic> a, Map<String, dynamic> b) {
+    final (aSem, aBuild) = _parseVersion(a['tag_name'] as String);
+    final (bSem, bBuild) = _parseVersion(b['tag_name'] as String);
+    for (int i = 0; i < 3; i++) {
+      if (aSem[i] != bSem[i]) return aSem[i] - bSem[i];
+    }
+    return (aBuild ?? -1) - (bBuild ?? -1);
+  }
+
+  Map<String, dynamic>? newest(Iterable<Map<String, dynamic>> candidates) {
+    Map<String, dynamic>? best;
+    for (final release in candidates) {
+      if (best == null || rank(release, best) > 0) best = release;
+    }
+    return best;
+  }
+
+  if (preferWindowsInstaller) {
+    final withInstaller = newest(
+      published.where(
+        (release) =>
+            selectWindowsUpdateAsset(assets: releaseAssetsOf(release)) != null,
+      ),
+    );
+    if (withInstaller != null) return withInstaller;
+  }
+  return newest(published);
+}
+
+List<UpdateReleaseAsset> releaseAssetsOf(Map<String, dynamic> release) {
+  final assets = <UpdateReleaseAsset>[];
+  for (final rawAsset in release['assets'] as List<dynamic>? ?? const []) {
+    if (rawAsset is! Map<String, dynamic>) continue;
+    final name = rawAsset['name'] as String? ?? '';
+    final url = rawAsset['browser_download_url'] as String? ?? '';
+    if (name.isNotEmpty && url.isNotEmpty) {
+      assets.add(UpdateReleaseAsset(name: name, downloadUrl: url));
+    }
+  }
+  return assets;
+}
+
 String androidUpdatePackageLabel(UpdateReleaseAsset asset) {
   var packageKind = 'Universal';
   for (final abi in supportedAndroidUpdateAbis) {
@@ -102,9 +158,7 @@ String androidUpdatePackageLabel(UpdateReleaseAsset asset) {
     r'-(\d+)-(?:universal|armeabi-v7a|arm64-v8a|x86_64)(?:-pre)?\.apk$',
     caseSensitive: false,
   ).firstMatch(asset.name)?.group(1);
-  return build == null
-      ? '$packageKind APK'
-      : '$packageKind APK • build $build';
+  return build == null ? '$packageKind APK' : '$packageKind APK • build $build';
 }
 
 bool _hasFilenameToken(String filename, String token) {
@@ -117,9 +171,7 @@ bool _hasFilenameToken(String filename, String token) {
 
 (List<int>, int?) _parseVersion(String version) {
   final sem = RegExp(r'(\d+)\.(\d+)\.(\d+)').firstMatch(version);
-  final parts = [
-    for (var i = 1; i <= 3; i++) int.parse(sem?.group(i) ?? '0'),
-  ];
+  final parts = [for (var i = 1; i <= 3; i++) int.parse(sem?.group(i) ?? '0')];
   final build = RegExp(r'[-+](\d+)$').firstMatch(version);
   return (parts, build == null ? null : int.parse(build.group(1)!));
 }
