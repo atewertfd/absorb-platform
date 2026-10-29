@@ -10,6 +10,12 @@ Settings → Advanced → **Import Libation exports** (and Manage → Upload →
 4. Explicitly select **Upload**.
 5. After a successful upload, the UI checks the destination for up to about 6.5 seconds, reports whether Audiobookshelf has exposed it yet (or is still indexing), and triggers a library refresh.
 
+New-download tracking (Beta 11):
+- With an output folder saved, opening the import screen or Settings lists that folder (names, sizes and dates only) and reports how many exports are new: newer than the last time the picker was shown, and not already imported through Absorb. With no history yet, only exports from the last 3 days count. Nothing uploads automatically.
+- The picker tags books **New** or **Imported**, and adds a search box when more than 8 books are listed.
+- Choosing a book searches the selected library by the ASIN in Libation's folder name, then by normalized title, and shows a non-blocking "already in this library" warning.
+- An export folder is recorded as imported only after Audiobookshelf accepts its upload (the last 1000 folders are kept).
+
 Safety and boundary guarantees:
 - The export picker and directory scanner exclude account/configuration files (`.json`, `.db`, etc.) and unsupported protected extensions (`.aax`, `.aaxc`, `.voucher`, etc.) by filename extension without reading file contents during selection.
 - Absorb Plus does not sign in to Audible, read Libation credentials or account databases, or convert protected media; see [the separate feasibility record](AUDIBLE-INTEGRATION.md).
