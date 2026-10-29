@@ -28,6 +28,7 @@ import '../services/audiobookshelf_update_service.dart';
 import '../widgets/update_dialog.dart';
 import '../widgets/nav_hold_options.dart';
 import '../screens/admin_screen.dart';
+import '../screens/admin_upload_screen.dart';
 import '../screens/downloads_screen.dart';
 import '../screens/bookmarks_screen.dart';
 import '../screens/backup_sync_screen.dart';
@@ -4409,6 +4410,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     const Divider(height: 1, indent: 16, endIndent: 16),
                     ListTile(
+                      leading: Icon(Icons.file_download_done_rounded, color: cs.primary),
+                      title: Text(l.libationImportTitle),
+                      subtitle: Text(
+                        l.libationImportSubtitle,
+                        style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                      ),
+                      trailing: Icon(Icons.chevron_right_rounded,
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
+                      onTap: _openLibationImportFromSettings,
+                    ),
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                    ListTile(
                       leading: Icon(Icons.record_voice_over_rounded, color: cs.primary),
                       title: Text(l.transcriptionTitle),
                       subtitle: Text(l.transcriptionAdvancedSubtitle,
@@ -5222,6 +5235,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _openRmabImportFromSettings() async {
     await showRmabSearchResultsSheet(context, initialQuery: '');
+  }
+
+  Future<void> _openLibationImportFromSettings() async {
+    final auth = context.read<AuthProvider>();
+    final api = auth.apiService;
+    if (api == null) return;
+    await Navigator.of(context, rootNavigator: true).push(
+      MaterialPageRoute(
+        builder: (_) => AdminUploadScreen(
+          libraries: context.read<LibraryProvider>().libraries,
+          initialLibraryId: auth.defaultLibraryId,
+          apiService: api,
+        ),
+      ),
+    );
   }
 
   void _confirmLogout(BuildContext context) {
