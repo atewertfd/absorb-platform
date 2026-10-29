@@ -2,13 +2,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
-import '../services/scoped_prefs.dart';
 import '../services/server_task_tracker.dart';
 import '../services/socket_service.dart';
 import '../widgets/admin_adaptive_frame.dart';
 import '../widgets/admin_task_indicator.dart';
 import '../widgets/absorb_page_header.dart';
-import '../widgets/rmab_config_sheet.dart';
 import '../widgets/overlay_toast.dart';
 import '../l10n/app_localizations.dart';
 import '../utils/desktop_workspace.dart';
@@ -79,8 +77,6 @@ class _AdminScreenState extends State<AdminScreen> with WidgetsBindingObserver {
   final Map<String, Map<String, dynamic>> _libraryStats = {};
   final Map<String, int> _libraryIssues = {};
   String? _serverVersion;
-  String? _rmabBaseUrl;
-  String? _rmabApiToken;
 
   final Set<String> _scanningLibraries = {};
   final Set<String> _matchingLibraries = {};
@@ -220,10 +216,6 @@ class _AdminScreenState extends State<AdminScreen> with WidgetsBindingObserver {
         if (!mounted) return;
       }
     }
-    _rmabBaseUrl = await ScopedPrefs.getString(kRmabBaseUrlKey);
-    if (!mounted) return;
-    _rmabApiToken = await ScopedPrefs.getString(kRmabApiTokenKey);
-    if (!mounted) return;
     if (_desktopUsersDirtyGeneration == usersGeneration) {
       _desktopUsersDirty = false;
     }
@@ -239,9 +231,6 @@ class _AdminScreenState extends State<AdminScreen> with WidgetsBindingObserver {
     });
     _leaveUnavailablePodcastSection();
   }
-
-  bool get _hasRmab =>
-      (_rmabBaseUrl ?? '').isNotEmpty && (_rmabApiToken ?? '').isNotEmpty;
 
   bool get _hasPodcastLibrary => _libraries.any((l) => l['mediaType'] == 'podcast');
 
@@ -440,8 +429,6 @@ class _AdminScreenState extends State<AdminScreen> with WidgetsBindingObserver {
                             _loadAll();
                           },
                         ),
-                        const SizedBox(height: 10),
-                        if (_hasRmab) _rmabTile(cs, tt) else _rmabAddRow(cs, tt),
                       ]),
                     ),
                     const SizedBox(height: 28),
@@ -582,12 +569,6 @@ class _AdminScreenState extends State<AdminScreen> with WidgetsBindingObserver {
                 const SizedBox(width: 10),
                 Expanded(child: _actionBtn(cs, tt, Icons.cleaning_services_rounded, l.adminPurgeCache, _purgingCache, _purgeCache)),
               ]),
-            ),
-            const SizedBox(height: 28),
-            _section(cs, tt, l.adminRmab),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _hasRmab ? _rmabTile(cs, tt) : _rmabAddRow(cs, tt),
             ),
             const SizedBox(height: 28),
             if (_activeSessions.isNotEmpty) ...[
@@ -947,68 +928,6 @@ class _AdminScreenState extends State<AdminScreen> with WidgetsBindingObserver {
         ])),
         Icon(Icons.chevron_right_rounded, color: cs.onSurface.withValues(alpha: 0.15)),
       ])));
-
-  // ─── ReadMeABook Integration ────────────────────────────────
-
-  Widget _rmabTile(ColorScheme cs, TextTheme tt) {
-    final l = AppLocalizations.of(context)!;
-    return GestureDetector(
-      onTap: _openRmabSheet,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: _cardDeco(cs),
-        child: Row(children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6),
-            child: Icon(Icons.menu_book_rounded, color: cs.primary, size: 22),
-          ),
-          const SizedBox(width: 14),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(l.adminRmab, style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w600, color: cs.onSurface)),
-            Text(l.adminRmabConnected, style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant.withValues(alpha: 0.6))),
-          ])),
-          Icon(Icons.chevron_right_rounded, color: cs.onSurface.withValues(alpha: 0.15)),
-        ]),
-      ),
-    );
-  }
-
-  Widget _rmabAddRow(ColorScheme cs, TextTheme tt) {
-    final l = AppLocalizations.of(context)!;
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: TextButton.icon(
-        onPressed: _openRmabSheet,
-        style: TextButton.styleFrom(
-          foregroundColor: cs.onSurfaceVariant.withValues(alpha: 0.6),
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
-          minimumSize: const Size(0, 32),
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        ),
-        icon: const Icon(Icons.add_rounded, size: 16),
-        label: Text(l.adminRmabAdd, style: tt.labelMedium),
-      ),
-    );
-  }
-
-  Future<void> _openRmabSheet() async {
-    final l = AppLocalizations.of(context)!;
-    final result =
-        await showRmabConfigSheet(context, isAdminContext: true);
-    if (!mounted || result == null) return;
-    if (result.changed || result.disconnected) {
-      await _loadAll();
-      if (!mounted) return;
-      _msg(
-        result.disconnected
-            ? l.rmabConfigDisconnectedSnackbar
-            : l.rmabConfigSavedSnackbar,
-        icon: result.disconnected
-            ? Icons.link_off_rounded
-            : Icons.check_circle_outline_rounded,
-      );
-    }
-  }
 
   // ─── Library Card ───────────────────────────────────────────
 
