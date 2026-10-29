@@ -42,6 +42,27 @@ class UpdateInfo {
   int? get latestBetaNumber => betaNumberFromReleaseNotes(releaseNotes);
 }
 
+enum UpdateCheckStatus {
+  updateAvailable,
+  upToDate,
+
+  /// GitHub could not be reached or answered with an error.
+  failed,
+
+  /// Not checked: inside the cooldown, or the update was dismissed.
+  skipped,
+}
+
+class UpdateCheckResult {
+  final UpdateCheckStatus status;
+  final UpdateInfo? info;
+
+  /// Installed version (`1.11.1+300`), when it was read.
+  final String? currentVersion;
+
+  const UpdateCheckResult(this.status, {this.info, this.currentVersion});
+}
+
 /// Pulls N out of a "## Beta N" heading in GitHub release notes.
 int? betaNumberFromReleaseNotes(String notes) {
   final m = RegExp(
@@ -60,8 +81,8 @@ class UpdateCheckerService {
   static const _dismissedKey = 'update_dismissed_version';
   static const _lastCheckKey = 'update_last_check';
   static const _updateChannel = MethodChannel('com.absorb.update');
-  static final InFlightUpdateCheck<UpdateInfo?> _inFlightCheck =
-      InFlightUpdateCheck<UpdateInfo?>();
+  static final InFlightUpdateCheck<UpdateCheckResult> _inFlightCheck =
+      InFlightUpdateCheck<UpdateCheckResult>();
 
   static Future<String> currentInstalledVersion() async {
     final packageInfo = await PackageInfo.fromPlatform();
@@ -82,10 +103,11 @@ class UpdateCheckerService {
     );
   }
 
-  /// Check for updates. Returns UpdateInfo if a newer version exists, null otherwise.
-  /// Respects a 12-hour cooldown between checks and skips dismissed versions.
-  /// When [includePreReleases] is true, pre-release/alpha builds are also considered.
-  static Future<UpdateInfo?> check({
+  /// Check for updates, reporting whether an update exists, the app is up to
+  /// date, or GitHub couldn't be reached. Respects a 12-hour cooldown and
+  /// dismissed versions unless [force]. When [includePreReleases] is true,
+  /// pre-release builds are also considered.
+  static Future<UpdateCheckResult> check({
     bool force = false,
     bool includePreReleases = false,
   }) {
@@ -117,16 +139,17 @@ class UpdateCheckerService {
       return null;
     }
 
-    return _inFlightCheck.run(
+    final result = await _inFlightCheck.run(
       () => _checkInternal(
         force: false,
         includePreReleases: includePreReleases,
         cooldown: interval,
       ),
     );
+    return result.info;
   }
 
-  static Future<UpdateInfo?> _checkInternal({
+  static Future<UpdateCheckResult> _checkInternal({
     required bool force,
     required bool includePreReleases,
     Duration? cooldown,
@@ -139,7 +162,9 @@ class UpdateCheckerService {
         final lastCheck = prefs.getInt(_lastCheckKey) ?? 0;
         final elapsed = DateTime.now().millisecondsSinceEpoch - lastCheck;
         final effectiveCooldown = cooldown ?? _checkInterval;
-        if (elapsed < effectiveCooldown.inMilliseconds) return null;
+        if (elapsed < effectiveCooldown.inMilliseconds) {
+          return const UpdateCheckResult(UpdateCheckStatus.skipped);
+        }
       }
 
       Map<String, dynamic>? data;
@@ -155,7 +180,9 @@ class UpdateCheckerService {
               headers: {'Accept': 'application/vnd.github.v3+json'},
             )
             .timeout(const Duration(seconds: 10));
-        if (response.statusCode != 200) return null;
+        if (response.statusCode != 200) {
+          return const UpdateCheckResult(UpdateCheckStatus.failed);
+        }
         // Only start the automatic cooldown after GitHub answered. A
         // transient offline/5xx response should be retried on the next app
         // start instead of suppressing checks for the full interval.
@@ -170,7 +197,12 @@ class UpdateCheckerService {
           releases,
           preferWindowsInstaller: !kIsWeb && Platform.isWindows,
         );
-        if (data == null) return null;
+        if (data == null) {
+          return UpdateCheckResult(
+            UpdateCheckStatus.upToDate,
+            currentVersion: await currentInstalledVersion(),
+          );
+        }
       } else {
         final response = await http
             .get(
@@ -178,7 +210,9 @@ class UpdateCheckerService {
               headers: {'Accept': 'application/vnd.github.v3+json'},
             )
             .timeout(const Duration(seconds: 10));
-        if (response.statusCode != 200) return null;
+        if (response.statusCode != 200) {
+          return const UpdateCheckResult(UpdateCheckStatus.failed);
+        }
         // Only start the automatic cooldown after GitHub answered. A
         // transient offline/5xx response should be retried on the next app
         // start instead of suppressing checks for the full interval.
@@ -216,7 +250,7 @@ class UpdateCheckerService {
       if (selectedDirectAsset != null) {
         debugPrint(
           '[UpdateChecker] Selected ${selectedDirectAsset.name} for '
-          '${Platform.isWindows ? 'Windows' : supportedAbis.join(', ')}',
+          '${selectedWindowsAsset != null ? 'Windows' : supportedAbis.join(', ')}',
         );
       }
 
@@ -235,18 +269,29 @@ class UpdateCheckerService {
             : androidUpdatePackageLabel(selectedAsset!),
       );
 
-      if (!info.hasUpdate) return null;
+      if (!info.hasUpdate) {
+        return UpdateCheckResult(
+          UpdateCheckStatus.upToDate,
+          currentVersion: currentVersion,
+        );
+      }
 
       // Check if user dismissed this version
       if (!force) {
         final dismissed = prefs.getString(_dismissedKey);
-        if (dismissed == tagName) return null;
+        if (dismissed == tagName) {
+          return const UpdateCheckResult(UpdateCheckStatus.skipped);
+        }
       }
 
-      return info;
+      return UpdateCheckResult(
+        UpdateCheckStatus.updateAvailable,
+        info: info,
+        currentVersion: currentVersion,
+      );
     } catch (e) {
       debugPrint('[UpdateChecker] Error: $e');
-      return null;
+      return const UpdateCheckResult(UpdateCheckStatus.failed);
     }
   }
 

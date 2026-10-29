@@ -7358,6 +7358,18 @@ abstract class AppLocalizations {
   /// **'You\'re on the latest version'**
   String get onLatestVersion;
 
+  /// No description provided for @onLatestVersionDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re on the latest version ({version})'**
+  String onLatestVersionDetail(String version);
+
+  /// No description provided for @updateCheckFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t reach GitHub to check for updates. Check your connection and try again.'**
+  String get updateCheckFailed;
+
   /// No description provided for @updateAvailable.
   ///
   /// In en, this message translates to:

@@ -2073,6 +2073,15 @@
   "updateCheckDaily": "Daily",
   "updateCheckNever": "Never automatically",
   "onLatestVersion": "You're on the latest version",
+  "onLatestVersionDetail": "You're on the latest version ({version})",
+  "@onLatestVersionDetail": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "updateCheckFailed": "Couldn't reach GitHub to check for updates. Check your connection and try again.",
   "updateAvailable": "Update available",
   "preReleaseAvailable": "Pre-release available",
   "updateDialogContent": "A new {kind} of Absorb is available: {latest}\n\nYou are on {current}.",

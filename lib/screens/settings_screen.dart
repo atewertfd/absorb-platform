@@ -4569,15 +4569,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         : () async {
                             setState(() => _checkingForUpdate = true);
                             try {
-                              final info = await UpdateCheckerService.check(
+                              final result = await UpdateCheckerService.check(
                                 force: true,
                                 includePreReleases: _includePreReleases,
                               );
                               if (!mounted) return;
-                              if (info == null || !info.hasUpdate) {
+                              final info = result.info;
+                              if (result.status == UpdateCheckStatus.failed) {
                                 showOverlayToast(
                                   context,
-                                  l.onLatestVersion,
+                                  l.updateCheckFailed,
+                                  icon: Icons.cloud_off_rounded,
+                                );
+                                return;
+                              }
+                              if (info == null || !info.hasUpdate) {
+                                final version = result.currentVersion;
+                                final beta = version == null
+                                    ? null
+                                    : betaNumberFor(version);
+                                showOverlayToast(
+                                  context,
+                                  version == null
+                                      ? l.onLatestVersion
+                                      : l.onLatestVersionDetail(
+                                          beta == null
+                                              ? version
+                                              : '$version, ${l.betaLabel(beta)}',
+                                        ),
                                   icon: Icons.check_circle_outline_rounded,
                                 );
                                 return;

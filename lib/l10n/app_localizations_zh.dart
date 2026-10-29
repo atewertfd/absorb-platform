@@ -3988,6 +3988,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get onLatestVersion => 'You\'re on the latest version';
 
   @override
+  String onLatestVersionDetail(String version) {
+    return 'You\'re on the latest version ($version)';
+  }
+
+  @override
+  String get updateCheckFailed =>
+      'Couldn\'t reach GitHub to check for updates. Check your connection and try again.';
+
+  @override
   String get updateAvailable => 'Update available';
 
   @override
