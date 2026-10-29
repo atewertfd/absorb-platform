@@ -10,6 +10,10 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-28-stability-first-optimization-design.md`
 
+**Revision:** The user requested preservation of the original visual
+rendering. Task 1's blur decode edits were reverted after verification; the
+cache-policy task remains active.
+
 ## Global Constraints
 
 - Stability and playback correctness take priority over measured RAM reduction.

@@ -47,3 +47,11 @@ behavior, or the visual design.
   navigation.
 - Any out-of-scope candidates are documented rather than guessed into the
   codebase.
+
+## User revision
+
+The user later requested that visual rendering remain exactly as before. The
+blur-only decode-size changes from the initial implementation were therefore
+reverted. The shared cache limits and background non-live-cache trim remain,
+because they do not alter cover composition or image quality during normal
+foreground use.
