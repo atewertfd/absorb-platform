@@ -558,12 +558,34 @@ mixin _CoreMixin on ChangeNotifier, _StateMixin {
     _isLoading = false;
   }
 
+  // DownloadService notifies up to 4x a second per active download, but the
+  // "Downloaded" shelf only depends on finished downloads. Skip the rebuild
+  // (and its per-item JSON decode) when neither they nor the sections the
+  // shelf was injected into have changed.
+  int? _downloadedShelfSignature;
+  List<dynamic>? _downloadedShelfSections;
+
+  int _currentDownloadedShelfSignature() => Object.hash(
+        _selectedLibraryId,
+        isPodcastLibrary,
+        Object.hashAll(DownloadService().downloadedItems.map((dl) =>
+            Object.hash(
+                dl.itemId, dl.libraryId, dl.title, dl.author, dl.sessionData))),
+      );
+
   void _onDownloadsChanged() {
     if (isOffline || _personalizedSections.isEmpty) return;
+    final signature = _currentDownloadedShelfSignature();
+    if (signature == _downloadedShelfSignature &&
+        identical(_personalizedSections, _downloadedShelfSections)) {
+      return;
+    }
     _personalizedSections = _personalizedSections
         .where((s) => (s as Map)['id'] != 'downloaded-books')
         .toList();
     _injectDownloadedSection();
+    _downloadedShelfSignature = signature;
+    _downloadedShelfSections = _personalizedSections;
     notifyListeners();
   }
 
@@ -850,30 +872,53 @@ mixin _CoreMixin on ChangeNotifier, _StateMixin {
         (_pendingUnfinishedDeltas[showId] ?? 0) + delta;
   }
 
-  Future<void> refreshLocalProgress() async {
-    final sync = ProgressSyncService();
-    final itemIds = <String>{..._progressMap.keys};
-    for (final dl in DownloadService().downloadedItems) {
-      itemIds.add(dl.itemId);
+  // Called on every player change (play/pause, seek, chapter, buffering).
+  // Overlapping calls share one pass plus at most one rerun, and listeners
+  // are only notified when an override actually changed.
+  Future<void>? _localProgressRefresh;
+  bool _localProgressRefreshAgain = false;
+
+  Future<void> refreshLocalProgress() {
+    final running = _localProgressRefresh;
+    if (running != null) {
+      _localProgressRefreshAgain = true;
+      return running;
     }
-    for (final itemId in itemIds) {
-      if (_locallyFinishedItems.contains(itemId)) continue;
-      if (_resetItems.contains(itemId)) continue;
-      final serverFinished = _progressMap[itemId]?['isFinished'] == true;
-      final data = await sync.getLocal(itemId);
-      if (data != null) {
-        final currentTime = (data['currentTime'] as num?)?.toDouble() ?? 0;
-        final duration = (data['duration'] as num?)?.toDouble() ?? 0;
-        if (duration > 0) {
-          final progress = (currentTime / duration).clamp(0.0, 1.0);
-          if (progress >= 0.99 && !serverFinished) continue;
-          if (serverFinished) continue;
-          _localProgressOverrides[itemId] = progress;
-          if (currentTime > 0) _resetItems.remove(itemId);
+    return _localProgressRefresh = _runLocalProgressRefresh()
+        .whenComplete(() => _localProgressRefresh = null);
+  }
+
+  Future<void> _runLocalProgressRefresh() async {
+    final sync = ProgressSyncService();
+    do {
+      _localProgressRefreshAgain = false;
+      var changed = false;
+      final itemIds = <String>{..._progressMap.keys};
+      for (final dl in DownloadService().downloadedItems) {
+        itemIds.add(dl.itemId);
+      }
+      for (final itemId in itemIds) {
+        if (_locallyFinishedItems.contains(itemId)) continue;
+        if (_resetItems.contains(itemId)) continue;
+        final serverFinished = _progressMap[itemId]?['isFinished'] == true;
+        final data = await sync.getLocal(itemId);
+        if (data != null) {
+          final currentTime = (data['currentTime'] as num?)?.toDouble() ?? 0;
+          final duration = (data['duration'] as num?)?.toDouble() ?? 0;
+          if (duration > 0) {
+            final progress = (currentTime / duration).clamp(0.0, 1.0);
+            if (progress >= 0.99 && !serverFinished) continue;
+            if (serverFinished) continue;
+            if (_localProgressOverrides[itemId] != progress) {
+              _localProgressOverrides[itemId] = progress;
+              changed = true;
+            }
+            if (currentTime > 0 && _resetItems.remove(itemId)) changed = true;
+          }
         }
       }
-    }
-    notifyListeners();
+      if (changed) notifyListeners();
+    } while (_localProgressRefreshAgain);
   }
 
   void clearProgressFor(String itemId) {
