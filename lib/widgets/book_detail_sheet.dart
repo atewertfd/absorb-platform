@@ -43,7 +43,6 @@ import 'author_books_sheet.dart';
 import 'narrator_books_sheet.dart';
 import 'series_books_sheet.dart';
 import 'absorbing_shared.dart';
-import 'cover_decode.dart';
 import 'html_description.dart';
 import 'metadata_lookup_sheet.dart';
 import 'playlist_picker_sheet.dart';
@@ -755,7 +754,6 @@ class _BookDetailSheetContentState extends State<_BookDetailSheetContent> {
                 ? (_coverUrl!.startsWith('/')
                     ? BlurPaddedCover(
                         blurChild: Image.file(File(_coverUrl!), fit: BoxFit.cover,
-                            cacheWidth: blurCoverDecodeWidth,
                             errorBuilder: (_, __, ___) => const SizedBox.shrink()),
                         child: Image.file(File(_coverUrl!), fit: BoxFit.contain,
                             errorBuilder: (_, __, ___) => const SizedBox()),
@@ -763,7 +761,6 @@ class _BookDetailSheetContentState extends State<_BookDetailSheetContent> {
                     : BlurPaddedCover(
                         blurChild: CachedNetworkImage(
                           imageUrl: _coverUrl!, fit: BoxFit.cover,
-                          memCacheWidth: blurCoverDecodeWidth,
                           httpHeaders: lib.mediaHeaders,
                           errorWidget: (_, __, ___) => const SizedBox.shrink(),
                         ),

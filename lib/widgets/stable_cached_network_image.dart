@@ -1,5 +1,4 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'cover_decode.dart';
 
 String stableCoverCacheKey(String imageUrl, {int? updatedAt}) {
   final uri = Uri.tryParse(imageUrl);
@@ -28,13 +27,5 @@ class StableCachedNetworkImage extends CachedNetworkImage {
     super.imageBuilder,
     super.placeholder,
     super.errorWidget,
-    int? memCacheWidth,
-    super.memCacheHeight,
-  }) : super(
-         useOldImageOnUrlChange: true,
-         memCacheWidth: (memCacheWidth ?? maxCoverDecodeWidth).clamp(
-           minCoverDecodeWidth,
-           maxCoverDecodeWidth,
-         ),
-       );
+  }) : super(useOldImageOnUrlChange: true);
 }

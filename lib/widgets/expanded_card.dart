@@ -12,7 +12,6 @@ import '../services/audio_player_service.dart';
 import '../services/download_service.dart';
 import '../services/chromecast_service.dart';
 import 'absorbing_shared.dart';
-import 'cover_decode.dart';
 import 'card_progress_bar.dart';
 import 'card_playback_controls.dart';
 import 'card_buttons.dart';
@@ -832,12 +831,10 @@ class _ExpandedCardState extends State<ExpandedCard> {
                                             child: EinkCoverTone(child: _coverUrl != null
                                               ? _isLocalCover
                                                   ? BlurPaddedCover(blurChild: Image.file(File(_coverUrl!), fit: BoxFit.cover,
-                                                      cacheWidth: blurCoverDecodeWidth,
                                                       errorBuilder: (_, __, ___) => const SizedBox.shrink()),
                                                       enabled: !_rectangleCovers, child: Image.file(File(_coverUrl!), fit: _rectangleCovers ? BoxFit.cover : BoxFit.contain,
                                                       errorBuilder: (_, __, ___) => CoverPlaceholder(title: _title, author: _author)))
                                                   : BlurPaddedCover(blurChild: CachedNetworkImage(imageUrl: _coverUrl!, fit: BoxFit.cover,
-                                                        memCacheWidth: blurCoverDecodeWidth,
                                                         httpHeaders: mediaHeaders,
                                                         errorWidget: (_, __, ___) => const SizedBox.shrink()),
                                                       enabled: !_rectangleCovers, child: CachedNetworkImage(imageUrl: _coverUrl!, fit: _rectangleCovers ? BoxFit.cover : BoxFit.contain,

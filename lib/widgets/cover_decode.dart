@@ -1,10 +1,6 @@
 const int minCoverDecodeWidth = 64;
 const int maxCoverDecodeWidth = 1024;
 
-/// Blur-only cover layers do not need foreground detail. Keeping their source
-/// small avoids retaining a second full-resolution bitmap just to blur it.
-const int blurCoverDecodeWidth = 32;
-
 /// Returns a bounded physical-pixel decode size for a displayed cover.
 ///
 /// Card covers should not retain a full server-resolution bitmap when their
