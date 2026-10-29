@@ -1151,7 +1151,10 @@ class _ReorderAbsorbingSheetState extends State<_ReorderAbsorbingSheet> {
     };
     _queueMode = widget.queueMode;
     _currentItemId = widget.currentItemId;
-    _downloads = DownloadService()..addListener(_onDownloadsChanged);
+    // Download progress is consumed only by the small status indicators in
+    // each visible row. Keep it out of the sheet-level rebuild path so a
+    // progress tick cannot rebuild the whole queue list.
+    _downloads = DownloadService();
     _player = AudioPlayerService()..addListener(_onPlayerChanged);
     PlayerSettings.settingsChanged.addListener(_refreshMode);
     PlayerSettings.getShowUpNextLabel().then((v) {
@@ -1174,10 +1177,6 @@ class _ReorderAbsorbingSheetState extends State<_ReorderAbsorbingSheet> {
   bool _queueDownloadSettingsLoaded = false;
   int _rollingDownloadCount = 3;
   String _podcastAdvanceDir = 'oldest_first';
-
-  void _onDownloadsChanged() {
-    if (mounted) setState(() {});
-  }
 
   void _onPlayerChanged() {
     final itemId = _player.currentItemId;
@@ -1468,7 +1467,6 @@ class _ReorderAbsorbingSheetState extends State<_ReorderAbsorbingSheet> {
 
   @override
   void dispose() {
-    _downloads.removeListener(_onDownloadsChanged);
     _player.removeListener(_onPlayerChanged);
     PlayerSettings.settingsChanged.removeListener(_refreshMode);
     super.dispose();
@@ -1966,6 +1964,13 @@ class _ReorderAbsorbingSheetState extends State<_ReorderAbsorbingSheet> {
     return const SizedBox.shrink();
   }
 
+  Widget _listenedDownloadStatus(String key, ColorScheme cs) {
+    return ListenableBuilder(
+      listenable: _downloads,
+      builder: (context, child) => _downloadStatus(key, cs),
+    );
+  }
+
   Widget _readOnlyQueueItem(
     ColorScheme cs,
     TextTheme tt,
@@ -2101,7 +2106,7 @@ class _ReorderAbsorbingSheetState extends State<_ReorderAbsorbingSheet> {
                 ],
               ),
             ),
-            _downloadStatus(key, cs),
+            _listenedDownloadStatus(key, cs),
           ]),
         ),
       ),
@@ -2217,7 +2222,7 @@ class _ReorderAbsorbingSheetState extends State<_ReorderAbsorbingSheet> {
                               style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
                         ],
                       )),
-                      _downloadStatus(key, cs),
+                      _listenedDownloadStatus(key, cs),
                       // Drag handle (long-press to avoid conflict with system home gesture)
                       _DragHandle(index: i, color: cs.onSurface),
                     ]),
