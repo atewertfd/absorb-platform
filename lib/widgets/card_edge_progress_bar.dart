@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:ui';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../services/audio_player_service.dart';
@@ -105,7 +106,8 @@ class _CardEdgeProgressBarState extends State<CardEdgeProgressBar>
       _backgrounded = false;
       _loadSettings();
       _syncTicker();
-    } else if (state == AppLifecycleState.paused) {
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
       _backgrounded = true;
       _smoothTicker?.cancel();
       _smoothTicker = null;
@@ -118,8 +120,25 @@ class _CardEdgeProgressBarState extends State<CardEdgeProgressBar>
     if (old.isActive != widget.isActive) _subscribePosition();
   }
 
+  // Hidden tabs and covered routes turn TickerMode off; stop the 100 ms
+  // repaint timer there too. The bar re-anchors to the position when shown.
+  ValueListenable<bool>? _tickerMode;
+  bool get _tickerEnabled => _tickerMode?.value ?? true;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final notifier = TickerMode.getNotifier(context);
+    if (!identical(notifier, _tickerMode)) {
+      _tickerMode?.removeListener(_syncTicker);
+      _tickerMode = notifier;
+      notifier.addListener(_syncTicker);
+      _syncTicker();
+    }
+  }
+
   void _syncTicker() {
-    final shouldRun = _isPlaying && (widget.isActive || _isCastMode) && !_backgrounded;
+    final shouldRun = _isPlaying && (widget.isActive || _isCastMode) && !_backgrounded && _tickerEnabled;
     if (shouldRun && _smoothTicker == null) {
       _smoothTicker = Timer.periodic(const Duration(milliseconds: 100), (_) {
         // ignore: invalid_use_of_protected_member, invalid_use_of_visible_for_testing_member
@@ -233,6 +252,7 @@ class _CardEdgeProgressBarState extends State<CardEdgeProgressBar>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _tickerMode?.removeListener(_syncTicker);
     PlayerSettings.settingsChanged.removeListener(_loadSettings);
     ChromecastService().removeListener(_onCastChanged);
     _posSub?.cancel();
