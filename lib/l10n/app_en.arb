@@ -5105,5 +5105,26 @@
   "libationImportSetOutputFolder": "Set output folder",
   "libationImportScanOutputFolder": "Scan output folder",
   "libationImportLaunchFailed": "Couldn't launch the selected Libation executable.",
-  "libationImportDesktopHint": "Libation must be installed and signed in separately. Optional: set your Libation app and output folder to launch Libation or scan completed exports from here."
+  "libationImportDesktopHint": "Libation must be installed and signed in separately. Optional: set your Libation app and output folder to launch Libation or scan completed exports from here.",
+  "libationImportNewReady": "{count, plural, =1{1 new Libation download ready to import} other{{count} new Libation downloads ready to import}}",
+  "@libationImportNewReady": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "libationImportReviewNew": "Review new downloads",
+  "libationImportTagNew": "New",
+  "libationImportTagImported": "Imported",
+  "libationImportSearchHint": "Search exported books",
+  "libationImportNoSearchMatches": "No exported books match your search.",
+  "libationImportAlreadyInLibrary": "\"{title}\" is already in this library. Uploading it again creates a duplicate.",
+  "@libationImportAlreadyInLibrary": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  }
 }

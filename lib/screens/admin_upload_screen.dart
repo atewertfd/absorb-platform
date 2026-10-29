@@ -31,6 +31,8 @@ typedef BookMetadataSearcher =
       String? author,
       required String provider,
     });
+typedef LibrarySearcher =
+    Future<Map<String, dynamic>?> Function(String libraryId, String query);
 
 class AdminUploadScreen extends StatefulWidget {
   static const titleFieldKey = Key('adminUploadTitleField');
@@ -56,6 +58,11 @@ class AdminUploadScreen extends StatefulWidget {
   static const libationScanOutputFolderKey = Key(
     'libationImportScanOutputFolder',
   );
+  static const libationReviewNewKey = Key('libationImportReviewNew');
+  static const libationPickerSearchKey = Key('libationImportPickerSearch');
+  static const libationDuplicateWarningKey = Key(
+    'libationImportDuplicateWarning',
+  );
 
   final List<dynamic> libraries;
   final String? initialLibraryId;
@@ -72,7 +79,11 @@ class AdminUploadScreen extends StatefulWidget {
   final UploadPathChecker? pathChecker;
   final MediaUploader? uploader;
   final BookMetadataSearcher? metadataSearcher;
+  final LibrarySearcher? librarySearcher;
   final VoidCallback? onNavigationGuardChanged;
+
+  /// Overrides "now" for new-download detection in tests.
+  final DateTime Function()? clock;
 
   const AdminUploadScreen({
     super.key,
@@ -91,7 +102,9 @@ class AdminUploadScreen extends StatefulWidget {
     this.pathChecker,
     this.uploader,
     this.metadataSearcher,
+    this.librarySearcher,
     this.onNavigationGuardChanged,
+    this.clock,
   });
 
   @override
@@ -154,8 +167,20 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
   // Author filled in from the last chosen export folder, so choosing another
   // book replaces it instead of keeping the previous book's author.
   String _candidateAuthor = '';
+  LibationImportHistory _history = const LibationImportHistory(
+    importedFolders: <String>{},
+  );
+  // Exports in the saved output folder not yet imported or seen in the picker.
+  int _newExportCount = 0;
+  // The export folder the current files came from, recorded once uploaded.
+  LibationBookCandidate? _activeCandidate;
+  // Title of a matching book already in the selected library, if any.
+  String? _libraryDuplicateTitle;
+  int _duplicateCheckId = 0;
 
   bool get _busy => _uploading || _scanning;
+
+  DateTime _now() => widget.clock?.call() ?? DateTime.now();
 
   bool get _desktopLibationEnabled =>
       widget.showDesktopLibationControls ??
@@ -169,9 +194,36 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
       _loadLibrariesFromApi();
     }
     _loadMetadataProviders();
-    if (_desktopLibationEnabled) {
-      _loadLibationPrefs();
-    }
+    _loadLibationState();
+  }
+
+  Future<void> _loadLibationState() async {
+    final history = await LibationImportHistory.load();
+    if (!mounted) return;
+    setState(() => _history = history);
+    if (!_desktopLibationEnabled) return;
+    await _loadLibationPrefs();
+    if (!mounted) return;
+    await _checkForNewExports();
+  }
+
+  /// Quietly scans the saved output folder (file names, sizes and dates only)
+  /// to offer new Libation downloads. Never uploads anything.
+  Future<void> _checkForNewExports() async {
+    final folder = _libationOutputFolderPath;
+    if (folder == null || folder.isEmpty) return;
+    final scanner = widget.directoryScanner ?? scanLibationExportDirectory;
+    try {
+      final candidates = await scanner(folder);
+      if (!mounted) return;
+      final fresh = newLibationExports(
+        candidates,
+        importedFolders: _history.importedFolders,
+        lastSeen: _history.lastSeen,
+        now: _now(),
+      );
+      setState(() => _newExportCount = fresh.length);
+    } catch (_) {}
   }
 
   void _applyInitialLibraries(List<dynamic> rawLibraries) {
@@ -310,7 +362,10 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
       _lastMetadataQuery = null;
       _metadataSearching = false;
       _metadataRequestId++;
+      _libraryDuplicateTitle = null;
     });
+    final candidate = _activeCandidate;
+    if (candidate != null) _checkLibraryDuplicate(candidate);
   }
 
   String _extension(String filename) => libationFileExtension(filename);
@@ -508,6 +563,11 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
       if (newFiles.isEmpty) return;
 
       setState(() {
+        if (_files.isEmpty) {
+          // Hand-picked files start a new book, not the last scanned folder.
+          _activeCandidate = null;
+          _libraryDuplicateTitle = null;
+        }
         _files = [..._files, ...newFiles];
         final primaryFiles = _files.where(_isPrimaryFile).toList();
         if (_title.text.trim().isEmpty) {
@@ -572,22 +632,66 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
       return;
     }
 
+    final fresh = newLibationExports(
+      candidates,
+      importedFolders: _history.importedFolders,
+      lastSeen: _history.lastSeen,
+      now: _now(),
+    ).map((candidate) => libationFolderKey(candidate.directoryPath)).toSet();
+    await _markExportsSeen(candidates, directoryPath);
+    if (!mounted) return;
+
     LibationBookCandidate? chosen;
     if (candidates.length == 1) {
       chosen = candidates.single;
     } else {
-      chosen = await _showBookCandidatePicker(candidates);
+      chosen = await _showBookCandidatePicker(candidates, newFolders: fresh);
     }
     if (chosen == null || !mounted) return;
     await _applyBookCandidate(chosen);
   }
 
-  Future<LibationBookCandidate?> _showBookCandidatePicker(
+  /// Once exports have been listed for the user they stop counting as new.
+  Future<void> _markExportsSeen(
     List<LibationBookCandidate> candidates,
-  ) {
+    String directoryPath,
+  ) async {
+    DateTime? newest;
+    for (final candidate in candidates) {
+      final modified = candidate.modified;
+      if (modified != null && (newest == null || modified.isAfter(newest))) {
+        newest = modified;
+      }
+    }
+    if (newest == null) return;
+    await LibationImportHistory.markSeen(newest);
+    if (!mounted) return;
+    final previous = _history.lastSeen;
+    setState(() {
+      if (previous == null || newest!.isAfter(previous)) {
+        _history = LibationImportHistory(
+          importedFolders: _history.importedFolders,
+          lastSeen: newest,
+        );
+      }
+      final outputFolder = _libationOutputFolderPath;
+      if (outputFolder != null &&
+          libationFolderKey(outputFolder) == libationFolderKey(directoryPath)) {
+        _newExportCount = 0;
+      }
+    });
+  }
+
+  Future<LibationBookCandidate?> _showBookCandidatePicker(
+    List<LibationBookCandidate> candidates, {
+    Set<String> newFolders = const <String>{},
+  }) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final l = AppLocalizations.of(context)!;
+    final imported = _history.importedFolders;
+    final showSearch = candidates.length > 8;
+    var query = '';
     return showModalBottomSheet<LibationBookCandidate>(
       context: context,
       isScrollControlled: true,
@@ -596,96 +700,157 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (sheetContext) {
-        return SafeArea(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.75,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
-                  child: Row(
+        return StatefulBuilder(
+          builder: (sheetContext, setSheetState) {
+            final needle = query.trim().toLowerCase();
+            final visible = needle.isEmpty
+                ? candidates
+                : candidates
+                      .where(
+                        (candidate) =>
+                            candidate.title.toLowerCase().contains(needle) ||
+                            (candidate.author ?? '').toLowerCase().contains(
+                              needle,
+                            ),
+                      )
+                      .toList();
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+                ),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.75,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
+                        child: Row(
                           children: [
-                            Text(
-                              l.libationImportSelectBookTitle,
-                              style: tt.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w700,
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    l.libationImportSelectBookTitle,
+                                    style: tt.titleMedium?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    l.libationImportSelectBookSubtitle,
+                                    style: tt.bodySmall?.copyWith(
+                                      color: cs.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              l.libationImportSelectBookSubtitle,
-                              style: tt.bodySmall?.copyWith(
-                                color: cs.onSurfaceVariant,
-                              ),
+                            IconButton(
+                              tooltip: MaterialLocalizations.of(
+                                sheetContext,
+                              ).closeButtonTooltip,
+                              onPressed: () => Navigator.pop(sheetContext),
+                              icon: const Icon(Icons.close_rounded),
                             ),
                           ],
                         ),
                       ),
-                      IconButton(
-                        tooltip: MaterialLocalizations.of(
-                          sheetContext,
-                        ).closeButtonTooltip,
-                        onPressed: () => Navigator.pop(sheetContext),
-                        icon: const Icon(Icons.close_rounded),
-                      ),
+                      if (showSearch)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                          child: TextField(
+                            key: AdminUploadScreen.libationPickerSearchKey,
+                            decoration: InputDecoration(
+                              hintText: l.libationImportSearchHint,
+                              prefixIcon: const Icon(Icons.search_rounded),
+                              isDense: true,
+                              border: const OutlineInputBorder(),
+                            ),
+                            onChanged: (value) =>
+                                setSheetState(() => query = value),
+                          ),
+                        ),
+                      const Divider(height: 1),
+                      if (visible.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Text(
+                            l.libationImportNoSearchMatches,
+                            textAlign: TextAlign.center,
+                            style: tt.bodyMedium?.copyWith(
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                        )
+                      else
+                        Flexible(
+                          child: ListView.separated(
+                            shrinkWrap: true,
+                            itemCount: visible.length,
+                            separatorBuilder: (_, _) => const Divider(
+                              height: 1,
+                              indent: 16,
+                              endIndent: 16,
+                            ),
+                            itemBuilder: (itemContext, index) {
+                              final candidate = visible[index];
+                              final key = libationFolderKey(
+                                candidate.directoryPath,
+                              );
+                              final modified = candidate.modified;
+                              final details = <String>[
+                                if (imported.contains(key))
+                                  l.libationImportTagImported
+                                else if (newFolders.contains(key))
+                                  l.libationImportTagNew,
+                                if (candidate.author != null &&
+                                    candidate.author!.isNotEmpty)
+                                  candidate.author!,
+                                if (modified != null)
+                                  MaterialLocalizations.of(
+                                    itemContext,
+                                  ).formatShortDate(modified.toLocal()),
+                                l.adminUploadSelectedFiles(
+                                  candidate.files.length,
+                                ),
+                                _formatBytes(candidate.totalBytes),
+                              ].join(' · ');
+                              return ListTile(
+                                leading: Icon(
+                                  Icons.audio_file_rounded,
+                                  color: cs.primary,
+                                ),
+                                title: Text(
+                                  candidate.title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                subtitle: Text(
+                                  details,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: tt.bodySmall?.copyWith(
+                                    color: cs.onSurfaceVariant,
+                                  ),
+                                ),
+                                onTap: () =>
+                                    Navigator.pop(sheetContext, candidate),
+                              );
+                            },
+                          ),
+                        ),
                     ],
                   ),
                 ),
-                const Divider(height: 1),
-                Flexible(
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    itemCount: candidates.length,
-                    separatorBuilder: (_, _) =>
-                        const Divider(height: 1, indent: 16, endIndent: 16),
-                    itemBuilder: (itemContext, index) {
-                      final candidate = candidates[index];
-                      final modified = candidate.modified;
-                      final details = <String>[
-                        if (candidate.author != null &&
-                            candidate.author!.isNotEmpty)
-                          candidate.author!,
-                        if (modified != null)
-                          MaterialLocalizations.of(
-                            itemContext,
-                          ).formatShortDate(modified.toLocal()),
-                        l.adminUploadSelectedFiles(candidate.files.length),
-                        _formatBytes(candidate.totalBytes),
-                      ].join(' · ');
-                      return ListTile(
-                        leading: Icon(
-                          Icons.audio_file_rounded,
-                          color: cs.primary,
-                        ),
-                        title: Text(
-                          candidate.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        subtitle: Text(
-                          details,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: tt.bodySmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                        onTap: () => Navigator.pop(sheetContext, candidate),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );
@@ -713,8 +878,38 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
       }
       _candidateAuthor = nextAuthor;
       _lastMetadataQuery = null;
+      _activeCandidate = candidate;
+      _libraryDuplicateTitle = null;
     });
+    await _checkLibraryDuplicate(candidate);
+    if (!mounted) return;
     if (_autoFetchMetadata) await _fetchMetadata();
+  }
+
+  /// Warns (without blocking) when the selected library already has this
+  /// book, matched by the ASIN in Libation's folder name or by title.
+  Future<void> _checkLibraryDuplicate(LibationBookCandidate candidate) async {
+    final libraryId = _selectedLibraryId;
+    if (libraryId == null) return;
+    final searcher =
+        widget.librarySearcher ??
+        (widget.apiService == null
+            ? null
+            : (String id, String query) =>
+                  widget.apiService!.searchLibrary(id, query, limit: 10));
+    if (searcher == null) return;
+    final requestId = ++_duplicateCheckId;
+    Map<String, dynamic>? result;
+    try {
+      result = await searcher(libraryId, candidate.title);
+    } catch (_) {
+      return;
+    }
+    if (!mounted || requestId != _duplicateCheckId) return;
+    if (!identical(_activeCandidate, candidate)) return;
+    final match = matchingLibraryBookTitle(result, candidate);
+    if (match == null) return;
+    setState(() => _libraryDuplicateTitle = match);
   }
 
   Future<String?> _pickExecutablePath() async {
@@ -939,6 +1134,7 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
                 file.bytes == null &&
                 file.readStream != null,
           );
+      final importedCandidate = result.success ? _activeCandidate : null;
       setState(() {
         if (result.success) {
           _title.clear();
@@ -947,10 +1143,28 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
           _files = [];
           _candidateAuthor = '';
           _lastMetadataQuery = null;
+          _activeCandidate = null;
+          _libraryDuplicateTitle = null;
+          if (importedCandidate != null) {
+            _history = LibationImportHistory(
+              importedFolders: {
+                ..._history.importedFolders,
+                libationFolderKey(importedCandidate.directoryPath),
+              },
+              lastSeen: _history.lastSeen,
+            );
+          }
         } else if (mustReselectFiles) {
           _files = [];
         }
       });
+      if (importedCandidate != null) {
+        // Only after Audiobookshelf accepted the upload.
+        await LibationImportHistory.recordImported(
+          importedCandidate.directoryPath,
+        );
+        if (!mounted) return;
+      }
       if (result.success) {
         widget.onUploadComplete?.call();
         showOverlayToast(
@@ -1488,10 +1702,26 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
           style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w700),
         ),
         subtitle: Text(
-          l.libationImportSubtitle,
-          style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+          _newExportCount > 0
+              ? l.libationImportNewReady(_newExportCount)
+              : l.libationImportSubtitle,
+          style: tt.bodySmall?.copyWith(
+            color: _newExportCount > 0 ? cs.primary : cs.onSurfaceVariant,
+          ),
         ),
         children: [
+          if (_newExportCount > 0) ...[
+            Align(
+              alignment: Alignment.centerLeft,
+              child: FilledButton.tonalIcon(
+                key: AdminUploadScreen.libationReviewNewKey,
+                onPressed: _busy ? null : _scanConfiguredOutputFolder,
+                icon: const Icon(Icons.new_releases_outlined, size: 18),
+                label: Text(l.libationImportReviewNew),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           Text(l.libationImportSteps, style: tt.bodyMedium),
           const SizedBox(height: 12),
           Text(
@@ -1526,6 +1756,23 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
             const SizedBox(height: 12),
             const LinearProgressIndicator(
               key: AdminUploadScreen.libationScanProgressKey,
+            ),
+          ],
+          if (_libraryDuplicateTitle != null) ...[
+            const SizedBox(height: 12),
+            Row(
+              key: AdminUploadScreen.libationDuplicateWarningKey,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.warning_amber_rounded, size: 18, color: cs.error),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    l.libationImportAlreadyInLibrary(_libraryDuplicateTitle!),
+                    style: tt.bodySmall?.copyWith(color: cs.error),
+                  ),
+                ),
+              ],
             ),
           ],
           if (showDesktopControls) ...[

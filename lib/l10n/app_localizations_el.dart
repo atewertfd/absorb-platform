@@ -9151,4 +9151,36 @@ class AppLocalizationsEl extends AppLocalizations {
   @override
   String get libationImportDesktopHint =>
       'Libation must be installed and signed in separately. Optional: set your Libation app and output folder to launch Libation or scan completed exports from here.';
+
+  @override
+  String libationImportNewReady(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count new Libation downloads ready to import',
+      one: '1 new Libation download ready to import',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get libationImportReviewNew => 'Review new downloads';
+
+  @override
+  String get libationImportTagNew => 'New';
+
+  @override
+  String get libationImportTagImported => 'Imported';
+
+  @override
+  String get libationImportSearchHint => 'Search exported books';
+
+  @override
+  String get libationImportNoSearchMatches =>
+      'No exported books match your search.';
+
+  @override
+  String libationImportAlreadyInLibrary(String title) {
+    return '\"$title\" is already in this library. Uploading it again creates a duplicate.';
+  }
 }

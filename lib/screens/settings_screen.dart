@@ -24,6 +24,7 @@ import '../build_info.dart';
 import '../services/update_checker_service.dart';
 import '../services/update_check_policy.dart';
 import '../services/desktop_shortcuts.dart';
+import '../services/libation_import_helper.dart';
 import '../services/audiobookshelf_update_service.dart';
 import '../widgets/update_dialog.dart';
 import '../widgets/nav_hold_options.dart';
@@ -287,6 +288,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   UpdateCheckFrequency _updateCheckFrequency = UpdateCheckFrequency.everyTwelveHours;
   String? _rmabBaseUrl;
   String? _rmabApiToken;
+  // New exports in the saved Libation output folder (0 when none is saved).
+  int _libationNewCount = 0;
   bool _loaded = false;
   int _adminIssueCount = 0;
   AudiobookshelfServerUpdate? _serverUpdate;
@@ -336,6 +339,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _refreshSyncStatus();
     SocketService().addItemsChangedListener(_onServerItemsChanged);
     PlayerSettings.settingsChanged.addListener(_onExternalSettingsChange);
+    _refreshLibationNewCount();
+  }
+
+  /// Cheap listing of the saved Libation output folder (names, sizes, dates;
+  /// no file contents) so the Advanced tile can point at new downloads.
+  Future<void> _refreshLibationNewCount() async {
+    final count = await countNewExportsInSavedLibationFolder();
+    if (!mounted || count == _libationNewCount) return;
+    setState(() => _libationNewCount = count);
   }
 
   // Keep the Server Admin badge current: scans flag items missing/invalid
@@ -4413,8 +4425,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       leading: Icon(Icons.file_download_done_rounded, color: cs.primary),
                       title: Text(l.libationImportTitle),
                       subtitle: Text(
-                        l.libationImportSubtitle,
-                        style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                        _libationNewCount > 0
+                            ? l.libationImportNewReady(_libationNewCount)
+                            : l.libationImportSubtitle,
+                        style: tt.bodySmall?.copyWith(
+                          color: _libationNewCount > 0
+                              ? cs.primary
+                              : cs.onSurfaceVariant,
+                        ),
                       ),
                       trailing: Icon(Icons.chevron_right_rounded,
                           color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
@@ -5256,6 +5274,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       ),
     );
+    unawaited(_refreshLibationNewCount());
   }
 
   void _confirmLogout(BuildContext context) {

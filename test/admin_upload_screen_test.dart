@@ -49,12 +49,15 @@ Future<void> _render(
   LibationDirectoryScanner? directoryScanner,
   LibationExecutableLauncher? executableLauncher,
   bool? showDesktopLibationControls,
+  LibrarySearcher? librarySearcher,
+  DateTime Function()? clock,
+  Map<String, Object> prefs = const <String, Object>{},
   Size size = const Size(1100, 900),
   double textScale = 1,
   ThemeData? theme,
   GlobalKey? captureKey,
 }) async {
-  SharedPreferences.setMockInitialValues(const <String, Object>{});
+  SharedPreferences.setMockInitialValues(prefs);
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(
@@ -84,6 +87,8 @@ Future<void> _render(
           directoryScanner: directoryScanner,
           executableLauncher: executableLauncher,
           showDesktopLibationControls: showDesktopLibationControls,
+          librarySearcher: librarySearcher,
+          clock: clock,
           pathChecker:
               pathChecker ??
               (_, _) async => const UploadPathCheckResult(success: true),
@@ -666,4 +671,179 @@ void main() {
       expect(launched, [r'C:\Libation\Libation.exe']);
     },
   );
+
+  group('Libation download tracking', () {
+    final now = DateTime(2026, 10, 29, 12);
+    LibationBookCandidate book(String title, DateTime modified) =>
+        LibationBookCandidate(
+          directoryPath: '/out/$title [B0${title.length}ABCDEFG]',
+          title: title,
+          files: [_file('$title.m4b')],
+          modified: modified,
+        );
+
+    testWidgets(
+      'offers new downloads, tags them in the picker, and records the upload',
+      (tester) async {
+        final scans = <String>[];
+        final candidates = [
+          book('Fresh Book', now.subtract(const Duration(hours: 2))),
+          book('Old Book', now.subtract(const Duration(days: 40))),
+          book('Uploaded Book', now.subtract(const Duration(hours: 5))),
+        ];
+        final uploaded = <MediaUploadRequest>[];
+        await _render(
+          tester,
+          showDesktopLibationControls: true,
+          files: const [],
+          clock: () => now,
+          prefs: {
+            kLibationOutputFolderPref: '/out',
+            kLibationImportedFoldersPref: [
+              libationFolderKey(candidates[2].directoryPath),
+            ],
+          },
+          directoryScanner: (dir) async {
+            scans.add(dir);
+            return candidates;
+          },
+          uploader: (request, {onProgress}) async {
+            uploaded.add(request);
+            return const MediaUploadResult(success: true, statusCode: 200);
+          },
+        );
+
+        // Only the recent, not-yet-imported export counts as new, and the
+        // collapsed card's subtitle says so.
+        expect(scans, ['/out']);
+        expect(
+          find.text('1 new Libation download ready to import'),
+          findsOneWidget,
+        );
+
+        await tester.tap(find.byKey(AdminUploadScreen.libationGuideKey));
+        await tester.pumpAndSettle();
+        await _tap(tester, AdminUploadScreen.libationReviewNewKey);
+        await tester.pumpAndSettle();
+        expect(find.textContaining('New · '), findsOneWidget);
+        expect(find.textContaining('Imported · '), findsOneWidget);
+
+        await tester.tap(find.text('Fresh Book'));
+        await tester.pumpAndSettle();
+        await _clearToasts(tester);
+        expect(
+          find.text('1 new Libation download ready to import'),
+          findsNothing,
+        );
+        expect(uploaded, isEmpty);
+
+        await _tap(tester, AdminUploadScreen.submitKey);
+        await tester.pumpAndSettle();
+        expect(uploaded.single.title, 'Fresh Book');
+        final prefs = await SharedPreferences.getInstance();
+        expect(
+          prefs.getStringList(kLibationImportedFoldersPref),
+          contains(libationFolderKey(candidates[0].directoryPath)),
+        );
+        expect(prefs.getInt(kLibationLastSeenExportPref), isNotNull);
+        await _clearToasts(tester);
+      },
+    );
+
+    testWidgets('picker search filters a long export list', (tester) async {
+      final candidates = [
+        for (var i = 0; i < 10; i++)
+          book('Book $i', now.subtract(Duration(days: i))),
+        book('Project Hail Mary', now.subtract(const Duration(days: 20))),
+      ];
+      await _render(
+        tester,
+        initialLibationExpanded: true,
+        files: const [],
+        clock: () => now,
+        directoryPicker: () async => '/out',
+        directoryScanner: (_) async => candidates,
+        uploader: (_, {onProgress}) async =>
+            const MediaUploadResult(success: true),
+      );
+      await _tap(tester, AdminUploadScreen.libationFolderKey);
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(AdminUploadScreen.libationPickerSearchKey),
+        'hail',
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Project Hail Mary'), findsOneWidget);
+      expect(find.text('Book 1'), findsNothing);
+
+      await tester.enterText(
+        find.byKey(AdminUploadScreen.libationPickerSearchKey),
+        'zzz',
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('No exported books match your search.'), findsOneWidget);
+    });
+
+    testWidgets('warns without blocking when the library has the book', (
+      tester,
+    ) async {
+      final searches = <String>[];
+      final uploaded = <MediaUploadRequest>[];
+      await _render(
+        tester,
+        initialLibationExpanded: true,
+        files: const [],
+        directoryPicker: () async => '/out/Project Hail Mary [B08G9PRS1K]',
+        directoryScanner: (_) async => [
+          LibationBookCandidate(
+            directoryPath: '/out/Project Hail Mary [B08G9PRS1K]',
+            title: 'Project Hail Mary',
+            files: [_file('Project Hail Mary [B08G9PRS1K].m4b')],
+          ),
+        ],
+        librarySearcher: (libraryId, query) async {
+          searches.add('$libraryId:$query');
+          return {
+            'book': [
+              {
+                'libraryItem': {
+                  'media': {
+                    'metadata': {
+                      'title': 'Project Hail Mary: A Novel',
+                      'asin': 'B08G9PRS1K',
+                    },
+                  },
+                },
+              },
+            ],
+          };
+        },
+        uploader: (request, {onProgress}) async {
+          uploaded.add(request);
+          return const MediaUploadResult(success: true);
+        },
+      );
+
+      await _tap(tester, AdminUploadScreen.libationFolderKey);
+      await tester.pumpAndSettle();
+      expect(searches, ['books:Project Hail Mary']);
+      expect(
+        find.byKey(AdminUploadScreen.libationDuplicateWarningKey),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('"Project Hail Mary: A Novel" is already'),
+        findsOneWidget,
+      );
+
+      await _tap(tester, AdminUploadScreen.submitKey);
+      await tester.pumpAndSettle();
+      expect(uploaded, hasLength(1));
+      expect(
+        find.byKey(AdminUploadScreen.libationDuplicateWarningKey),
+        findsNothing,
+      );
+      await _clearToasts(tester);
+    });
+  });
 }

@@ -1,11 +1,21 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api_service.dart';
 
 const String kLibationExecutablePathPref = 'libation_executable_path';
 const String kLibationOutputFolderPref = 'libation_output_folder_path';
+const String kLibationImportedFoldersPref = 'libation_imported_folders';
+const String kLibationLastSeenExportPref = 'libation_last_seen_export_ms';
+
+/// Bound on remembered imported folders so the preference stays small.
+const int kLibationImportedFoldersLimit = 1000;
+
+/// Without a saved "last seen" time, only exports this recent count as new,
+/// so a first scan of a large library doesn't report hundreds of new books.
+const Duration kLibationFirstRunNewWindow = Duration(days: 3);
 
 const Set<String> kLibationAudioExtensions = <String>{
   'm4b',
@@ -47,6 +57,20 @@ const Set<String> kLibationExportExtensions = <String>{
 final RegExp _trailingAsinTagPattern = RegExp(
   r'\s*\[[A-Za-z0-9_-]{8,14}\]\s*$',
 );
+
+final RegExp _asinPattern = RegExp(r'\[([A-Z0-9]{10})\]\s*$');
+
+/// The Audible ASIN from a Libation folder or file name such as
+/// `Title [B08G9PRS1K]`, or null when the name carries none.
+String? libationAsinFrom(String name) {
+  final trimmed = name.trim();
+  // Only drop a real audio extension: folder names like "Dr. Who [B0…]" keep
+  // their dots.
+  final base = isLibationAudioFile(trimmed)
+      ? stripFileExtension(trimmed)
+      : trimmed;
+  return _asinPattern.firstMatch(base.trim())?.group(1);
+}
 
 String libationFileExtension(String filename) {
   final dot = filename.lastIndexOf('.');
@@ -142,6 +166,153 @@ class LibationBookCandidate {
       files.where((file) => isLibationAudioFile(file.name)).length;
 
   int get totalBytes => files.fold<int>(0, (sum, file) => sum + file.size);
+
+  /// ASIN from the export folder name, else from the first audio file name.
+  String? get asin {
+    final fromFolder = libationAsinFrom(pathBasename(directoryPath));
+    if (fromFolder != null) return fromFolder;
+    for (final file in files) {
+      if (isLibationAudioFile(file.name)) return libationAsinFrom(file.name);
+    }
+    return null;
+  }
+}
+
+/// Folder-path key used to remember imported exports (case-insensitive on
+/// Windows, separator-agnostic).
+String libationFolderKey(String directoryPath) =>
+    _normalizeComparePath(directoryPath);
+
+/// Exports to call out as new: not imported through Absorb yet, and written
+/// after [lastSeen] (or within [kLibationFirstRunNewWindow] of [now] when the
+/// picker has never been opened).
+List<LibationBookCandidate> newLibationExports(
+  List<LibationBookCandidate> candidates, {
+  required Set<String> importedFolders,
+  required DateTime? lastSeen,
+  required DateTime now,
+}) {
+  final threshold = lastSeen ?? now.subtract(kLibationFirstRunNewWindow);
+  return candidates.where((candidate) {
+    final modified = candidate.modified;
+    if (modified == null || !modified.isAfter(threshold)) return false;
+    return !importedFolders.contains(
+      libationFolderKey(candidate.directoryPath),
+    );
+  }).toList();
+}
+
+class LibationImportHistory {
+  final Set<String> importedFolders;
+  final DateTime? lastSeen;
+
+  const LibationImportHistory({required this.importedFolders, this.lastSeen});
+
+  static Future<LibationImportHistory> load() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final lastSeenMs = prefs.getInt(kLibationLastSeenExportPref);
+      return LibationImportHistory(
+        importedFolders: {
+          ...?prefs.getStringList(kLibationImportedFoldersPref),
+        },
+        lastSeen: lastSeenMs == null
+            ? null
+            : DateTime.fromMillisecondsSinceEpoch(lastSeenMs),
+      );
+    } catch (_) {
+      return const LibationImportHistory(importedFolders: <String>{});
+    }
+  }
+
+  /// Remember an export folder after Audiobookshelf accepted its upload.
+  static Future<void> recordImported(String directoryPath) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = libationFolderKey(directoryPath);
+      final folders = [...?prefs.getStringList(kLibationImportedFoldersPref)]
+        ..remove(key);
+      folders.add(key);
+      final start = folders.length > kLibationImportedFoldersLimit
+          ? folders.length - kLibationImportedFoldersLimit
+          : 0;
+      await prefs.setStringList(
+        kLibationImportedFoldersPref,
+        folders.sublist(start),
+      );
+    } catch (_) {}
+  }
+
+  /// Mark exports up to [newest] as seen once the user has been shown them.
+  static Future<void> markSeen(DateTime newest) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final current = prefs.getInt(kLibationLastSeenExportPref) ?? 0;
+      final next = newest.millisecondsSinceEpoch;
+      if (next > current) {
+        await prefs.setInt(kLibationLastSeenExportPref, next);
+      }
+    } catch (_) {}
+  }
+}
+
+/// Counts new exports in the saved Libation output folder. Returns 0 when no
+/// folder is saved, on web, or when the folder can't be read. Only lists
+/// directories and file sizes/dates; never opens a file.
+Future<int> countNewExportsInSavedLibationFolder({DateTime? now}) async {
+  if (kIsWeb) return 0;
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final folder = prefs.getString(kLibationOutputFolderPref)?.trim() ?? '';
+    if (folder.isEmpty) return 0;
+    final history = await LibationImportHistory.load();
+    final candidates = await scanLibationExportDirectory(folder);
+    return newLibationExports(
+      candidates,
+      importedFolders: history.importedFolders,
+      lastSeen: history.lastSeen,
+      now: now ?? DateTime.now(),
+    ).length;
+  } catch (_) {
+    return 0;
+  }
+}
+
+String _normalizeLibraryTitle(String title) => cleanLibationBookTitle(
+  title,
+).toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '');
+
+/// The title of a book in an Audiobookshelf library search result
+/// (`{book: [{libraryItem: {media: {metadata: {...}}}}]}`) that matches
+/// [candidate] by ASIN, or else by normalized title. Null when none match.
+String? matchingLibraryBookTitle(
+  Map<String, dynamic>? searchResult,
+  LibationBookCandidate candidate, {
+  String? title,
+}) {
+  final books = searchResult?['book'];
+  if (books is! List) return null;
+  final asin = candidate.asin?.toUpperCase();
+  final wantedTitle = _normalizeLibraryTitle(title ?? candidate.title);
+  String? titleMatch;
+  for (final entry in books) {
+    if (entry is! Map) continue;
+    final item = entry['libraryItem'];
+    final media = item is Map ? item['media'] : null;
+    final metadata = media is Map ? media['metadata'] : null;
+    if (metadata is! Map) continue;
+    final bookTitle = metadata['title']?.toString() ?? '';
+    final bookAsin = metadata['asin']?.toString().trim().toUpperCase() ?? '';
+    if (asin != null && bookAsin.isNotEmpty && bookAsin == asin) {
+      return bookTitle.isEmpty ? candidate.title : bookTitle;
+    }
+    if (titleMatch == null &&
+        wantedTitle.isNotEmpty &&
+        _normalizeLibraryTitle(bookTitle) == wantedTitle) {
+      titleMatch = bookTitle;
+    }
+  }
+  return titleMatch;
 }
 
 /// Scan a user-selected directory for exported Libation audiobooks.

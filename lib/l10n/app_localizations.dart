@@ -15770,6 +15770,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Libation must be installed and signed in separately. Optional: set your Libation app and output folder to launch Libation or scan completed exports from here.'**
   String get libationImportDesktopHint;
+
+  /// No description provided for @libationImportNewReady.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 new Libation download ready to import} other{{count} new Libation downloads ready to import}}'**
+  String libationImportNewReady(int count);
+
+  /// No description provided for @libationImportReviewNew.
+  ///
+  /// In en, this message translates to:
+  /// **'Review new downloads'**
+  String get libationImportReviewNew;
+
+  /// No description provided for @libationImportTagNew.
+  ///
+  /// In en, this message translates to:
+  /// **'New'**
+  String get libationImportTagNew;
+
+  /// No description provided for @libationImportTagImported.
+  ///
+  /// In en, this message translates to:
+  /// **'Imported'**
+  String get libationImportTagImported;
+
+  /// No description provided for @libationImportSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search exported books'**
+  String get libationImportSearchHint;
+
+  /// No description provided for @libationImportNoSearchMatches.
+  ///
+  /// In en, this message translates to:
+  /// **'No exported books match your search.'**
+  String get libationImportNoSearchMatches;
+
+  /// No description provided for @libationImportAlreadyInLibrary.
+  ///
+  /// In en, this message translates to:
+  /// **'\"{title}\" is already in this library. Uploading it again creates a duplicate.'**
+  String libationImportAlreadyInLibrary(String title);
 }
 
 class _AppLocalizationsDelegate

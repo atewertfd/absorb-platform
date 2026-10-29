@@ -6,6 +6,7 @@ import 'package:absorb/services/libation_import_helper.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 MediaUploadRequest _request(List<MediaUploadFile> files) => MediaUploadRequest(
   libraryId: 'books',
@@ -260,4 +261,139 @@ void main() {
       );
     },
   );
+
+  test('libationAsinFrom reads the ASIN tag from folders and files', () {
+    expect(libationAsinFrom('Project Hail Mary [B08G9PRS1K]'), 'B08G9PRS1K');
+    expect(
+      libationAsinFrom('Project Hail Mary [B08G9PRS1K].m4b'),
+      'B08G9PRS1K',
+    );
+    expect(libationAsinFrom('Dr. Who and Friends [B012345678]'), 'B012345678');
+    expect(libationAsinFrom('Book [Part 1]'), isNull);
+    expect(libationAsinFrom('No Tag'), isNull);
+
+    final candidate = LibationBookCandidate(
+      directoryPath: '/out/Untagged Folder',
+      title: 'Untagged Folder',
+      files: [MediaUploadFile(name: 'Book [B0ABCDEFGH].mp3', size: 1)],
+    );
+    expect(candidate.asin, 'B0ABCDEFGH');
+  });
+
+  group('newLibationExports', () {
+    final now = DateTime(2026, 10, 29, 12);
+    LibationBookCandidate at(String name, DateTime? modified) =>
+        LibationBookCandidate(
+          directoryPath: '/out/$name',
+          title: name,
+          files: const [],
+          modified: modified,
+        );
+
+    test('first run only counts recent exports', () {
+      final fresh = newLibationExports(
+        [
+          at('recent', now.subtract(const Duration(days: 1))),
+          at('old', now.subtract(const Duration(days: 30))),
+          at('undated', null),
+        ],
+        importedFolders: const {},
+        lastSeen: null,
+        now: now,
+      );
+      expect(fresh.map((c) => c.title), ['recent']);
+    });
+
+    test('skips imported folders and anything already seen', () {
+      final lastSeen = now.subtract(const Duration(days: 10));
+      final fresh = newLibationExports(
+        [
+          at('after', now.subtract(const Duration(days: 2))),
+          at('before', now.subtract(const Duration(days: 20))),
+          at('imported', now.subtract(const Duration(days: 1))),
+        ],
+        importedFolders: {libationFolderKey('/out/imported')},
+        lastSeen: lastSeen,
+        now: now,
+      );
+      expect(fresh.map((c) => c.title), ['after']);
+    });
+  });
+
+  test('matchingLibraryBookTitle matches by ASIN, then normalized title', () {
+    Map<String, dynamic> result(List<Map<String, String>> books) => {
+      'book': [
+        for (final metadata in books)
+          {
+            'libraryItem': {
+              'media': {'metadata': metadata},
+            },
+          },
+      ],
+    };
+    final candidate = LibationBookCandidate(
+      directoryPath: '/out/Project Hail Mary [B08G9PRS1K]',
+      title: 'Project Hail Mary',
+      files: const [],
+    );
+
+    expect(
+      matchingLibraryBookTitle(
+        result([
+          {'title': 'Project Hail Mary', 'asin': ''},
+          {'title': 'PHM (Unabridged)', 'asin': 'b08g9prs1k'},
+        ]),
+        candidate,
+      ),
+      'PHM (Unabridged)',
+    );
+    expect(
+      matchingLibraryBookTitle(
+        result([
+          {'title': 'project hail-mary'},
+        ]),
+        candidate,
+      ),
+      'project hail-mary',
+    );
+    expect(
+      matchingLibraryBookTitle(
+        result([
+          {'title': 'Artemis', 'asin': 'B0OTHER000'},
+        ]),
+        candidate,
+      ),
+      isNull,
+    );
+    expect(matchingLibraryBookTitle(null, candidate), isNull);
+    expect(matchingLibraryBookTitle({'book': 'bad'}, candidate), isNull);
+  });
+
+  test('import history is bounded and last-seen only moves forward', () async {
+    SharedPreferences.setMockInitialValues({
+      kLibationImportedFoldersPref: [
+        for (var i = 0; i < kLibationImportedFoldersLimit; i++) '/old/$i',
+      ],
+    });
+    await LibationImportHistory.recordImported('/out/New Book');
+    final prefs = await SharedPreferences.getInstance();
+    final folders = prefs.getStringList(kLibationImportedFoldersPref)!;
+    expect(folders, hasLength(kLibationImportedFoldersLimit));
+    expect(folders.first, '/old/1');
+    expect(folders.last, libationFolderKey('/out/New Book'));
+
+    await LibationImportHistory.markSeen(DateTime(2026, 10, 2));
+    await LibationImportHistory.markSeen(DateTime(2026, 10, 1));
+    final history = await LibationImportHistory.load();
+    expect(history.lastSeen, DateTime(2026, 10, 2));
+    expect(
+      history.importedFolders,
+      contains(libationFolderKey('/out/New Book')),
+    );
+  });
+
+  test('saved-folder count is zero without a saved folder', () async {
+    SharedPreferences.setMockInitialValues(const <String, Object>{});
+    expect(await countNewExportsInSavedLibationFolder(), 0);
+  });
 }
