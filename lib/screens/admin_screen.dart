@@ -338,6 +338,7 @@ class _AdminScreenState extends State<AdminScreen> with WidgetsBindingObserver {
                               builder: (_) => AdminUploadScreen(
                                 libraries: _libraries,
                                 initialLibraryId: context.read<AuthProvider>().defaultLibraryId,
+                                canUpload: context.read<AuthProvider>().canUpload,
                                 apiService: context.read<AuthProvider>().apiService,
                               ),
                             ));
@@ -862,6 +863,7 @@ class _AdminScreenState extends State<AdminScreen> with WidgetsBindingObserver {
         return AdminUploadScreen(
           libraries: _libraries,
           initialLibraryId: routeContext.read<AuthProvider>().defaultLibraryId,
+          canUpload: routeContext.read<AuthProvider>().canUpload,
           apiService: routeContext.read<AuthProvider>().apiService,
           onNavigationGuardChanged:
               DesktopWorkspaceNavigator.notifyExitGuardChanged,

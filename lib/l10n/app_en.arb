@@ -5094,5 +5094,16 @@
   "libationImportSteps": "1. Choose exported audio files for one book, plus its cover if available.\n2. Review the title, author, library, and destination above.\n3. Select Upload below when you are ready. After Audiobookshelf scans the files, refresh your library to listen or download for offline use.",
   "libationImportPrivacy": "Only import files you are authorized to use. Absorb Plus does not sign in to Audible or Libation, read account/configuration files, or convert protected files. Selecting files does not upload them.",
   "libationImportChooseFiles": "Choose exported files",
-  "libationImportUnsupported": "Only exported audio and cover images were added. Account files, metadata/configuration files, and unsupported protected formats were skipped."
+  "libationImportUnsupported": "Only exported audio and cover images were added. Account files, metadata/configuration files, and unsupported protected formats were skipped.",
+  "adminUploadPermissionDenied": "Your Audiobookshelf account does not have upload permission. Ask a server administrator to enable upload access for your account.",
+  "libationImportChooseFolder": "Choose exported folder",
+  "libationImportNoExportedBooks": "No exported audiobook files were found in that folder.",
+  "libationImportSelectBookTitle": "Choose exported audiobook",
+  "libationImportSelectBookSubtitle": "Select one exported audiobook folder to review before uploading.",
+  "libationImportLaunchApp": "Launch Libation",
+  "libationImportSetApp": "Set Libation app",
+  "libationImportSetOutputFolder": "Set output folder",
+  "libationImportScanOutputFolder": "Scan output folder",
+  "libationImportLaunchFailed": "Couldn't launch the selected Libation executable.",
+  "libationImportDesktopHint": "Libation must be installed and signed in separately. Optional: set your Libation app and output folder to launch Libation or scan completed exports from here."
 }

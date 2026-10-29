@@ -67,12 +67,16 @@ class UploadPathCheckResult {
   final bool success;
   final bool exists;
   final String? libraryItemTitle;
+  final int? statusCode;
+
+  bool get isPermissionDenied => statusCode == 401 || statusCode == 403;
   final String? error;
 
   const UploadPathCheckResult({
     required this.success,
     this.exists = false,
     this.libraryItemTitle,
+    this.statusCode,
     this.error,
   });
 }
@@ -81,7 +85,15 @@ class MediaUploadResult {
   final bool success;
   final String? error;
 
-  const MediaUploadResult({required this.success, this.error});
+  final int? statusCode;
+
+  const MediaUploadResult({
+    required this.success,
+    this.error,
+    this.statusCode,
+  });
+
+  bool get isPermissionDenied => statusCode == 401 || statusCode == 403;
 }
 
 class AuthorQuickMatchResult {
@@ -3782,12 +3794,14 @@ class ApiService {
           success: true,
           exists: data['exists'] == true,
           libraryItemTitle: data['libraryItemTitle'] as String?,
+          statusCode: response.statusCode,
         );
       }
       final error = response.body.trim();
       return UploadPathCheckResult(
         success: false,
         error: error.isEmpty ? 'HTTP ${response.statusCode}' : error,
+        statusCode: response.statusCode,
       );
     } catch (e) {
       debugPrint('[API] checkUploadPathExists error: $e');
@@ -3884,13 +3898,14 @@ class ApiService {
       final response = await http.Response.fromStream(streamedResponse);
       if (response.statusCode == 200) {
         onProgress?.call(totalBytes, totalBytes);
-        return const MediaUploadResult(success: true);
+        return const MediaUploadResult(success: true, statusCode: 200);
       }
 
       final error = response.body.trim();
       return MediaUploadResult(
         success: false,
         error: error.isEmpty ? 'HTTP ${response.statusCode}' : error,
+        statusCode: response.statusCode,
       );
     } catch (e) {
       debugPrint('[API] uploadMedia error: $e');

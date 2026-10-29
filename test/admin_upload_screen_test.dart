@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -6,10 +7,14 @@ import 'package:absorb/l10n/app_localizations.dart';
 import 'package:absorb/main.dart';
 import 'package:absorb/screens/admin_upload_screen.dart';
 import 'package:absorb/services/api_service.dart';
+import 'package:absorb/services/libation_import_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 const _libraries = [
   {
@@ -22,19 +27,34 @@ const _libraries = [
   },
 ];
 
-MediaUploadFile _file(String name) =>
-    MediaUploadFile(name: name, size: 3, bytes: Uint8List.fromList([1, 2, 3]));
+MediaUploadFile _file(String name, {String? path}) => MediaUploadFile(
+  name: name,
+  size: 3,
+  path: path,
+  bytes: Uint8List.fromList([1, 2, 3]),
+);
 
 Future<void> _render(
   WidgetTester tester, {
+  List<dynamic> libraries = _libraries,
   required List<MediaUploadFile> files,
   required MediaUploader uploader,
   UploadPathChecker? pathChecker,
+  ApiService? apiService,
+  bool canUpload = true,
+  bool initialLibationExpanded = false,
+  VoidCallback? onUploadComplete,
+  UploadDirectoryPicker? directoryPicker,
+  UploadExecutablePicker? executablePicker,
+  LibationDirectoryScanner? directoryScanner,
+  LibationExecutableLauncher? executableLauncher,
+  bool? showDesktopLibationControls,
   Size size = const Size(1100, 900),
   double textScale = 1,
   ThemeData? theme,
   GlobalKey? captureKey,
 }) async {
+  SharedPreferences.setMockInitialValues(const <String, Object>{});
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(
@@ -53,8 +73,17 @@ Future<void> _render(
           child: child!,
         ),
         home: AdminUploadScreen(
-          libraries: _libraries,
+          libraries: libraries,
+          apiService: apiService,
+          canUpload: canUpload,
+          initialLibationExpanded: initialLibationExpanded,
+          onUploadComplete: onUploadComplete,
           filePicker: () async => files,
+          directoryPicker: directoryPicker,
+          executablePicker: executablePicker,
+          directoryScanner: directoryScanner,
+          executableLauncher: executableLauncher,
+          showDesktopLibationControls: showDesktopLibationControls,
           pathChecker:
               pathChecker ??
               (_, _) async => const UploadPathCheckResult(success: true),
@@ -82,6 +111,11 @@ Future<void> _clearToasts(WidgetTester tester) async {
 
 String _title(WidgetTester tester) => tester
     .widget<TextFormField>(find.byKey(AdminUploadScreen.titleFieldKey))
+    .controller!
+    .text;
+
+String _author(WidgetTester tester) => tester
+    .widget<TextFormField>(find.byKey(AdminUploadScreen.authorFieldKey))
     .controller!
     .text;
 
@@ -368,4 +402,184 @@ void main() {
     await _clearToasts(tester);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'non-admin without upload permission sees banner and clear error on submit',
+    (tester) async {
+      var uploads = 0;
+      await _render(
+        tester,
+        canUpload: false,
+        initialLibationExpanded: true,
+        files: [_file('A Book.m4b')],
+        uploader: (_, {onProgress}) async {
+          uploads++;
+          return const MediaUploadResult(success: true);
+        },
+      );
+      expect(find.byKey(AdminUploadScreen.permissionBannerKey), findsOneWidget);
+      expect(
+        find.textContaining('does not have upload permission'),
+        findsOneWidget,
+      );
+      await _tap(tester, AdminUploadScreen.libationFilesKey);
+      await _tap(tester, AdminUploadScreen.submitKey);
+      expect(uploads, 0);
+      await _clearToasts(tester);
+    },
+  );
+
+  testWidgets(
+    'HTTP 403 permission failure on path check or upload shows clear permission message',
+    (tester) async {
+      var pathForbidden = true;
+      await _render(
+        tester,
+        initialLibationExpanded: true,
+        files: [_file('A Book.m4b')],
+        pathChecker: (_, _) async => pathForbidden
+            ? const UploadPathCheckResult(
+                success: false,
+                statusCode: 403,
+                error: 'Forbidden',
+              )
+            : const UploadPathCheckResult(success: true, statusCode: 200),
+        uploader: (_, {onProgress}) async => const MediaUploadResult(
+          success: false,
+          statusCode: 403,
+          error: 'Forbidden',
+        ),
+      );
+      await _tap(tester, AdminUploadScreen.libationFilesKey);
+      await _tap(tester, AdminUploadScreen.submitKey);
+      expect(
+        find.textContaining('does not have upload permission'),
+        findsOneWidget,
+      );
+      await _clearToasts(tester);
+
+      pathForbidden = false;
+      await _tap(tester, AdminUploadScreen.submitKey);
+      expect(
+        find.textContaining('does not have upload permission'),
+        findsOneWidget,
+      );
+      await _clearToasts(tester);
+    },
+  );
+
+  testWidgets(
+    'loads libraries from ApiService when opened before LibraryProvider is populated',
+    (tester) async {
+      final client = MockClient((request) async {
+        if (request.url.path == '/api/libraries') {
+          return http.Response(jsonEncode({'libraries': _libraries}), 200);
+        }
+        return http.Response('{}', 200);
+      });
+      addTearDown(client.close);
+      final api = ApiService(
+        baseUrl: 'https://example.invalid',
+        token: 'fake',
+        httpClient: client,
+      );
+      await _render(
+        tester,
+        libraries: const [],
+        apiService: api,
+        initialLibationExpanded: true,
+        files: [_file('A Book.m4b')],
+        uploader: (_, {onProgress}) async =>
+            const MediaUploadResult(success: true),
+      );
+      expect(find.byKey(AdminUploadScreen.libraryFieldKey), findsOneWidget);
+      expect(find.text('Audiobooks'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'folder import and multi-book output scan populate details and require explicit upload',
+    (tester) async {
+      final uploaded = <MediaUploadRequest>[];
+      var completedCalls = 0;
+      await _render(
+        tester,
+        initialLibationExpanded: true,
+        showDesktopLibationControls: true,
+        files: const [],
+        onUploadComplete: () => completedCalls++,
+        directoryPicker: () async => '/exports/LibationBooks',
+        directoryScanner: (dir) async {
+          expect(dir, '/exports/LibationBooks');
+          return [
+            LibationBookCandidate(
+              directoryPath: '/exports/LibationBooks/Author One/Book Alpha',
+              title: 'Book Alpha',
+              author: 'Author One',
+              files: [_file('01.mp3'), _file('02.mp3'), _file('cover.jpg')],
+              skippedFilesCount: 1,
+            ),
+            LibationBookCandidate(
+              directoryPath: '/exports/LibationBooks/Author Two/Book Beta',
+              title: 'Book Beta',
+              author: 'Author Two',
+              files: [_file('Book Beta.m4b')],
+            ),
+          ];
+        },
+        uploader: (request, {onProgress}) async {
+          uploaded.add(request);
+          return const MediaUploadResult(success: true, statusCode: 200);
+        },
+      );
+
+      await _tap(tester, AdminUploadScreen.libationFolderKey);
+      await tester.pumpAndSettle();
+      expect(find.text('Choose exported audiobook'), findsOneWidget);
+      expect(find.text('Book Alpha'), findsOneWidget);
+      expect(find.text('Book Beta'), findsOneWidget);
+
+      await tester.tap(find.text('Book Alpha'));
+      await tester.pumpAndSettle();
+      await _clearToasts(tester);
+
+      expect(uploaded, isEmpty);
+      expect(_title(tester), 'Book Alpha');
+      expect(_author(tester), 'Author One');
+      expect(find.text('01.mp3'), findsOneWidget);
+      expect(find.text('02.mp3'), findsOneWidget);
+      expect(find.text('cover.jpg'), findsOneWidget);
+
+      await _tap(tester, AdminUploadScreen.submitKey);
+      expect(uploaded, hasLength(1));
+      expect(uploaded.single.title, 'Book Alpha');
+      expect(uploaded.single.author, 'Author One');
+      expect(completedCalls, 1);
+      await _clearToasts(tester);
+    },
+  );
+
+  testWidgets(
+    'explicit Libation launcher configures and launches user-selected executable',
+    (tester) async {
+      final launched = <String>[];
+      await _render(
+        tester,
+        initialLibationExpanded: true,
+        showDesktopLibationControls: true,
+        files: const [],
+        executablePicker: () async => r'C:\Libation\Libation.exe',
+        executableLauncher: (path) async {
+          launched.add(path);
+          return true;
+        },
+        uploader: (_, {onProgress}) async =>
+            const MediaUploadResult(success: true),
+      );
+      expect(launched, isEmpty);
+      await _tap(tester, AdminUploadScreen.libationLaunchKey);
+      await tester.pumpAndSettle();
+      expect(launched, [r'C:\Libation\Libation.exe']);
+    },
+  );
 }

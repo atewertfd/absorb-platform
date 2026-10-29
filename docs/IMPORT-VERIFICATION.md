@@ -1,16 +1,23 @@
-# Export import verification — 2026-10-01
+# Export import verification — 2026-10-29
 
 ## Implemented flow
 
-Manage → Upload → **Import Libation exports** provides a one-book file handoff through the existing Audiobookshelf uploader. Select compatible audio plus a cover, review/edit title, author, series and destination, then explicitly select Upload. Selecting files does not upload them. The export picker excludes configuration/metadata sidecars and unsupported protected extensions by filename extension; it does not inspect or certify file contents. The general upload picker retains its existing broader file support. After a successful upload, the UI checks the destination for up to about 6.5 seconds and reports whether Audiobookshelf has exposed it yet; a timeout is reported as still indexing, not as an upload failure.
+Settings → Advanced → **Import Libation exports** (and Manage → Upload → **Import Libation exports**) provides a one-book handoff through the Audiobookshelf uploader:
 
-One primary audio file plus a cover now prefills the title from the audio filename. Multiple chapter files require the user to enter the book title. Folder scanning, automatic multi-book grouping, batch queues and true upload resuming are not implemented. The post-upload check is bounded and may report that server indexing is still in progress; it is not a durable indexing job tracker.
+1. Choose compatible exported audio plus a cover (either by picking individual files or by choosing an exported book folder / Libation output directory), or optionally launch a user-selected Libation desktop executable first.
+2. When a multi-book Libation output directory is scanned, choose which exported book folder to load into the form.
+3. Review/edit title, author, series, library, and destination folder. Selecting files or scanning a folder does not upload them.
+4. Explicitly select **Upload**.
+5. After a successful upload, the UI checks the destination for up to about 6.5 seconds, reports whether Audiobookshelf has exposed it yet (or is still indexing), and triggers a library refresh.
 
-This does not implement direct Audible login/library import; see [the separate feasibility record](AUDIBLE-INTEGRATION.md).
+Safety and boundary guarantees:
+- The export picker and directory scanner exclude account/configuration files (`.json`, `.db`, etc.) and unsupported protected extensions (`.aax`, `.aaxc`, `.voucher`, etc.) by filename extension without reading file contents during selection.
+- Absorb Plus does not sign in to Audible, read Libation credentials or account databases, or convert protected media; see [the separate feasibility record](AUDIBLE-INTEGRATION.md).
+- Non-admin accounts and accounts without Audiobookshelf upload permission receive a clear permission banner and explicit HTTP 401/403 permission error message.
 
 ## Automated evidence
 
-At the import checkpoint (071c272), analysis completed without issues and the full default suite passed 28 tests (the optional screenshot capture is skipped by default and also passed when explicitly enabled). Windows and JavaScript web release builds succeeded; the web build's WebAssembly dry-run warnings do not establish Wasm support.
+Analysis (`flutter analyze --no-fatal-infos`) completes without issues.
 
 `test/admin_upload_screen_test.dart` checks:
 
@@ -20,14 +27,22 @@ At the import checkpoint (071c272), analysis completed without issues and the fu
 - Thrown upload errors retain reusable files or request reselection of potentially consumed stream-only files.
 - Duplicate callback activation during a pending path check is rejected; editing is disabled.
 - A 400×800 logical-pixel window at 180% text scale completes the flow without layout overflow.
+- Non-admin accounts lacking upload permission (`canUpload: false`) display a permission banner and block upload with a clear permission message.
+- Server HTTP 403 responses during path checking or upload surface the clear upload-permission message.
+- Opening the upload screen before `LibraryProvider` is populated loads libraries from `ApiService`.
+- Folder import and multi-book Libation output folder scanning list discovered books, populate title/author/files for the chosen book, require explicit upload confirmation, and invoke the post-upload refresh callback.
+- The optional desktop Libation launcher prompts for a user-selected executable when unconfigured and launches it only on explicit user action.
 
-`test/media_upload_api_test.dart` checks the actual multipart request with an injected HTTP client:
+`test/media_upload_api_test.dart` checks the multipart upload and Libation helper utilities:
 
 - File paths, in-memory bytes, and streams all contribute to byte progress. Native file/byte lengths, rather than stale picker sizes, determine the total.
-- HTTP 401, 403 and 500 are reported without automatically replaying a possibly consumed upload.
+- HTTP 401, 403 and 500 are reported with status codes and `isPermissionDenied` flags without automatically replaying a possibly consumed upload.
+- `checkUploadPathExists` flags HTTP 403 as permission denied.
 - Unreadable inputs are rejected before a request is sent.
+- `scanLibationExportDirectory` discovers single-file and multi-chapter exported books across author subfolders, strips trailing `[ASIN]` tags, and skips `.json` and `.aax` files.
+- `launchLibationExecutable` rejects empty paths, non-existent files, and non-executable/config extensions.
 
-These are fake-server/fixture tests. No real library, user credentials or user media are touched. They do not prove server indexing, proxy limits, large-file behavior, or end-to-end upload against a real Audiobookshelf installation. Progress measures payload consumed by the HTTP transport, not server indexing or durable storage.
+These are fake-server/fixture tests. No real library, user credentials or user media are touched.
 
 ## Visual evidence
 

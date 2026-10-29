@@ -1512,6 +1512,7 @@ class _AppShellState extends State<AppShell>
         screen = AdminUploadScreen(
           libraries: await api.getLibraries(),
           initialLibraryId: context.read<AuthProvider>().defaultLibraryId,
+          canUpload: context.read<AuthProvider>().canUpload,
           apiService: api,
         );
       default:

@@ -15704,6 +15704,72 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Only exported audio and cover images were added. Account files, metadata/configuration files, and unsupported protected formats were skipped.'**
   String get libationImportUnsupported;
+
+  /// No description provided for @adminUploadPermissionDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'Your Audiobookshelf account does not have upload permission. Ask a server administrator to enable upload access for your account.'**
+  String get adminUploadPermissionDenied;
+
+  /// No description provided for @libationImportChooseFolder.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose exported folder'**
+  String get libationImportChooseFolder;
+
+  /// No description provided for @libationImportNoExportedBooks.
+  ///
+  /// In en, this message translates to:
+  /// **'No exported audiobook files were found in that folder.'**
+  String get libationImportNoExportedBooks;
+
+  /// No description provided for @libationImportSelectBookTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose exported audiobook'**
+  String get libationImportSelectBookTitle;
+
+  /// No description provided for @libationImportSelectBookSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Select one exported audiobook folder to review before uploading.'**
+  String get libationImportSelectBookSubtitle;
+
+  /// No description provided for @libationImportLaunchApp.
+  ///
+  /// In en, this message translates to:
+  /// **'Launch Libation'**
+  String get libationImportLaunchApp;
+
+  /// No description provided for @libationImportSetApp.
+  ///
+  /// In en, this message translates to:
+  /// **'Set Libation app'**
+  String get libationImportSetApp;
+
+  /// No description provided for @libationImportSetOutputFolder.
+  ///
+  /// In en, this message translates to:
+  /// **'Set output folder'**
+  String get libationImportSetOutputFolder;
+
+  /// No description provided for @libationImportScanOutputFolder.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan output folder'**
+  String get libationImportScanOutputFolder;
+
+  /// No description provided for @libationImportLaunchFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t launch the selected Libation executable.'**
+  String get libationImportLaunchFailed;
+
+  /// No description provided for @libationImportDesktopHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Libation must be installed and signed in separately. Optional: set your Libation app and output folder to launch Libation or scan completed exports from here.'**
+  String get libationImportDesktopHint;
 }
 
 class _AppLocalizationsDelegate

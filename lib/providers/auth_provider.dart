@@ -118,6 +118,18 @@ class AuthProvider extends ChangeNotifier {
     return perms?['delete'] == true;
   }
 
+  /// True when this user is allowed to upload media to the server.
+  /// When user info has not been loaded yet, returns true so the server
+  /// remains the source of truth rather than blocking prematurely.
+  bool get canUpload {
+    if (_userJson == null) return true;
+    final perms = _userJson?['permissions'] as Map<String, dynamic>?;
+    if (perms != null && perms['upload'] is bool) {
+      return perms['upload'] as bool;
+    }
+    return isAdmin;
+  }
+
   /// Replace the live app shell with the startup loading view while a saved
   /// account is being activated and its library is prepared.
   void beginAccountSwitch() {

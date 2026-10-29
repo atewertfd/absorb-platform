@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:absorb/services/api_service.dart';
+import 'package:absorb/services/libation_import_helper.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -67,6 +68,8 @@ void main() {
         onProgress: (sent, total) => progress.add((sent, total)),
       );
       expect(result.success, isTrue);
+      expect(result.statusCode, 200);
+      expect(result.isPermissionDenied, isFalse);
       expect(sends, 1);
       expect(progress.first, (0, 9));
       expect(progress.last, (9, 9));
@@ -101,10 +104,32 @@ void main() {
         );
         expect(result.success, isFalse);
         expect(result.error, 'fixture rejection');
+        expect(result.statusCode, status);
+        expect(result.isPermissionDenied, status == 401 || status == 403);
         expect(sends, 1);
       },
     );
   }
+
+  test('checkUploadPathExists flags HTTP 403 as permission denied', () async {
+    final client = MockClient((request) async {
+      expect(request.url.path, '/api/filesystem/pathexists');
+      return http.Response('Forbidden', 403);
+    });
+    addTearDown(client.close);
+    final api = ApiService(
+      baseUrl: 'https://example.invalid',
+      token: 'fake',
+      httpClient: client,
+    );
+    final result = await api.checkUploadPathExists(
+      directory: 'Fixture author/Fixture title',
+      folderPath: '/audiobooks',
+    );
+    expect(result.success, isFalse);
+    expect(result.statusCode, 403);
+    expect(result.isPermissionDenied, isTrue);
+  });
 
   test('unreadable file fails before sending a request', () async {
     var sends = 0;
@@ -124,4 +149,68 @@ void main() {
     expect(result.success, isFalse);
     expect(sends, 0);
   });
+
+  test(
+    'scanLibationExportDirectory discovers exported books and skips account/DRM sidecars',
+    () async {
+      final temp = await Directory.systemTemp.createTemp(
+        'absorb-libation-scan-',
+      );
+      addTearDown(() => temp.delete(recursive: true));
+
+      final bookOneDir = await Directory(
+        '${temp.path}/Jane Doe/First Book [B001234567]',
+      ).create(recursive: true);
+      await File('${bookOneDir.path}/02 - Chapter Two.mp3').writeAsBytes([1, 2]);
+      await File('${bookOneDir.path}/01 - Chapter One.mp3').writeAsBytes([3, 4, 5]);
+      await File('${bookOneDir.path}/cover.jpg').writeAsBytes([6]);
+      await File('${bookOneDir.path}/AccountsSettings.json').writeAsString('{}');
+      await File('${bookOneDir.path}/raw.aax').writeAsBytes([7, 8]);
+
+      final bookTwoDir = await Directory(
+        '${temp.path}/John Smith/Second Book',
+      ).create(recursive: true);
+      await File(
+        '${bookTwoDir.path}/Second Book [B009876543].m4b',
+      ).writeAsBytes([1, 2, 3, 4]);
+
+      final candidates = await scanLibationExportDirectory(temp.path);
+      expect(candidates, hasLength(2));
+
+      final first = candidates.firstWhere((c) => c.title == 'First Book');
+      expect(first.author, 'Jane Doe');
+      expect(first.skippedFilesCount, 2);
+      expect(first.files.map((f) => f.name), [
+        '01 - Chapter One.mp3',
+        '02 - Chapter Two.mp3',
+        'cover.jpg',
+      ]);
+      expect(first.totalBytes, 6);
+
+      final second = candidates.firstWhere((c) => c.title == 'Second Book');
+      expect(second.author, 'John Smith');
+      expect(second.files.map((f) => f.name), [
+        'Second Book [B009876543].m4b',
+      ]);
+    },
+  );
+
+  test(
+    'launchLibationExecutable rejects non-existent or non-executable files',
+    () async {
+      final temp = await Directory.systemTemp.createTemp(
+        'absorb-libation-launch-',
+      );
+      addTearDown(() => temp.delete(recursive: true));
+      final jsonFile = await File(
+        '${temp.path}/AccountsSettings.json',
+      ).writeAsString('{}');
+      expect(await launchLibationExecutable(''), isFalse);
+      expect(await launchLibationExecutable(jsonFile.path), isFalse);
+      expect(
+        await launchLibationExecutable('${temp.path}/missing.exe'),
+        isFalse,
+      );
+    },
+  );
 }

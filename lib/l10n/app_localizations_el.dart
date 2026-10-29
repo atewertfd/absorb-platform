@@ -9113,4 +9113,42 @@ class AppLocalizationsEl extends AppLocalizations {
   @override
   String get libationImportUnsupported =>
       'Only exported audio and cover images were added. Account files, metadata/configuration files, and unsupported protected formats were skipped.';
+
+  @override
+  String get adminUploadPermissionDenied =>
+      'Your Audiobookshelf account does not have upload permission. Ask a server administrator to enable upload access for your account.';
+
+  @override
+  String get libationImportChooseFolder => 'Choose exported folder';
+
+  @override
+  String get libationImportNoExportedBooks =>
+      'No exported audiobook files were found in that folder.';
+
+  @override
+  String get libationImportSelectBookTitle => 'Choose exported audiobook';
+
+  @override
+  String get libationImportSelectBookSubtitle =>
+      'Select one exported audiobook folder to review before uploading.';
+
+  @override
+  String get libationImportLaunchApp => 'Launch Libation';
+
+  @override
+  String get libationImportSetApp => 'Set Libation app';
+
+  @override
+  String get libationImportSetOutputFolder => 'Set output folder';
+
+  @override
+  String get libationImportScanOutputFolder => 'Scan output folder';
+
+  @override
+  String get libationImportLaunchFailed =>
+      'Couldn\'t launch the selected Libation executable.';
+
+  @override
+  String get libationImportDesktopHint =>
+      'Libation must be installed and signed in separately. Optional: set your Libation app and output folder to launch Libation or scan completed exports from here.';
 }

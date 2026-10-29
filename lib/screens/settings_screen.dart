@@ -5238,14 +5238,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _openLibationImportFromSettings() async {
+    final libraryProvider = context.read<LibraryProvider>();
     final auth = context.read<AuthProvider>();
     final api = auth.apiService;
     if (api == null) return;
     await Navigator.of(context, rootNavigator: true).push(
       MaterialPageRoute(
         builder: (_) => AdminUploadScreen(
-          libraries: context.read<LibraryProvider>().libraries,
+          libraries: libraryProvider.libraries,
           initialLibraryId: auth.defaultLibraryId,
+          canUpload: auth.canUpload,
+          initialLibationExpanded: true,
+          onUploadComplete: () {
+            unawaited(libraryProvider.loadLibraries());
+          },
           apiService: api,
         ),
       ),
