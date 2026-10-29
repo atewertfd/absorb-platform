@@ -261,9 +261,9 @@ class AudioPlayerHandler extends BaseAudioHandler with SeekHandler {
     _player.playbackEventStream.listen(
       (event) {
         _clearAdvanceBufferingIfReady(refresh: false);
-        final state = _transformEvent(event);
         // Only push state on meaningful changes (play/pause, processing state)
-        // or at most every 5 seconds for position updates
+        // or at most every 5 seconds for position updates. Build the state only
+        // then: on desktop every libmpv position tick is a playback event.
         final now = DateTime.now();
         final playingChanged = _player.playing != _lastPlaying;
         final processingChanged =
@@ -271,7 +271,7 @@ class AudioPlayerHandler extends BaseAudioHandler with SeekHandler {
         final elapsed = now.difference(_lastPlaybackStateUpdate);
 
         if (playingChanged || processingChanged || elapsed.inSeconds >= 5) {
-          playbackState.add(state);
+          playbackState.add(_transformEvent(event));
           _lastPlaybackStateUpdate = now;
           _lastPlaying = _player.playing;
           _lastProcessingState = _player.processingState;
