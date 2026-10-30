@@ -68,7 +68,8 @@ jobs:
 
   android:
     name: Android APK (signed, for phone testing)
-    needs: checks
+    # Runs alongside checks to save time: an APK from a run whose checks
+    # failed is never handed out for testing (the run shows red).
     # Needs the signing secrets, which pull requests don't get.
     if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
@@ -91,6 +92,12 @@ jobs:
             /usr/local/lib/android/sdk/cmake/3.22.1
             /usr/local/lib/android/sdk/platforms/android-33
           key: android-sdk-${{ hashFiles('.flutter-version', 'android/app/build.gradle.kts', 'packages/whisper_ggml_plus/android/build.gradle') }}
+      # Reuses compiled Whisper C++ objects between runs (CMake picks up the
+      # *_COMPILER_LAUNCHER variables set on the build step).
+      - uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: android-ccache-arm64
+          max-size: 1G
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -115,8 +122,13 @@ jobs:
           keyAlias=$KEY_ALIAS
           storeFile=$KEYSTORE
           EOF
-      - name: Build universal APK
-        run: flutter build apk --release --no-pub --flavor github --dart-define=GITHUB_BUILD=true
+      # 64-bit ARM only (every modern phone): about a third of the compile time.
+      # Releases still ship every ABI.
+      - name: Build arm64 APK
+        env:
+          CMAKE_C_COMPILER_LAUNCHER: ccache
+          CMAKE_CXX_COMPILER_LAUNCHER: ccache
+        run: flutter build apk --release --no-pub --flavor github --target-platform android-arm64 --dart-define=GITHUB_BUILD=true
       - name: Verify the APK carries the permanent signing key
         run: python3 tool/ci/verify_apk_signature.py build/app/outputs/flutter-apk/*github-release*.apk
       - uses: actions/upload-artifact@v4
