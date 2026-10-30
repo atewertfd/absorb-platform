@@ -417,7 +417,7 @@ String _sanitizePath(String name) {
   if (s.isEmpty) s = 'Unknown';
   // Limit length to avoid filesystem issues
   if (s.length > 100) s = s.substring(0, 100).trim();
-  return s;
+  return windowsSafeName(s, windows: Platform.isWindows);
 }
 
 class DownloadService extends ChangeNotifier {
@@ -1077,6 +1077,7 @@ class DownloadService extends ChangeNotifier {
       var nested = (author != null && author.isNotEmpty)
           ? '${_sanitizePath(author)}/${_sanitizePath(title)}'
           : _sanitizePath(title);
+      nested = safeDownloadFolder(nested, windows: Platform.isWindows);
       if (_folderTakenByOther(nested, itemId)) {
         nested = '$nested (${itemId.substring(itemId.length - 8)})';
       }
@@ -2328,6 +2329,7 @@ class DownloadService extends ChangeNotifier {
       var nestedName = (author != null && author.isNotEmpty)
           ? '${_sanitizePath(author)}/${_sanitizePath(title)}'
           : _sanitizePath(title);
+      nestedName = safeDownloadFolder(nestedName, windows: Platform.isWindows);
       if (_folderTakenByOther(nestedName, itemId)) {
         nestedName = '$nestedName (${itemId.substring(itemId.length - 8)})';
       }
@@ -2526,6 +2528,7 @@ class DownloadService extends ChangeNotifier {
       var nestedName = (author != null && author.isNotEmpty)
           ? '${_sanitizePath(author)}/${_sanitizePath(title)}'
           : _sanitizePath(title);
+      nestedName = safeDownloadFolder(nestedName, windows: Platform.isWindows);
       if (_folderTakenByOther(nestedName, itemId)) {
         nestedName = '$nestedName (${itemId.substring(itemId.length - 8)})';
       }
