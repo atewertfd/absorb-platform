@@ -391,8 +391,8 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
                             .where((e) => !downloadedIds.contains(e.itemId))
                             .toList();
                         final hasAny = active.isNotEmpty ||
-                            queued.isNotEmpty || 
-                            failed.isNotEmpty || 
+                            queued.isNotEmpty ||
+                            failed.isNotEmpty ||
                             completed.isNotEmpty ||
                             ebooks.isNotEmpty;
 
@@ -924,7 +924,7 @@ class _ActiveDownloadCard extends StatelessWidget {
                                   fontWeight: FontWeight.w600)),
                         ],
                       ),
-                    if (info.bytesDone != null && 
+                    if (info.bytesDone != null &&
                           info.bytesTotal != null) ...[
                         const SizedBox(height: 4),
                         Text(

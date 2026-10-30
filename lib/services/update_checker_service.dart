@@ -234,7 +234,7 @@ class UpdateCheckerService {
           : null;
       final selectedDirectAsset = selectedWindowsAsset ?? selectedAsset;
       final currentVersion = await currentInstalledVersion();
-      final downloadUrl = selectedDirectAsset?.downloadUrl ?? 
+      final downloadUrl = selectedDirectAsset?.downloadUrl ??
           data['html_url'] as String? ??
           '';
       if (selectedDirectAsset != null) {

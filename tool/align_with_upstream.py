@@ -152,7 +152,7 @@ def tidy_line(line):
         return f"\x00{len(hidden) - 1}\x00"
 
     body = re.sub(r"'(?:[^'\\]|\\.)*'|\"(?:[^\"\\]|\\.)*\"|//.*$", hide, body)
-    body = tidy_code(body)
+    body = tidy_code(body).rstrip()
     return indent + re.sub(r"\x00(\d+)\x00", lambda m: hidden[int(m.group(1))], body)
 
 

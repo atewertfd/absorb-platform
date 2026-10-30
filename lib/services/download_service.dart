@@ -1245,7 +1245,7 @@ class DownloadService extends ChangeNotifier {
               'title="${info.title}" author="${info.author}" '
               'cover=${info.coverUrl != null ? "yes" : "null"} '
               'sessionData=${info.sessionData != null ? "${info.sessionData!.length} chars" : "null"}');
-          if (info.status == DownloadStatus.downloaded || 
+          if (info.status == DownloadStatus.downloaded ||
               info.status == DownloadStatus.error) {
             _downloads[entry.key] = info;
           } else {
@@ -1870,7 +1870,7 @@ class DownloadService extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     final map = <String, dynamic>{};
     for (final entry in _downloads.entries) {
-      if (entry.value.status == DownloadStatus.downloaded || 
+      if (entry.value.status == DownloadStatus.downloaded ||
           entry.value.status == DownloadStatus.error) {
         map[entry.key] = entry.value.toJson();
       }
