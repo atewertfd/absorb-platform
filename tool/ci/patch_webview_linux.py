@@ -23,6 +23,9 @@ def main() -> int:
         print("patched desktop_webview_window cookie expiry")
     elif "SoupDate *expires_date = soup_cookie_get_expires(cookie);" in source:
         print("desktop_webview_window already patched")
+    elif "soup_cookie_get_expires" not in source:
+        # Versions without the cookie API (e.g. 0.2.3) don't need the patch.
+        print("desktop_webview_window has no cookie expiry code; nothing to patch")
     else:
         print("desktop_webview_window cookie expiry source changed; review the patch")
         return 1
