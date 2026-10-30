@@ -55,6 +55,7 @@ How Absorb Plus is put together and where to look. The layout under `lib/` is up
 | Everyday commands | `tool/dev.ps1` | `check`, `build`, `bump`, `footprint` |
 | Undo formatting churn | `tool/align_with_upstream.py` | `python tool/align_with_upstream.py [--apply] FILE...` |
 | RAM/CPU sampling | `tool/measure-windows-usage.ps1` | Read-only process counters for a running build |
+| Frame/rebuild diagnostics | `lib/utils/scroll_diagnostics.dart` | Start the app with `ABSORB_SCROLL_DIAG=1`; logs wheel input, frame timings, redraws per frame and rebuild sources to `%TEMP%\absorb-scroll-diag.txt`. Debug builds also log which widget starts each frame's rebuild and, at 15–17 s, the stacks that marked widgets dirty. Found the idle redraw loop in `AbsorbingScreen._loadQueueMode`. |
 | Desktop audio smoke test | `tool/verify-desktop-audio.ps1`, `tool/desktop_audio_smoke.dart` | Checks the libmpv backend without a server |
 | Claude Code guards | `tool/claude_hooks.py` (tests in `tool/tests/`), wired in `.claude/settings.json` | Blocks upstream pushes, junction-following deletes, upstream reformatting and generated-file edits; asks before release/tag deletion |
 | Claude Code procedures | `.claude/skills/*/SKILL.md` | `/status`, `/build-verify`, `/release`, `/perf-measure`, `/fork-feature` |
