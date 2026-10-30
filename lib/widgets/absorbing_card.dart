@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../ui_themes/ui_theme_hooks.dart';
 import '../l10n/app_localizations.dart';
 import '../utils/cover_accent.dart';
 import '../providers/auth_provider.dart';
@@ -668,7 +669,7 @@ class AbsorbingCardState extends State<AbsorbingCard> with AutomaticKeepAliveCli
       child: Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: accent.withValues(alpha: 0.15), width: 1),
+        border: Border.all(color: lookPlayerCardEdge(context, accent.withValues(alpha: 0.15)), width: 1),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(23),
@@ -783,9 +784,11 @@ class AbsorbingCardState extends State<AbsorbingCard> with AutomaticKeepAliveCli
                 child: Padding(
                   padding: EdgeInsets.fromLTRB(24, compact ? 6 : 10, 24, 0),
                   child: StreamBuilder<Duration>(
+                    // Only the playing card needs live positions; other
+                    // cards show saved progress and ignore the stream.
                     stream: _isCastingThis
                         ? cast.castPositionStream
-                        : widget.player.absolutePositionStream,
+                        : (_isActive ? widget.player.absolutePositionStream : null),
                     builder: (_, snap) {
                       final double pos;
                       final double dur;

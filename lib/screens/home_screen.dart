@@ -542,7 +542,7 @@ class HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMi
             end: Alignment.bottomCenter,
             stops: const [0.0, 0.22, 0.72, 1.0],
             colors: [
-              cs.primary.withValues(alpha: gradientIntensityNotifier.value),
+              cs.primary.withValues(alpha: lookGlow(context, gradientIntensityNotifier.value)),
               cs.surface,
               lowerFade,
               scaffoldBg,

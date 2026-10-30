@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../ui_themes/ui_theme_hooks.dart';
 
 class CollapsibleSection extends StatefulWidget {
   final IconData icon;
@@ -43,12 +44,12 @@ class _CollapsibleSectionState extends State<CollapsibleSection> {
     _isBuilt = true;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Card(
-      elevation: isDark ? 0 : 2,
+      elevation: lookPanelElevation(context, isDark ? 0 : 2),
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      color: widget.cs.surfaceContainerHighest,
+      color: lookPanelColor(context, widget.cs.surfaceContainerHighest),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: isDark ? BorderSide(color: widget.cs.outlineVariant.withValues(alpha: 0.3)) : BorderSide.none,
+        borderRadius: BorderRadius.circular(lookRadius(context, 16)),
+        side: lookPanelSide(context, isDark ? BorderSide(color: widget.cs.outlineVariant.withValues(alpha: 0.3)) : BorderSide.none),
       ),
       clipBehavior: Clip.antiAlias,
       child: Theme(

@@ -13,7 +13,7 @@ const int kAbsorbImageCacheMaximumBytes = 64 * 1024 * 1024;
 const int kAbsorbImageCacheMaximumEntries = 500;
 
 /// Flutter's own [ImageCache] defaults, used by looks that keep them
-/// ([UiThemeSpec.defaultImageCache], e.g. Classic).
+/// ([AbsorbLook.defaultImageCache], e.g. Classic).
 const int kFlutterDefaultImageCacheMaximumBytes = 100 << 20;
 const int kFlutterDefaultImageCacheMaximumEntries = 1000;
 
@@ -40,7 +40,7 @@ void configureImageCache(ImageCache cache) {
 }
 
 void _applyImageCacheLimits(ImageCache cache) {
-  if (currentUiThemeSpec.defaultImageCache) {
+  if (currentAbsorbLook.defaultImageCache) {
     cache.maximumSizeBytes = kFlutterDefaultImageCacheMaximumBytes;
     cache.maximumSize = kFlutterDefaultImageCacheMaximumEntries;
   } else {
@@ -56,6 +56,6 @@ void _applyImageCacheLimits(ImageCache cache) {
 /// does not flash blank covers. This helper is also intentionally independent
 /// of audio and platform channels.
 void trimDecodedImageCacheForBackground(ImageCache cache) {
-  if (currentUiThemeSpec.defaultImageCache) return;
+  if (currentAbsorbLook.defaultImageCache) return;
   cache.clear();
 }

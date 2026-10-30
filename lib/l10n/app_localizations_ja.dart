@@ -12897,4 +12897,24 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get uiThemeContinue => 'Continue';
+
+  @override
+  String get uiThemeFrostedName => 'Frosted';
+
+  @override
+  String get uiThemeFrostedDescription =>
+      'Absorb Plus with soft frosted-glass panels and your cover colors glowing through.';
+
+  @override
+  String get uiThemeColorTitle => 'Choose a color';
+
+  @override
+  String get uiThemeColorIntro =>
+      'This is the same setting as Settings > Appearance > Color source.';
+
+  @override
+  String get uiThemeColorFromCover => 'From cover';
+
+  @override
+  String get uiThemeBack => 'Back';
 }

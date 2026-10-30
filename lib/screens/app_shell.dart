@@ -67,6 +67,7 @@ import '../widgets/beta_logging_notice.dart';
 import '../widgets/welcome_sheet.dart';
 import '../widgets/whats_new_prompt.dart';
 import '../ui_themes/ui_theme_picker.dart';
+import '../ui_themes/frosted.dart';
 import '../services/review_service.dart';
 import '../services/settings_sync_service.dart';
 import '../services/update_checker_service.dart';
@@ -877,7 +878,7 @@ class _AppShellState extends State<AppShell>
           ),
         ),
         ),
-              bottomNavigationBar: _buildBottomNav(context),
+              bottomNavigationBar: FrostedNavBar(child: _buildBottomNav(context)),
             ),
           ),
         ),

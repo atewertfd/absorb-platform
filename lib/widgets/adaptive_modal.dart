@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../utils/desktop_workspace.dart';
+import '../ui_themes/frosted.dart';
 
 enum DialogWidthClass {
   action(480),
@@ -222,7 +223,7 @@ Future<T?> showDesktopModalDialog<T>({
                 : null,
           ),
           Dialog(
-            backgroundColor: bg,
+            backgroundColor: lookSheetColor(dialogContext, bg),
             clipBehavior: Clip.antiAlias,
             insetPadding: const EdgeInsets.all(24),
             shape: RoundedRectangleBorder(
@@ -236,12 +237,12 @@ Future<T?> showDesktopModalDialog<T>({
               ),
               child: SizedBox(
                 width: maxWidth,
-                child: _DesktopDialogBody(
+                child: FrostedSurface(child: _DesktopDialogBody(
                   builder: builder,
                   closeButton: closeButton,
                   onRouteCaptured: onRouteCaptured,
                   onRouteDisposed: onRouteDisposed,
-                ),
+                )),
               ),
             ),
           ),

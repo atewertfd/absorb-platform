@@ -21896,6 +21896,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Continue'**
   String get uiThemeContinue;
+
+  /// No description provided for @uiThemeFrostedName.
+  ///
+  /// In en, this message translates to:
+  /// **'Frosted'**
+  String get uiThemeFrostedName;
+
+  /// No description provided for @uiThemeFrostedDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Absorb Plus with soft frosted-glass panels and your cover colors glowing through.'**
+  String get uiThemeFrostedDescription;
+
+  /// No description provided for @uiThemeColorTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a color'**
+  String get uiThemeColorTitle;
+
+  /// No description provided for @uiThemeColorIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'This is the same setting as Settings > Appearance > Color source.'**
+  String get uiThemeColorIntro;
+
+  /// No description provided for @uiThemeColorFromCover.
+  ///
+  /// In en, this message translates to:
+  /// **'From cover'**
+  String get uiThemeColorFromCover;
+
+  /// No description provided for @uiThemeBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Back'**
+  String get uiThemeBack;
 }
 
 class _AppLocalizationsDelegate

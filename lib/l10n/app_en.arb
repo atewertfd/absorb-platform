@@ -7068,5 +7068,11 @@
   "uiThemePlusDescription": "Today's look, with ebook and saved badges and memory-saving covers.",
   "uiThemeClassicName": "Classic",
   "uiThemeClassicDescription": "The first Windows version's look: full-quality covers, fewer badges, compact buttons.",
-  "uiThemeContinue": "Continue"
+  "uiThemeContinue": "Continue",
+  "uiThemeFrostedName": "Frosted",
+  "uiThemeFrostedDescription": "Absorb Plus with soft frosted-glass panels and your cover colors glowing through.",
+  "uiThemeColorTitle": "Choose a color",
+  "uiThemeColorIntro": "This is the same setting as Settings > Appearance > Color source.",
+  "uiThemeColorFromCover": "From cover",
+  "uiThemeBack": "Back"
 }

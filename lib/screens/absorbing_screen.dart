@@ -11,6 +11,7 @@ import '../services/queue_download_policy.dart';
 import '../services/scoped_prefs.dart';
 import '../widgets/absorb_page_header.dart';
 import '../main.dart' show flatNotifier, gradientIntensityNotifier, rootNavigatorKey;
+import '../ui_themes/ui_theme_hooks.dart';
 import '../widgets/absorbing_card.dart';
 import '../widgets/offline_status_icon.dart';
 import '../widgets/accessible_header_action.dart';
@@ -662,7 +663,7 @@ class _AbsorbingScreenState extends State<AbsorbingScreen> {
             end: Alignment.bottomCenter,
             stops: const [0.0, 0.22, 0.72, 1.0],
             colors: [
-              cs.primary.withValues(alpha: gradientIntensityNotifier.value),
+              cs.primary.withValues(alpha: lookGlow(context, gradientIntensityNotifier.value)),
               cs.surface,
               lowerFade,
               scaffoldBg,

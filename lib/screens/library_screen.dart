@@ -19,6 +19,7 @@ import '../widgets/library_picker_sheet.dart';
 import '../widgets/library_search_results.dart';
 import '../widgets/podcast_episode_feed.dart';
 import '../main.dart' show flatNotifier, gradientIntensityNotifier;
+import '../ui_themes/ui_theme_hooks.dart';
 import '../widgets/library_sort_filter_sheet.dart';
 import '../widgets/desktop_batch_actions.dart';
 import '../widgets/overlay_toast.dart';
@@ -2869,7 +2870,7 @@ class LibraryScreenState extends State<LibraryScreen>
                       stops: const [0.0, 0.22, 0.72, 1.0],
                       colors: [
                         cs.primary.withValues(
-                          alpha: gradientIntensityNotifier.value,
+                          alpha: lookGlow(context, gradientIntensityNotifier.value),
                         ),
                         cs.surface,
                         lowerFade,
@@ -3050,7 +3051,7 @@ class LibraryScreenState extends State<LibraryScreen>
                         stops: const [0.0, 0.22, 0.72, 1.0],
                         colors: [
                           cs.primary.withValues(
-                            alpha: gradientIntensityNotifier.value,
+                            alpha: lookGlow(context, gradientIntensityNotifier.value),
                           ),
                           cs.surface,
                           lowerFade,

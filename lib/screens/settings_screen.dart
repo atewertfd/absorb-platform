@@ -65,6 +65,7 @@ import '../widgets/feature_hint.dart';
 import '../widgets/welcome_sheet.dart';
 import '../widgets/whats_new_prompt.dart';
 import '../ui_themes/ui_theme_picker.dart';
+import '../ui_themes/ui_theme_hooks.dart';
 import '../widgets/rmab_config_sheet.dart';
 import '../widgets/rmab_search_results_sheet.dart';
 import '../widgets/server_connection_editor.dart';
@@ -1879,7 +1880,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             end: Alignment.bottomCenter,
             stops: const [0.0, 0.35, 1.0],
             colors: [
-              cs.primary.withValues(alpha: gradientIntensityNotifier.value),
+              cs.primary.withValues(alpha: lookGlow(context, gradientIntensityNotifier.value)),
               Theme.of(context).scaffoldBackgroundColor,
               Theme.of(context).scaffoldBackgroundColor,
             ],
@@ -2192,7 +2193,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ),
                     const Divider(height: 1, indent: 16, endIndent: 16),
-                    const UiThemeSettingsTile(),
+                    UiThemeSettingsTile(onChanged: _loadSettings),
                     const Divider(height: 1, indent: 16, endIndent: 16),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),

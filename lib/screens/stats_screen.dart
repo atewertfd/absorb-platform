@@ -19,6 +19,7 @@ import '../widgets/day_sessions_sheet.dart';
 import '../widgets/listening_session_card.dart';
 import '../widgets/overlay_toast.dart';
 import '../main.dart' show flatNotifier, gradientIntensityNotifier;
+import '../ui_themes/ui_theme_hooks.dart';
 import 'app_shell.dart';
 import '../l10n/app_localizations.dart';
 
@@ -455,7 +456,7 @@ class _StatsScreenState extends State<StatsScreen>
             end: Alignment.bottomCenter,
             stops: const [0.0, 0.22, 0.72, 1.0],
             colors: [
-              cs.primary.withValues(alpha: gradientIntensityNotifier.value),
+              cs.primary.withValues(alpha: lookGlow(context, gradientIntensityNotifier.value)),
               cs.surface,
               Color.lerp(cs.surface, Theme.of(context).scaffoldBackgroundColor, 0.55) ?? Theme.of(context).scaffoldBackgroundColor,
               Theme.of(context).scaffoldBackgroundColor,

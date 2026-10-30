@@ -53,6 +53,7 @@ import 'utils/scroll_diagnostics.dart';
 import 'utils/smooth_wheel_scroll.dart';
 import 'utils/memory_policy.dart';
 import 'ui_themes/ui_theme.dart';
+import 'ui_themes/frosted.dart';
 
 /// Global notifier so any widget (e.g. settings) can change the theme instantly.
 final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.dark);
@@ -368,6 +369,7 @@ class AbsorbApp extends StatelessWidget {
         useColorEverywhereNotifier,
         einkModeNotifier,
         snappyTransitionsNotifier,
+        uiThemeNotifier,
       ]),
       builder: (context, _) {
         final isEink = einkModeNotifier.value;
@@ -610,6 +612,7 @@ class AbsorbApp extends StatelessWidget {
                   ),
                 ),
                 pageTransitionsTheme: pageTransition,
+                extensions: [absorbLookFor(Brightness.light, eink: isEink)],
               ),
               darkTheme: ThemeData(
                 useMaterial3: true,
@@ -677,7 +680,9 @@ class AbsorbApp extends StatelessWidget {
                   ),
                 ),
                 pageTransitionsTheme: pageTransition,
+                extensions: [absorbLookFor(Brightness.dark, eink: isEink)],
               ),
+              builder: absorbLookBuilder, // Frosted surfaces (fork UI themes)
               home: AppMotionScope(
                 mode: motionMode,
                 child: AuthGate(setupLinkStream: setupLinkStream),

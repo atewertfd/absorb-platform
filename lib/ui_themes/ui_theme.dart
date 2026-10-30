@@ -1,15 +1,22 @@
-import 'package:flutter/widgets.dart';
+import 'dart:ui' show lerpDouble;
+
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Absorb Plus "UI themes": whole-app looks the user picks once on first
 /// launch and can change in Settings > Appearance > UI theme.
 ///
-/// This is separate from the light/dark/OLED "Theme" setting. A UI theme only
-/// changes graphics (cover quality, badges, shelf sizes, header buttons);
-/// motion and animation timing are never part of it.
+/// This is separate from the light/dark/OLED "Theme" setting and from the
+/// color source. A UI theme only changes graphics (cover quality, badges,
+/// shelf sizes, header buttons, surface style); motion and animation timing
+/// are never part of it.
 ///
-/// Adding a look: add an enum value with a stable id, give it a
-/// [UiThemeSpec] preset in [AppUiTheme.spec], and add its name and
+/// Themes are values: each look is an [AbsorbLook] preset, attached to the
+/// app's [ThemeData] as a [ThemeExtension] (see `absorbLookFor` in main.dart's
+/// ThemeData and `frosted.dart`). Widgets read it with [AbsorbLook.of].
+///
+/// Adding a look: add an enum value with a stable id, give it an
+/// [AbsorbLook] preset in [AppUiTheme.lookFor], and add its name and
 /// description strings in `ui_theme_picker.dart` (the switches there are
 /// exhaustive, so the analyzer points at every place that needs it).
 enum AppUiTheme {
@@ -17,7 +24,11 @@ enum AppUiTheme {
   plus('plus'),
 
   /// The look of the first Windows port (windows-experimental-0.1.0).
-  classic('classic');
+  classic('classic'),
+
+  /// Absorb Plus with lightly frosted, translucent surfaces over a stronger
+  /// cover-colored glow.
+  frosted('frosted');
 
   const AppUiTheme(this.id);
 
@@ -33,23 +44,50 @@ enum AppUiTheme {
     return null;
   }
 
-  UiThemeSpec get spec => switch (this) {
-    AppUiTheme.plus => UiThemeSpec.plus,
-    AppUiTheme.classic => UiThemeSpec.classic,
-  };
+  /// The look's dark-mode preset (the app's default mode).
+  AbsorbLook get spec => lookFor(Brightness.dark);
+
+  /// The look's preset for [brightness]. E-ink always gets neutral surfaces
+  /// (translucency and glow dither into noise there), but keeps the look's
+  /// behavior flags.
+  AbsorbLook lookFor(Brightness brightness, {bool eink = false}) {
+    final look = switch (this) {
+      AppUiTheme.plus => AbsorbLook.plus,
+      AppUiTheme.classic => AbsorbLook.classic,
+      AppUiTheme.frosted => brightness == Brightness.dark
+          ? AbsorbLook.frostedDark
+          : AbsorbLook.frostedLight,
+    };
+    return eink ? look.withNeutralSurfaces() : look;
+  }
 }
 
-/// What a UI theme changes. Every flag's default is today's Absorb Plus
-/// behavior, so [UiThemeSpec.plus] is simply the default constructor.
+/// What a UI theme changes, as a [ThemeExtension] on the app's [ThemeData].
+///
+/// Every field's default is today's Absorb Plus behavior, so
+/// [AbsorbLook.plus] is simply the default constructor. The visual tokens
+/// (glow, panels, sheets, radius) are "neutral" by default: null alphas and
+/// false flags mean "paint exactly what upstream paints".
 @immutable
-class UiThemeSpec {
-  const UiThemeSpec({
+class AbsorbLook extends ThemeExtension<AbsorbLook> {
+  const AbsorbLook({
     this.fullQualityCovers = false,
     this.defaultImageCache = false,
     this.showExtraCoverBadges = true,
     this.classicHomeShelves = false,
     this.compactHeaderActions = false,
+    this.glowStrength,
+    this.panelFillAlpha,
+    this.panelBorderAlpha = 0,
+    this.panelBlurSigma = 0,
+    this.cornerRadiusBoost = 0,
+    this.sheetFillAlpha,
+    this.frostedNavBar = false,
+    this.frostedSheets = false,
+    this.frostedPlayerCard = false,
   });
+
+  // ── Behavior flags ──
 
   /// Book card covers decode at the source resolution instead of at display
   /// size, and the blurred letterbox behind square covers is not built from a
@@ -72,9 +110,52 @@ class UiThemeSpec {
   /// growing to a 44x44 tap area.
   final bool compactHeaderActions;
 
-  static const UiThemeSpec plus = UiThemeSpec();
+  // ── Visual tokens ──
 
-  static const UiThemeSpec classic = UiThemeSpec(
+  /// Top alpha of the cover-colored background glow. Null follows the user's
+  /// gradient intensity setting. "Flat background" always wins: the screens
+  /// skip the glow entirely when it is on.
+  final double? glowStrength;
+
+  /// Alpha of the white glass fill on cards and panels. Null keeps the
+  /// opaque upstream fills (the panels are not frosted).
+  final double? panelFillAlpha;
+
+  /// Alpha of the panels' 1 px edge: a light edge in dark mode, a faint dark
+  /// one in light mode (a white line vanishes on white).
+  final double panelBorderAlpha;
+
+  /// Blur radius behind the few large frosted surfaces (nav bar, desktop
+  /// dialogs). Never applied per list item.
+  final double panelBlurSigma;
+
+  /// Added to the corner radius of themed cards, sheets and dialogs.
+  final double cornerRadiusBoost;
+
+  /// Alpha of sheet, dialog and nav bar backgrounds. Kept high so text stays
+  /// readable even where no blur sits behind it. Null keeps them opaque.
+  final double? sheetFillAlpha;
+
+  /// The bottom nav bar is translucent with a blur behind it and a top edge.
+  final bool frostedNavBar;
+
+  /// Bottom sheets and dialogs are translucent (desktop dialogs also blur).
+  final bool frostedSheets;
+
+  /// The Absorbing (player) card gets the light glass edge. Its background is
+  /// already a pre-blurred cover, so no extra blur is added.
+  final bool frostedPlayerCard;
+
+  /// Whether cards and panels are frosted glass.
+  bool get frostedPanels => panelFillAlpha != null;
+
+  /// Whether any surface differs from the upstream look.
+  bool get changesSurfaces =>
+      frostedPanels || frostedNavBar || frostedSheets || frostedPlayerCard;
+
+  static const AbsorbLook plus = AbsorbLook();
+
+  static const AbsorbLook classic = AbsorbLook(
     fullQualityCovers: true,
     defaultImageCache: true,
     showExtraCoverBadges: false,
@@ -82,14 +163,140 @@ class UiThemeSpec {
     compactHeaderActions: true,
   );
 
+  /// Frosted in dark mode: the owner-approved demo's values (white 7% glass,
+  /// 12% light edge, blur 18, radius +4) over a ~0.24 glow.
+  static const AbsorbLook frostedDark = AbsorbLook(
+    glowStrength: 0.24,
+    panelFillAlpha: 0.07,
+    panelBorderAlpha: 0.12,
+    panelBlurSigma: 18,
+    cornerRadiusBoost: 4,
+    sheetFillAlpha: 0.90,
+    frostedNavBar: true,
+    frostedSheets: true,
+    frostedPlayerCard: true,
+  );
+
+  /// Frosted in light mode: milky glass (white 50%) with a faint dark edge,
+  /// and a softer glow since the light accent tone is darker.
+  static const AbsorbLook frostedLight = AbsorbLook(
+    glowStrength: 0.18,
+    panelFillAlpha: 0.50,
+    panelBorderAlpha: 0.08,
+    panelBlurSigma: 18,
+    cornerRadiusBoost: 4,
+    sheetFillAlpha: 0.90,
+    frostedNavBar: true,
+    frostedSheets: true,
+    frostedPlayerCard: true,
+  );
+
+  /// The look in effect for [context]: the app theme's extension, or (in
+  /// tests and widgets built outside the app theme) the active look from
+  /// [UiThemeScope]. Subscribes [context] to look changes either way.
+  static AbsorbLook of(BuildContext context) {
+    final theme = Theme.of(context);
+    return theme.extension<AbsorbLook>() ??
+        UiThemeScope.themeOf(context).lookFor(theme.brightness);
+  }
+
+  /// The same behavior flags with every visual token neutral.
+  AbsorbLook withNeutralSurfaces() => AbsorbLook(
+    fullQualityCovers: fullQualityCovers,
+    defaultImageCache: defaultImageCache,
+    showExtraCoverBadges: showExtraCoverBadges,
+    classicHomeShelves: classicHomeShelves,
+    compactHeaderActions: compactHeaderActions,
+  );
+
+  /// The glass fill for cards and panels, or null when panels aren't frosted.
+  Color? panelFill() {
+    final alpha = panelFillAlpha;
+    return alpha == null ? null : Colors.white.withValues(alpha: alpha);
+  }
+
+  /// The 1 px panel edge for a scheme of [brightness].
+  Color panelEdge(Brightness brightness) =>
+      (brightness == Brightness.dark ? Colors.white : Colors.black)
+          .withValues(alpha: panelBorderAlpha);
+
+  @override
+  AbsorbLook copyWith({
+    bool? fullQualityCovers,
+    bool? defaultImageCache,
+    bool? showExtraCoverBadges,
+    bool? classicHomeShelves,
+    bool? compactHeaderActions,
+    double? glowStrength,
+    double? panelFillAlpha,
+    double? panelBorderAlpha,
+    double? panelBlurSigma,
+    double? cornerRadiusBoost,
+    double? sheetFillAlpha,
+    bool? frostedNavBar,
+    bool? frostedSheets,
+    bool? frostedPlayerCard,
+  }) => AbsorbLook(
+    fullQualityCovers: fullQualityCovers ?? this.fullQualityCovers,
+    defaultImageCache: defaultImageCache ?? this.defaultImageCache,
+    showExtraCoverBadges: showExtraCoverBadges ?? this.showExtraCoverBadges,
+    classicHomeShelves: classicHomeShelves ?? this.classicHomeShelves,
+    compactHeaderActions: compactHeaderActions ?? this.compactHeaderActions,
+    glowStrength: glowStrength ?? this.glowStrength,
+    panelFillAlpha: panelFillAlpha ?? this.panelFillAlpha,
+    panelBorderAlpha: panelBorderAlpha ?? this.panelBorderAlpha,
+    panelBlurSigma: panelBlurSigma ?? this.panelBlurSigma,
+    cornerRadiusBoost: cornerRadiusBoost ?? this.cornerRadiusBoost,
+    sheetFillAlpha: sheetFillAlpha ?? this.sheetFillAlpha,
+    frostedNavBar: frostedNavBar ?? this.frostedNavBar,
+    frostedSheets: frostedSheets ?? this.frostedSheets,
+    frostedPlayerCard: frostedPlayerCard ?? this.frostedPlayerCard,
+  );
+
+  /// Used by [AnimatedTheme] (light/dark switches): numbers blend, flags and
+  /// null tokens switch halfway.
+  @override
+  AbsorbLook lerp(covariant AbsorbLook? other, double t) {
+    if (other == null) return this;
+    final near = t < 0.5 ? this : other;
+    double? nullable(double? a, double? b) =>
+        a == null || b == null ? (t < 0.5 ? a : b) : lerpDouble(a, b, t);
+    return AbsorbLook(
+      fullQualityCovers: near.fullQualityCovers,
+      defaultImageCache: near.defaultImageCache,
+      showExtraCoverBadges: near.showExtraCoverBadges,
+      classicHomeShelves: near.classicHomeShelves,
+      compactHeaderActions: near.compactHeaderActions,
+      glowStrength: nullable(glowStrength, other.glowStrength),
+      panelFillAlpha: nullable(panelFillAlpha, other.panelFillAlpha),
+      panelBorderAlpha: lerpDouble(panelBorderAlpha, other.panelBorderAlpha, t)!,
+      panelBlurSigma: lerpDouble(panelBlurSigma, other.panelBlurSigma, t)!,
+      cornerRadiusBoost:
+          lerpDouble(cornerRadiusBoost, other.cornerRadiusBoost, t)!,
+      sheetFillAlpha: nullable(sheetFillAlpha, other.sheetFillAlpha),
+      frostedNavBar: near.frostedNavBar,
+      frostedSheets: near.frostedSheets,
+      frostedPlayerCard: near.frostedPlayerCard,
+    );
+  }
+
   @override
   bool operator ==(Object other) =>
-      other is UiThemeSpec &&
+      other is AbsorbLook &&
       other.fullQualityCovers == fullQualityCovers &&
       other.defaultImageCache == defaultImageCache &&
       other.showExtraCoverBadges == showExtraCoverBadges &&
       other.classicHomeShelves == classicHomeShelves &&
-      other.compactHeaderActions == compactHeaderActions;
+      other.compactHeaderActions == compactHeaderActions &&
+      other.glowStrength == glowStrength &&
+      other.panelFillAlpha == panelFillAlpha &&
+      other.panelBorderAlpha == panelBorderAlpha &&
+      other.panelBlurSigma == panelBlurSigma &&
+      other.cornerRadiusBoost == cornerRadiusBoost &&
+      other.sheetFillAlpha == sheetFillAlpha &&
+      other.frostedNavBar == frostedNavBar &&
+      other.frostedSheets == frostedSheets &&
+      other.frostedPlayerCard == frostedPlayerCard;
 
   @override
   int get hashCode => Object.hash(
@@ -98,8 +305,22 @@ class UiThemeSpec {
     showExtraCoverBadges,
     classicHomeShelves,
     compactHeaderActions,
+    glowStrength,
+    panelFillAlpha,
+    panelBorderAlpha,
+    panelBlurSigma,
+    cornerRadiusBoost,
+    sheetFillAlpha,
+    frostedNavBar,
+    frostedSheets,
+    frostedPlayerCard,
   );
 }
+
+/// The [AbsorbLook] to attach to the app's [ThemeData] of [brightness]: the
+/// active look's preset. One-line hook in main.dart's `extensions:`.
+AbsorbLook absorbLookFor(Brightness brightness, {bool eink = false}) =>
+    currentUiTheme.lookFor(brightness, eink: eink);
 
 /// The look used while none has been chosen.
 const AppUiTheme kDefaultUiTheme = AppUiTheme.plus;
@@ -110,9 +331,10 @@ final ValueNotifier<AppUiTheme?> uiThemeNotifier = ValueNotifier(null);
 /// The active theme ([kDefaultUiTheme] until one is chosen).
 AppUiTheme get currentUiTheme => uiThemeNotifier.value ?? kDefaultUiTheme;
 
-/// The active theme's flags, read without subscribing to changes. Widgets
-/// should use [UiThemeScope.specOf] so they rebuild when the look changes.
-UiThemeSpec get currentUiThemeSpec => currentUiTheme.spec;
+/// The active look's behavior flags, read without a [BuildContext] (image
+/// cache policy). Widgets should use [AbsorbLook.of] so they rebuild when the
+/// look changes.
+AbsorbLook get currentAbsorbLook => currentUiTheme.spec;
 
 /// Device-wide storage for the chosen look. It is deliberately not a
 /// per-account (scoped) setting: the look belongs to the device, like the
@@ -145,7 +367,9 @@ abstract final class UiThemeStore {
 }
 
 /// Makes the active look available below it and rebuilds dependents when it
-/// changes. Sits above [MaterialApp] so dialogs and sheets see it too.
+/// changes. Sits above [MaterialApp] so dialogs and sheets see it too. The
+/// app theme's [AbsorbLook] extension takes precedence (see [AbsorbLook.of]);
+/// this is the fallback for widgets built outside it.
 class UiThemeScope extends InheritedNotifier<ValueNotifier<AppUiTheme?>> {
   UiThemeScope({
     super.key,
@@ -153,11 +377,10 @@ class UiThemeScope extends InheritedNotifier<ValueNotifier<AppUiTheme?>> {
     required super.child,
   }) : super(notifier: notifier ?? uiThemeNotifier);
 
-  /// The active look's flags. Subscribes [context] to changes when a scope is
+  /// The active look. Subscribes [context] to changes when a scope is
   /// present; without one (some tests) it reads the global notifier.
-  static UiThemeSpec specOf(BuildContext context) {
+  static AppUiTheme themeOf(BuildContext context) {
     final scope = context.dependOnInheritedWidgetOfExactType<UiThemeScope>();
-    final theme = (scope?.notifier ?? uiThemeNotifier).value;
-    return (theme ?? kDefaultUiTheme).spec;
+    return (scope?.notifier ?? uiThemeNotifier).value ?? kDefaultUiTheme;
   }
 }
