@@ -41,6 +41,6 @@ Never touch other releases: no deleting, renaming, or changing which one is Late
 6. **Watch CI:** `.github/workflows/release.yml`, a single run. It verifies the tag against pubspec, creates the release (Odd patch = pre-release), runs the shared checks, then builds Windows, Linux, web and Android into that one release. Run `gh run watch <id> --exit-status` in the background. If one platform job fails, fix it, then re-run that job, or use workflow_dispatch with the same tag.
 7. **Finish the release.**
    - Replace the generated notes: `gh release edit vX.Y.Z-N --notes-file <file>`.
-   - Verify with `gh release view vX.Y.Z-N --json name,isPrerelease,assets`. The title should read `Absorb Plus X.Y.Z-N (Beta K)`, it must be a **pre-release** for betas, and it needs the Windows Setup.exe and portable ZIP, Linux tar.gz and .deb, the web ZIP and the Android APKs.
+   - Verify with `gh release view vX.Y.Z-N --json name,isPrerelease,assets`. The title should read `Absorb Plus X.Y.Z-N (Beta K)`, it must be a **pre-release** for betas, and it needs the Windows Setup.exe and portable ZIP, Linux tar.gz and .deb, the web ZIP and the Android APKs, and **nothing else**: no SHA256SUMS or other `.txt` files (owner, 2026-10-30: no unnecessary files in the download). Delete any stray asset with `gh release delete-asset` before announcing.
    - Check that Latest didn't change: `gh release view --json tagName`.
 8. **Report** the URL, the assets, and anything that failed.
