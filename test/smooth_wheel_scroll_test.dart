@@ -95,6 +95,28 @@ void main() {
     expect(frames, inInclusiveRange(5, 30));
   });
 
+  test('a steadily turning wheel scrolls at an even speed', () {
+    // A real mouse measured on a 165 Hz monitor: 100 px notches every 65 ms.
+    const frame = Duration(microseconds: 6061);
+    final steps = <double>[];
+    var sinceNotch = const Duration(milliseconds: 65);
+    for (var i = 0; i < 165; i++) {
+      if (sinceNotch >= const Duration(milliseconds: 65) && i < 120) {
+        smoother.handlePacket(_packet([_wheel(100)]));
+        sinceNotch = Duration.zero;
+      }
+      final before = sentY();
+      smoother.tick(frame);
+      steps.add(sentY() - before);
+      sinceNotch += frame;
+    }
+    final spinning = steps.sublist(60, 115);
+    final fastest = spinning.reduce((a, b) => a > b ? a : b);
+    final slowest = spinning.reduce((a, b) => a < b ? a : b);
+    // The old ease-out pulsed 4.7x per notch; the spring stays near even.
+    expect(fastest / slowest, lessThan(1.6));
+  });
+
   test('other input in the same packet keeps its place', () {
     const click = ui.PointerData(
       change: ui.PointerChange.down,

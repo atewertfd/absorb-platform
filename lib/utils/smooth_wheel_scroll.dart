@@ -11,7 +11,10 @@ import 'package:flutter/scheduler.dart';
 /// Flutter applies each wheel notch as one instant jump, which reads as
 /// choppy scrolling. This sits between the engine and the gesture binding:
 /// each mouse-wheel event is held back and re-sent as smaller wheel events,
-/// one per frame, easing out over roughly 200 ms. Scrollables handle those
+/// one per frame, following a critically damped spring (95% of a notch lands
+/// within about 190 ms). A spring keeps the speed steady while the wheel keeps
+/// turning; a plain ease-out pulses fast-slow on every notch, which still
+/// looks choppy. Scrollables handle those
 /// like any other wheel input, so nested lists, scroll limits and Shift+wheel
 /// keep working and no widget needs to change. Everything else (clicks,
 /// moves, trackpad pan/zoom) passes straight through.
@@ -20,7 +23,7 @@ class SmoothWheelScroll {
     required this.emit,
     required this.onActive,
     this.shouldSmooth = _always,
-    this.timeConstant = const Duration(milliseconds: 40),
+    this.stiffness = 25,
   });
 
   static bool _always(ui.PointerData d) => true;
@@ -34,18 +37,21 @@ class SmoothWheelScroll {
   /// Wheel events this returns false for pass through as plain jumps.
   final bool Function(ui.PointerData d) shouldSmooth;
 
-  /// Exponential easing: about 95% of a notch lands within 3x this.
-  final Duration timeConstant;
+  /// The spring's angular frequency (1/s); higher settles faster.
+  final double stiffness;
 
   /// A pointer that moves this far (physical px) starts a new scroll target.
   static const double _retargetDistance = 32;
 
-  /// Below this (physical px) the rest of the motion is sent in one step.
+  /// Below this (physical px, and px per frame) the motion finishes in one step.
   static const double _finishThreshold = 0.5;
 
   ui.PointerData? _template;
+  // Distance still to scroll, and the current speed (physical px per second).
   double _remainingX = 0;
   double _remainingY = 0;
+  double _velocityX = 0;
+  double _velocityY = 0;
   Duration _sinceEvent = Duration.zero;
 
   bool get isActive => _remainingX != 0 || _remainingY != 0;
@@ -79,20 +85,30 @@ class SmoothWheelScroll {
     final previous = _template;
     if (previous != null && isActive && !_sameTarget(previous, d)) {
       _send(_remainingX, _remainingY); // finish where the old motion started
-      _remainingX = 0;
-      _remainingY = 0;
+      _stop();
     }
     _sinceEvent = Duration.zero;
     _template = d;
     // Turning the wheel the other way stops the old motion instead of
-    // fighting it.
-    _remainingX = _remainingX * d.scrollDeltaX < 0
-        ? d.scrollDeltaX
-        : _remainingX + d.scrollDeltaX;
-    _remainingY = _remainingY * d.scrollDeltaY < 0
-        ? d.scrollDeltaY
-        : _remainingY + d.scrollDeltaY;
+    // fighting it; the same direction keeps its speed, so spinning stays even.
+    if (_remainingX * d.scrollDeltaX < 0) {
+      _remainingX = 0;
+      _velocityX = 0;
+    }
+    if (_remainingY * d.scrollDeltaY < 0) {
+      _remainingY = 0;
+      _velocityY = 0;
+    }
+    _remainingX += d.scrollDeltaX;
+    _remainingY += d.scrollDeltaY;
     if (isActive) onActive();
+  }
+
+  void _stop() {
+    _remainingX = 0;
+    _remainingY = 0;
+    _velocityX = 0;
+    _velocityY = 0;
   }
 
   static bool _sameTarget(ui.PointerData a, ui.PointerData b) =>
@@ -105,16 +121,31 @@ class SmoothWheelScroll {
   bool tick(Duration dt) {
     if (!isActive) return false;
     _sinceEvent += dt;
-    final t = dt.inMicroseconds / timeConstant.inMicroseconds;
-    final fraction = 1 - math.exp(-t);
-    var stepX = _remainingX * fraction;
-    var stepY = _remainingY * fraction;
-    if ((_remainingX - stepX).abs() < _finishThreshold) stepX = _remainingX;
-    if ((_remainingY - stepY).abs() < _finishThreshold) stepY = _remainingY;
+    final seconds = dt.inMicroseconds / Duration.microsecondsPerSecond;
+    final (stepX, velocityX) = _springStep(_remainingX, _velocityX, seconds);
+    final (stepY, velocityY) = _springStep(_remainingY, _velocityY, seconds);
     _remainingX -= stepX;
     _remainingY -= stepY;
+    _velocityX = velocityX;
+    _velocityY = velocityY;
     _send(stepX, stepY);
     return isActive;
+  }
+
+  /// Exact critically damped spring step towards zero remaining distance;
+  /// stable for any frame time. Returns the distance moved and the new speed.
+  (double, double) _springStep(double remaining, double velocity, double dt) {
+    if (remaining == 0) return (0, 0);
+    final w = stiffness;
+    final error = -remaining; // position relative to the target
+    final decay = math.exp(-w * dt);
+    final newError = (error + (velocity + w * error) * dt) * decay;
+    final newVelocity = (velocity - w * (velocity + w * error) * dt) * decay;
+    if (newError.abs() < _finishThreshold &&
+        (newVelocity * dt).abs() < _finishThreshold) {
+      return (remaining, 0); // land exactly on the target
+    }
+    return (newError - error, newVelocity);
   }
 
   void _send(double dx, double dy) {
