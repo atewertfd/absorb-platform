@@ -118,8 +118,14 @@ function Write-BetaNotes {
   $beta = (Select-String -Path lib/build_info.dart -Pattern 'kBetaNumber = (\d+)').Matches[0].Groups[1].Value
   $lastTag = (git describe --tags --abbrev=0 --match 'v*' 2>$null)
   $range = if ($lastTag) { "$lastTag..HEAD" } else { 'HEAD~30..HEAD' }
-  $changes = git log --no-merges --format='- %s' $range |
-    Where-Object { $_ -match '^- (feat|fix|perf)' }
+  # Owner-facing wording: "New / Fixed / Faster", no commit prefixes.
+  $label = @{ feat = 'New'; fix = 'Fixed'; perf = 'Faster' }
+  $changes = git log --no-merges --format='%s' $range | ForEach-Object {
+    if ($_ -match '^(feat|fix|perf)(\([^)]*\))?:\s*(.+)$') {
+      $text = $Matches[3]
+      "- $($label[$Matches[1]]): $($text.Substring(0,1).ToUpper())$($text.Substring(1))"
+    }
+  }
   $androidLine = if ($AndroidRun) { "Android: Android\Absorb Plus beta.apk (CI run $AndroidRun, $(Get-Date -Format 'yyyy-MM-dd HH:mm'))" }
     elseif (Test-Path (Join-Path $BetaDir 'Android\Absorb Plus beta.apk')) {
       $old = Select-String -Path $notesPath -Pattern '^Android: ' -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -151,7 +157,8 @@ function Update-BetaFolder {
     $running = Get-Process -Id $running.Id -ErrorAction SilentlyContinue
   }
   if ($running) {
-    Write-Host "beta folder: Absorb is open from it (maybe in the tray), so it was not refreshed. Run: .\tool\dev.ps1 beta-sync -CloseRunning" -ForegroundColor Yellow
+    Write-BetaNotes  # the change list stays current even when the app can't be swapped
+    Write-Host "beta folder: Absorb is open from it (maybe in the tray), so the app was not refreshed. Run: .\tool\dev.ps1 beta-sync -CloseRunning" -ForegroundColor Yellow
     return
   }
   New-Item -ItemType Directory -Force -Path $dst | Out-Null
