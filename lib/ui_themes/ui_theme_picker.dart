@@ -1,10 +1,15 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../l10n/app_localizations.dart';
+import '../providers/library_provider.dart';
 import '../widgets/theme_presets.dart';
 import 'ui_theme.dart';
 import 'ui_theme_appearance.dart';
 import 'ui_theme_preview.dart';
+import 'ui_theme_try.dart';
 
 /// The display name of a look.
 String uiThemeName(AppLocalizations l, AppUiTheme theme) => switch (theme) {
@@ -32,29 +37,52 @@ const List<String> kUiThemePickerPresetIds = [
   'saturate',
 ];
 
-/// What the picker returns when finished with Done.
+/// What the picker returns when finished with Done (or "Try it").
 @immutable
 class UiThemePickerResult {
-  const UiThemePickerResult(this.theme, this.color);
+  const UiThemePickerResult(this.theme, this.color, {this.tryLive = false});
 
   final AppUiTheme theme;
   final AppColorChoice color;
+
+  /// The dialog closed to try [theme] live in the app ("Try it").
+  final bool tryLive;
 }
 
 abstract final class UiThemePicker {
   /// Opens the two-step picker (look, then color) with the current settings
   /// selected. Returns the choices made with Done, or null when dismissed.
+  ///
+  /// "Try it" closes the picker and shows the highlighted look app-wide
+  /// without saving it ([UiThemeTryOut]). Keep saves it and returns it here
+  /// (color unchanged); Go back restores the saved look and reopens the
+  /// picker on the tried look.
   static Future<UiThemePickerResult?> show(
     BuildContext context, {
     UiThemeAppearance appearance = const AppUiThemeAppearance(),
-  }) {
-    return showDialog<UiThemePickerResult>(
-      context: context,
-      builder: (_) => UiThemePickerDialog(
-        initial: currentUiTheme,
-        appearance: appearance,
-      ),
-    );
+  }) async {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    var initial = currentUiTheme;
+    while (true) {
+      final host = context.mounted
+          ? context
+          : (navigator.mounted ? navigator.context : null);
+      if (host == null) return null;
+      final picked = await showDialog<UiThemePickerResult>(
+        context: host,
+        builder: (_) =>
+            UiThemePickerDialog(initial: initial, appearance: appearance),
+      );
+      if (picked == null || !picked.tryLive) return picked;
+      switch (await UiThemeTryOut.start(picked.theme)) {
+        case UiThemeTryOutOutcome.kept:
+          return UiThemePickerResult(picked.theme, appearance.currentColor);
+        case UiThemeTryOutOutcome.wentBack:
+          initial = picked.theme;
+        case UiThemeTryOutOutcome.ended:
+          return null;
+      }
+    }
   }
 
   /// Asks once per device, after the main screen is up. Finishing saves the
@@ -69,7 +97,7 @@ abstract final class UiThemePicker {
     if (delay > Duration.zero) await Future<void>.delayed(delay);
     if (!context.mounted) return;
     final picked = await show(context, appearance: appearance);
-    await UiThemeStore.choose(picked?.theme ?? currentUiTheme);
+    await UiThemeStore.choose(picked?.theme ?? savedUiTheme);
     if (picked != null) await _saveColor(picked.color, appearance);
   }
 
@@ -82,7 +110,9 @@ abstract final class UiThemePicker {
   }) async {
     final picked = await show(context, appearance: appearance);
     if (picked == null) return;
-    if (picked.theme != uiThemeNotifier.value) {
+    // A look still being tried elsewhere ends here too (choose clears it).
+    if (picked.theme != uiThemeNotifier.value ||
+        uiThemePreviewNotifier.value != null) {
       await UiThemeStore.choose(picked.theme);
     }
     await _saveColor(picked.color, appearance);
@@ -125,12 +155,17 @@ class _UiThemePickerDialogState extends State<UiThemePickerDialog> {
   List<Color> get _swatches {
     final colors = [for (final p in _presets) p.color];
     final own = widget.appearance.currentColor.seed;
-    if (own != null &&
-        !colors.any((c) => c.toARGB32() == own.toARGB32())) {
+    if (own != null && !colors.any((c) => c.toARGB32() == own.toARGB32())) {
       colors.insert(0, own);
     }
     return colors;
   }
+
+  /// The user's own books for the previews, read once (no listening).
+  late final ({List<UiThemePreviewCover> covers, Map<String, String> headers})
+  _covers = previewCoversFrom(
+    Provider.of<LibraryProvider?>(context, listen: false),
+  );
 
   ColorScheme _scheme(BuildContext context) {
     final base = Theme.of(context).colorScheme;
@@ -144,6 +179,58 @@ class _UiThemePickerDialogState extends State<UiThemePickerDialog> {
       scheme: _scheme(context),
       glow: widget.appearance.userGlow,
       flat: widget.appearance.flat,
+      covers: _covers.covers,
+      coverHeaders: _covers.headers,
+    );
+  }
+
+  /// Rough height of everything in the dialog besides its previews and
+  /// choices (icon, title, intro, description, buttons, padding, insets).
+  static const double _dialogChrome = 400;
+
+  /// The width the dialog's content asks for: wider for landscape previews so
+  /// they stay legible.
+  double _dialogWidth(BuildContext context) {
+    final window = MediaQuery.sizeOf(context);
+    final wide = UiThemePreview.virtualSizeFor(window).aspectRatio > 1;
+    return wide ? (window.width - 160).clamp(440.0, 760.0) : 440;
+  }
+
+  /// The height of a look card at the dialog's actual width.
+  double _cardHeight(BuildContext context) {
+    final window = MediaQuery.sizeOf(context);
+    // AlertDialog insets (40 a side) and content padding (24 a side).
+    final width = math.min(_dialogWidth(context), window.width - 128);
+    final cards = AppUiTheme.values.length;
+    final cardWidth = (width - 10 * (cards - 1)) / cards;
+    final aspect = UiThemePreview.virtualSizeFor(window).aspectRatio;
+    // Padding, gap and a name that may wrap to two lines on narrow cards.
+    return (cardWidth - 16) / aspect + 66;
+  }
+
+  /// The highlighted look, large, in the room the window has left once
+  /// [reserved] (the step's other content) and the dialog fit: at most 40% of
+  /// the window's height. Null (no large preview) when less than [minHeight]
+  /// is left, unless [always], which shows it at [minHeight] instead.
+  Widget? _largePreview(
+    BuildContext context,
+    Key key, {
+    required double reserved,
+    double minHeight = 140,
+    bool always = false,
+  }) {
+    final windowHeight = MediaQuery.sizeOf(context).height;
+    final room = math.min(
+      windowHeight - reserved - _dialogChrome,
+      windowHeight * 0.4,
+    );
+    if (room < minHeight && !always) return null;
+    return Center(
+      child: ConstrainedBox(
+        key: key,
+        constraints: BoxConstraints(maxHeight: math.max(room, minHeight)),
+        child: _preview(context, _theme),
+      ),
     );
   }
 
@@ -163,7 +250,7 @@ class _UiThemePickerDialogState extends State<UiThemePickerDialog> {
       ),
       title: Text(_colorStep ? l.uiThemeColorTitle : l.uiThemePickerTitle),
       content: SizedBox(
-        width: 440,
+        width: _dialogWidth(context),
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -171,7 +258,18 @@ class _UiThemePickerDialogState extends State<UiThemePickerDialog> {
             children: [
               intro,
               const SizedBox(height: 16),
-              if (_colorStep) ..._colorStepChildren(context, l) else ...[
+              if (_colorStep)
+                ..._colorStepChildren(context, l)
+              else ...[
+                if (_largePreview(
+                      context,
+                      const ValueKey('ui-look-preview'),
+                      reserved: _cardHeight(context) + 14,
+                    )
+                    case final large?) ...[
+                  large,
+                  const SizedBox(height: 14),
+                ],
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -207,14 +305,21 @@ class _UiThemePickerDialogState extends State<UiThemePickerDialog> {
                 child: Text(l.uiThemeBack),
               ),
               FilledButton(
-                onPressed: () => Navigator.pop(
-                  context,
-                  UiThemePickerResult(_theme, _color),
-                ),
+                onPressed: () =>
+                    Navigator.pop(context, UiThemePickerResult(_theme, _color)),
                 child: Text(l.done),
               ),
             ]
           : [
+              TextButton.icon(
+                key: const ValueKey('ui-try-it'),
+                onPressed: () => Navigator.pop(
+                  context,
+                  UiThemePickerResult(_theme, _color, tryLive: true),
+                ),
+                icon: const Icon(Icons.visibility_outlined, size: 18),
+                label: Text(l.uiThemeTryIt),
+              ),
               FilledButton(
                 onPressed: () => setState(() => _colorStep = true),
                 child: Text(l.uiThemeContinue),
@@ -226,13 +331,13 @@ class _UiThemePickerDialogState extends State<UiThemePickerDialog> {
   List<Widget> _colorStepChildren(BuildContext context, AppLocalizations l) {
     final cs = Theme.of(context).colorScheme;
     return [
-      Center(
-        child: SizedBox(
-          key: const ValueKey('ui-color-preview'),
-          width: 120,
-          child: _preview(context, _theme),
-        ),
-      ),
+      // The color chips take about 130 px; the preview is always shown here.
+      _largePreview(
+        context,
+        const ValueKey('ui-color-preview'),
+        reserved: 130,
+        always: true,
+      )!,
       const SizedBox(height: 16),
       Wrap(
         alignment: WrapAlignment.center,
@@ -368,7 +473,8 @@ class _ColorSwatch extends StatelessWidget {
               ? Icon(
                   Icons.check_rounded,
                   size: 18,
-                  color: ThemeData.estimateBrightnessForColor(color) ==
+                  color:
+                      ThemeData.estimateBrightnessForColor(color) ==
                           Brightness.dark
                       ? Colors.white
                       : Colors.black,

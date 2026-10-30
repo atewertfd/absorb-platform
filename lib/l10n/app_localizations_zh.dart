@@ -12825,4 +12825,18 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get uiThemeBack => 'Back';
+
+  @override
+  String get uiThemeTryIt => 'Try it';
+
+  @override
+  String uiThemePreviewing(String name) {
+    return 'Previewing $name';
+  }
+
+  @override
+  String get uiThemeKeep => 'Keep';
+
+  @override
+  String get uiThemeGoBack => 'Go back';
 }

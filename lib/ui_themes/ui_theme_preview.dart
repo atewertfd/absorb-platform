@@ -1,10 +1,94 @@
+import 'dart:io' show File;
+
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
+import '../providers/library_provider.dart';
+import '../widgets/absorb_page_header.dart';
+import '../widgets/absorb_wave_icon.dart';
+import '../widgets/absorbing_shared.dart' show CoverPlaceholder;
+import '../widgets/collapsible_section.dart';
+import 'frosted.dart';
 import 'ui_theme.dart';
+import 'ui_theme_hooks.dart';
 
-/// A small live phone mock of a look, drawn by the app with that look's
-/// tokens and a color scheme: header, two covers, a panel and a nav bar. No
-/// images, no blur (cheap enough for several on screen at once).
+/// One of the user's books shown in a look preview.
+@immutable
+class UiThemePreviewCover {
+  const UiThemePreviewCover({this.url, this.title, this.author});
+
+  /// The cover the app shows for the book (network URL or local file path),
+  /// or null for the app's generated placeholder.
+  final String? url;
+  final String? title;
+  final String? author;
+}
+
+/// The covers a preview shows: the user's own books from [lib] (Continue
+/// Listening first, then the other Home shelves), with the same cover URLs
+/// and headers the Home screen uses, so they come from the image cache.
+/// Empty when the library hasn't loaded (offline, signed out, tests).
+({List<UiThemePreviewCover> covers, Map<String, String> headers})
+previewCoversFrom(LibraryProvider? lib, {int max = 24}) {
+  if (lib == null) return (covers: const [], headers: const {});
+  final books = previewBooks(lib.personalizedSections, max: max);
+  return (
+    covers: [
+      for (final b in books)
+        UiThemePreviewCover(
+          url: lib.getCoverUrl(b.id),
+          title: b.title,
+          author: b.author,
+        ),
+    ],
+    headers: lib.mediaHeaders,
+  );
+}
+
+/// Up to [max] distinct books from Home's personalized [sections] (the
+/// server's shelf list), Continue Listening first. Non-book entities (series,
+/// authors) are skipped.
+List<({String id, String? title, String? author})> previewBooks(
+  List<dynamic> sections, {
+  int max = 12,
+}) {
+  final ordered = [
+    ...sections.where((s) => s is Map && s['id'] == 'continue-listening'),
+    ...sections.where((s) => s is Map && s['id'] != 'continue-listening'),
+  ];
+  final seen = <String>{};
+  final books = <({String id, String? title, String? author})>[];
+  for (final section in ordered) {
+    final entities = (section as Map)['entities'];
+    if (entities is! List) continue;
+    for (final entity in entities) {
+      if (books.length >= max) return books;
+      if (entity is! Map) continue;
+      final id = entity['id'];
+      final media = entity['media'];
+      if (id is! String || media is! Map || !seen.add(id)) continue;
+      final metadata = media['metadata'];
+      books.add((
+        id: id,
+        title: metadata is Map ? metadata['title'] as String? : null,
+        author: metadata is Map ? metadata['authorName'] as String? : null,
+      ));
+    }
+  }
+  return books;
+}
+
+/// A scaled-down rendering of the app in a look: the real page header, the
+/// screens' background glow, a shelf of the user's own covers, a real
+/// settings section and the real nav bar, all built from the app's own
+/// widgets under the theme the app would have in that look.
+///
+/// It is laid out at a virtual screen with the current window's aspect ratio
+/// (wide window: wide preview; phone: tall) and scaled to fit its width.
+/// Non-interactive, no providers, no timers; covers come from the image
+/// cache the Home screen already fills.
 class UiThemePreview extends StatelessWidget {
   const UiThemePreview({
     super.key,
@@ -12,12 +96,14 @@ class UiThemePreview extends StatelessWidget {
     required this.scheme,
     required this.glow,
     this.flat = false,
+    this.covers = const [],
+    this.coverHeaders = const {},
   });
 
-  /// The look to draw.
+  /// The look to show.
   final AbsorbLook look;
 
-  /// The colors to draw it in (neutral surfaces, chosen accent).
+  /// The colors to show it in (the app's neutral surfaces, chosen accent).
   final ColorScheme scheme;
 
   /// The user's glow alpha, used when [look] has none.
@@ -26,189 +112,276 @@ class UiThemePreview extends StatelessWidget {
   /// Flat background: no glow in any look (as in the app).
   final bool flat;
 
-  /// The canvas the mock is drawn on before scaling to fit.
-  static const Size canvas = Size(120, 214);
+  /// The user's books for the cover shelf; placeholders fill the rest.
+  final List<UiThemePreviewCover> covers;
+
+  /// HTTP headers for the cover URLs (the app's media headers).
+  final Map<String, String> coverHeaders;
+
+  /// The virtual screen a preview is laid out at for a [window] size: the
+  /// window itself, at least 320 wide, with an aspect ratio kept between
+  /// 9:21 and 21:9.
+  static Size virtualSizeFor(Size window) {
+    if (window.width <= 0 || window.height <= 0) return const Size(390, 844);
+    final aspect = (window.width / window.height).clamp(9 / 21, 21 / 9);
+    final width = window.width < 320 ? 320.0 : window.width;
+    return Size(width, width / aspect);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final cs = scheme;
-    final dark = cs.brightness == Brightness.dark;
-    final bg = dark ? const Color(0xFF0E0E0E) : const Color(0xFFF6F6F6);
-    final glowAlpha = flat ? 0.0 : (look.glowStrength ?? glow);
-    final boost = look.cornerRadiusBoost / 2;
-    final panelFill = look.panelFill() ?? cs.surfaceContainerHigh;
-    final edge = look.frostedPanels
-        ? Border.all(color: look.panelEdge(cs.brightness))
-        : null;
-    final navBase = dark ? const Color(0xFF0E0E0E) : cs.surface;
-    final navFill = look.frostedNavBar
-        ? Color.alphaBlend(
-            look.panelFill() ?? Colors.transparent,
-            Color.alphaBlend(
-              navBase.withValues(alpha: look.sheetFillAlpha ?? 1),
-              bg,
-            ),
-          )
-        : navBase;
-
-    Widget bar(double width, Color color) => Container(
-      width: width,
-      height: 5,
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(3),
-      ),
+    final virtual = virtualSizeFor(MediaQuery.sizeOf(context));
+    final themed = themeForLook(appBaseTheme(context), look, scheme: scheme);
+    final media = MediaQuery.of(context).copyWith(
+      size: virtual,
+      padding: EdgeInsets.zero,
+      viewPadding: EdgeInsets.zero,
+      viewInsets: EdgeInsets.zero,
     );
-
-    Widget cover(Color a, Color b) => Expanded(
-      child: AspectRatio(
-        aspectRatio: 1,
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(6),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [a, Color.lerp(b, Colors.black, 0.45)!],
+    return ExcludeSemantics(
+      child: IgnorePointer(
+        child: RepaintBoundary(
+          child: AspectRatio(
+            key: const ValueKey('ui-preview-frame'),
+            aspectRatio: virtual.aspectRatio,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: FittedBox(
+                fit: BoxFit.contain,
+                alignment: Alignment.topCenter,
+                child: SizedBox.fromSize(
+                  size: virtual,
+                  child: MediaQuery(
+                    data: media,
+                    child: Theme(
+                      data: themed,
+                      child: _PreviewScreen(
+                        glow: glow,
+                        flat: flat,
+                        covers: covers,
+                        coverHeaders: coverHeaders,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
-          alignment: Alignment.topRight,
-          padding: const EdgeInsets.all(3),
-          child: look.showExtraCoverBadges
-              ? Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.55),
-                    shape: BoxShape.circle,
-                  ),
-                )
-              : null,
         ),
       ),
     );
+  }
+}
 
-    final mock = SizedBox.fromSize(
-      size: canvas,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: bg,
-          gradient: glowAlpha <= 0
-              ? null
-              : LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  stops: const [0.0, 0.55],
-                  colors: [
-                    Color.alphaBlend(
-                      cs.primary.withValues(alpha: glowAlpha),
-                      bg,
-                    ),
-                    // Frosted carries the accent down the whole screen.
-                    Color.alphaBlend(
-                      cs.primary.withValues(alpha: look.backdropTint),
-                      bg,
-                    ),
-                  ],
-                ),
+/// The app's Home screen in miniature, built under the preview theme.
+class _PreviewScreen extends StatelessWidget {
+  const _PreviewScreen({
+    required this.glow,
+    required this.flat,
+    required this.covers,
+    required this.coverHeaders,
+  });
+
+  final double glow;
+  final bool flat;
+  final List<UiThemePreviewCover> covers;
+  final Map<String, String> coverHeaders;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final tt = theme.textTheme;
+    final width = MediaQuery.sizeOf(context).width;
+    // The same background the Home screen paints (home_screen.dart).
+    final scaffoldBg = theme.scaffoldBackgroundColor;
+    final lowerFade = Color.lerp(cs.surface, scaffoldBg, 0.55) ?? scaffoldBg;
+    final coverSize = width < 600 ? 120.0 : 150.0;
+    const gap = 12.0;
+    final slots = ((width - 40 + gap) / (coverSize + gap)).floor().clamp(1, 12);
+
+    /// A Home shelf: [title], then covers [first].. (placeholders past the
+    /// user's books).
+    List<Widget> shelf(String title, int first) => [
+      const SizedBox(height: 20),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: Text(
+          title,
+          style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w600),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+      ),
+      const SizedBox(height: 10),
+      SizedBox(
+        height: coverSize,
+        child: Row(
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(10, 12, 10, 0),
-              child: Row(
-                children: [
-                  Container(
-                    width: 10,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: cs.primary,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  bar(40, cs.onSurface.withValues(alpha: 0.75)),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(10, 12, 10, 0),
-              child: Row(
-                children: [
-                  cover(cs.primary, cs.tertiary),
-                  const SizedBox(width: 8),
-                  cover(cs.secondary, cs.primary),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(10, 12, 10, 0),
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: panelFill,
-                  borderRadius: BorderRadius.circular(8 + boost),
-                  border: edge,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    bar(56, cs.onSurface.withValues(alpha: 0.7)),
-                    const SizedBox(height: 5),
-                    bar(36, cs.onSurfaceVariant.withValues(alpha: 0.5)),
-                    const SizedBox(height: 7),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(2),
-                      child: LinearProgressIndicator(
-                        value: 0.4,
-                        minHeight: 3,
-                        color: cs.primary,
-                        backgroundColor: cs.onSurface.withValues(alpha: 0.1),
-                      ),
-                    ),
-                  ],
+            const SizedBox(width: 20),
+            for (var i = first; i < first + slots; i++) ...[
+              if (i > first) const SizedBox(width: gap),
+              SizedBox.square(
+                dimension: coverSize,
+                child: _PreviewCover(
+                  cover: i < covers.length ? covers[i] : null,
+                  headers: coverHeaders,
+                  decodeWidth: (coverSize * 2).round(),
                 ),
               ),
-            ),
-            const Spacer(),
-            Container(
-              height: 26,
-              decoration: BoxDecoration(
-                color: navFill,
-                border: look.frostedNavBar
-                    ? Border(
-                        top: BorderSide(color: look.panelEdge(cs.brightness)),
-                      )
-                    : null,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  for (var i = 0; i < 4; i++)
-                    Container(
-                      width: i == 0 ? 20 : 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: i == 0
-                            ? cs.primary.withValues(alpha: 0.85)
-                            : cs.onSurfaceVariant.withValues(alpha: 0.5),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                ],
-              ),
-            ),
+            ],
           ],
         ),
       ),
-    );
+    ];
 
-    return ExcludeSemantics(
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: FittedBox(fit: BoxFit.contain, child: mock),
+    return Material(
+      color: scaffoldBg,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: DecoratedBox(
+              decoration: flat
+                  ? const BoxDecoration()
+                  : BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        stops: const [0.0, 0.22, 0.72, 1.0],
+                        colors: lookBackdrop(context, [
+                          cs.primary.withValues(alpha: lookGlow(context, glow)),
+                          cs.surface,
+                          lowerFade,
+                          scaffoldBg,
+                        ]),
+                      ),
+                    ),
+              // Built whole (no lazy list) and clipped: what doesn't fit the
+              // virtual screen is simply below the fold, as in the app.
+              child: SingleChildScrollView(
+                primary: false,
+                physics: const NeverScrollableScrollPhysics(),
+                padding: const EdgeInsets.only(top: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    AbsorbPageHeader(
+                      title: l.homeTitle,
+                      actions: [
+                        Icon(Icons.search_rounded, color: cs.onSurfaceVariant),
+                        Icon(Icons.tune_rounded, color: cs.onSurfaceVariant),
+                      ],
+                    ),
+                    ...shelf(l.continueListening, 0),
+                    const SizedBox(height: 20),
+                    // Panels right under the first shelf, so even a short,
+                    // wide window shows the look's cards.
+                    CollapsibleSection(
+                      icon: Icons.palette_outlined,
+                      title: l.sectionAppearance,
+                      cs: cs,
+                      children: const [],
+                    ),
+                    CollapsibleSection(
+                      icon: Icons.play_circle_outline_rounded,
+                      title: l.appShellAbsorbingTab,
+                      cs: cs,
+                      children: const [],
+                    ),
+                    ...shelf(l.recentlyAdded, slots),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          FrostedNavBar(
+            child: NavigationBar(
+              selectedIndex: 0,
+              labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+              destinations: [
+                NavigationDestination(
+                  icon: const Icon(Icons.home_outlined),
+                  selectedIcon: const Icon(Icons.home_rounded),
+                  label: l.appShellHomeTab,
+                  tooltip: '',
+                ),
+                NavigationDestination(
+                  icon: const Icon(Icons.library_books_outlined),
+                  label: l.appShellLibraryTab,
+                  tooltip: '',
+                ),
+                NavigationDestination(
+                  icon: AbsorbWaveIcon(color: cs.onSurfaceVariant),
+                  label: l.appShellAbsorbingTab,
+                  tooltip: '',
+                ),
+                NavigationDestination(
+                  icon: const Icon(Icons.bar_chart_rounded),
+                  label: l.appShellStatsTab,
+                  tooltip: '',
+                ),
+                NavigationDestination(
+                  icon: const Icon(Icons.settings_outlined),
+                  label: l.appShellSettingsTab,
+                  tooltip: '',
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
+    );
+  }
+}
+
+/// One shelf cover: the user's cover from the app's image cache, or the
+/// app's generated placeholder.
+class _PreviewCover extends StatelessWidget {
+  const _PreviewCover({
+    required this.cover,
+    required this.headers,
+    required this.decodeWidth,
+  });
+
+  final UiThemePreviewCover? cover;
+  final Map<String, String> headers;
+  final int decodeWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    final url = cover?.url;
+    final placeholder = CoverPlaceholder(
+      title: cover?.title,
+      author: cover?.author,
+    );
+    final Widget image;
+    if (url == null || url.isEmpty) {
+      image = placeholder;
+    } else if (url.startsWith('/')) {
+      image = kIsWeb
+          ? placeholder
+          : Image.file(
+              File(url),
+              fit: BoxFit.cover,
+              cacheWidth: decodeWidth,
+              errorBuilder: (_, _, _) => placeholder,
+            );
+    } else {
+      image = CachedNetworkImage(
+        imageUrl: url,
+        httpHeaders: headers,
+        fit: BoxFit.cover,
+        memCacheWidth: decodeWidth,
+        fadeInDuration: Duration.zero,
+        fadeOutDuration: Duration.zero,
+        placeholderFadeInDuration: Duration.zero,
+        placeholder: (_, _) => placeholder,
+        errorWidget: (_, _, _) => placeholder,
+      );
+    }
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(lookRadius(context, 8)),
+      child: image,
     );
   }
 }

@@ -1,6 +1,5 @@
 import 'package:absorb/l10n/app_localizations.dart';
-import 'package:absorb/main.dart'
-    show colorSourceNotifier, manualSeedNotifier;
+import 'package:absorb/main.dart' show colorSourceNotifier, manualSeedNotifier;
 import 'package:absorb/services/player_settings.dart';
 import 'package:absorb/ui_themes/ui_theme.dart';
 import 'package:absorb/ui_themes/ui_theme_picker.dart';
@@ -121,7 +120,10 @@ void main() {
       expect(dark.frostedNavBar, isTrue);
       expect(dark.frostedSheets, isTrue);
       expect(dark.frostedPlayerCard, isTrue);
-      expect(dark.panelEdge(Brightness.dark), Colors.white.withValues(alpha: 0.16));
+      expect(
+        dark.panelEdge(Brightness.dark),
+        Colors.white.withValues(alpha: 0.16),
+      );
 
       final light = AppUiTheme.frosted.lookFor(Brightness.light);
       expect(light.frostedPanels, isTrue);
@@ -236,6 +238,7 @@ void main() {
       expect(find.text('Frosted'), findsOneWidget);
       expect(
         find.byType(UiThemePreview),
+        // One card per look; a short window has no room for the large one.
         findsNWidgets(AppUiTheme.values.length),
       );
       for (final theme in AppUiTheme.values) {
@@ -268,6 +271,54 @@ void main() {
       expect(find.textContaining('frosted-glass'), findsOneWidget);
       expect(find.textContaining("Today's look"), findsNothing);
     });
+
+    for (final size in const [Size(1280, 800), Size(390, 844)]) {
+      testWidgets('large preview follows the selected look at $size', (
+        tester,
+      ) async {
+        tester.view.physicalSize = size;
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final context = await _pumpHost(tester);
+        UiThemePicker.show(context);
+        await tester.pumpAndSettle();
+        final largeFinder = find.byKey(const ValueKey('ui-look-preview'));
+        UiThemePreview large() => tester.widget<UiThemePreview>(
+          find.descendant(
+            of: largeFinder,
+            matching: find.byType(UiThemePreview),
+          ),
+        );
+        expect(large().look, AppUiTheme.plus.lookFor(Brightness.light));
+        await tester.tap(find.text('Frosted'));
+        await tester.pump();
+        expect(large().look, AppUiTheme.frosted.lookFor(Brightness.light));
+        // It keeps the window's shape, and the whole dialog fits on screen.
+        final frame = tester.getSize(
+          find.descendant(
+            of: largeFinder,
+            matching: find.byKey(const ValueKey('ui-preview-frame')),
+          ),
+        );
+        expect(frame.aspectRatio, closeTo(size.aspectRatio, 0.01));
+        expect(frame.height, greaterThan(140));
+        final window = Offset.zero & size;
+        for (final theme in AppUiTheme.values) {
+          final card = tester.getRect(
+            find.byKey(ValueKey('ui-look-${theme.id}')),
+          );
+          expect(
+            window.contains(card.bottomRight - const Offset(1, 1)),
+            isTrue,
+          );
+        }
+        expect(
+          tester.getBottomLeft(find.text('Continue')).dy,
+          lessThan(size.height),
+        );
+        expect(tester.takeException(), isNull);
+      });
+    }
 
     testWidgets('color step saves through the existing color settings', (
       tester,
@@ -394,9 +445,7 @@ void main() {
       var changed = 0;
       await tester.pumpWidget(
         _app(
-          home: Scaffold(
-            body: UiThemeSettingsTile(onChanged: () => changed++),
-          ),
+          home: Scaffold(body: UiThemeSettingsTile(onChanged: () => changed++)),
         ),
       );
       expect(find.text('UI theme'), findsOneWidget);
@@ -416,9 +465,7 @@ void main() {
       var changed = 0;
       await tester.pumpWidget(
         _app(
-          home: Scaffold(
-            body: UiThemeSettingsTile(onChanged: () => changed++),
-          ),
+          home: Scaffold(body: UiThemeSettingsTile(onChanged: () => changed++)),
         ),
       );
       await tester.tap(find.byType(UiThemeSettingsTile));

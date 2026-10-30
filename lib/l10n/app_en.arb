@@ -7074,5 +7074,16 @@
   "uiThemeColorTitle": "Choose a color",
   "uiThemeColorIntro": "This is the same setting as Settings > Appearance > Color source.",
   "uiThemeColorFromCover": "From cover",
-  "uiThemeBack": "Back"
+  "uiThemeBack": "Back",
+  "uiThemeTryIt": "Try it",
+  "uiThemePreviewing": "Previewing {name}",
+  "@uiThemePreviewing": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "uiThemeKeep": "Keep",
+  "uiThemeGoBack": "Go back"
 }

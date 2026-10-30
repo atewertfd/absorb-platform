@@ -21932,6 +21932,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Back'**
   String get uiThemeBack;
+
+  /// No description provided for @uiThemeTryIt.
+  ///
+  /// In en, this message translates to:
+  /// **'Try it'**
+  String get uiThemeTryIt;
+
+  /// No description provided for @uiThemePreviewing.
+  ///
+  /// In en, this message translates to:
+  /// **'Previewing {name}'**
+  String uiThemePreviewing(String name);
+
+  /// No description provided for @uiThemeKeep.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep'**
+  String get uiThemeKeep;
+
+  /// No description provided for @uiThemeGoBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Go back'**
+  String get uiThemeGoBack;
 }
 
 class _AppLocalizationsDelegate

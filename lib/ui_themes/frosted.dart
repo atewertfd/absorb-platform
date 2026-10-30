@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'ui_theme.dart';
+import 'ui_theme_try.dart';
 
 /// The Frosted look's theme-level pieces: [frostedThemeData] (cards, sheets,
 /// dialogs, nav bar colors), [absorbLookBuilder] (applies it app-wide), and
@@ -65,9 +66,9 @@ ThemeData frostedThemeData(ThemeData base) {
         ),
       ),
       dialogTheme: base.dialogTheme.copyWith(
-        backgroundColor: (base.dialogTheme.backgroundColor ??
-                cs.surfaceContainerHigh)
-            .withValues(alpha: sheetAlpha),
+        backgroundColor:
+            (base.dialogTheme.backgroundColor ?? cs.surfaceContainerHigh)
+                .withValues(alpha: sheetAlpha),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(28 + boost),
           side: edge,
@@ -82,16 +83,19 @@ ThemeData frostedThemeData(ThemeData base) {
     // The bar sits outside the page, over the plain scaffold, so give it the
     // accent tint the screens get instead of a see-through it can't have.
     final accentTint = look.backdropTint;
-    final tinted = (accentTint > 0
-            ? Color.alphaBlend(
-                base.colorScheme.primary.withValues(alpha: accentTint),
-                navBase,
-              )
-            : navBase)
-        .withValues(alpha: sheetAlpha);
+    final tinted =
+        (accentTint > 0
+                ? Color.alphaBlend(
+                    base.colorScheme.primary.withValues(alpha: accentTint),
+                    navBase,
+                  )
+                : navBase)
+            .withValues(alpha: sheetAlpha);
     data = data.copyWith(
       navigationBarTheme: base.navigationBarTheme.copyWith(
-        backgroundColor: panel == null ? tinted : Color.alphaBlend(panel, tinted),
+        backgroundColor: panel == null
+            ? tinted
+            : Color.alphaBlend(panel, tinted),
       ),
     );
   }
@@ -99,12 +103,57 @@ ThemeData frostedThemeData(ThemeData base) {
 }
 
 /// `MaterialApp.builder` hook: applies [frostedThemeData] above the navigator
-/// so every route, dialog and sheet sees it. The tree shape never changes
-/// with the look (no navigator remount when switching looks).
-Widget absorbLookBuilder(BuildContext context, Widget? child) => Theme(
-  data: frostedThemeData(Theme.of(context)),
-  child: child ?? const SizedBox.shrink(),
-);
+/// so every route, dialog and sheet sees it, and hosts the "Try it" preview
+/// bar ([UiThemeTryOutLayer]). The tree shape never changes with the look
+/// (no navigator remount when switching looks or starting a preview).
+Widget absorbLookBuilder(BuildContext context, Widget? child) {
+  final app = Theme.of(context);
+  return Theme(
+    data: frostedThemeData(app),
+    child: _AppBaseTheme(
+      data: app,
+      child: UiThemeTryOutLayer(child: child ?? const SizedBox.shrink()),
+    ),
+  );
+}
+
+/// The app's theme before [frostedThemeData], for previews that apply a
+/// different look on top of it ([appBaseTheme]).
+class _AppBaseTheme extends InheritedWidget {
+  const _AppBaseTheme({required this.data, required super.child});
+
+  final ThemeData data;
+
+  @override
+  bool updateShouldNotify(_AppBaseTheme oldWidget) => oldWidget.data != data;
+}
+
+/// The app's theme without the active look's surfaces (as main.dart built
+/// it), or [Theme.of] outside [absorbLookBuilder] (tests).
+ThemeData appBaseTheme(BuildContext context) =>
+    context.dependOnInheritedWidgetOfExactType<_AppBaseTheme>()?.data ??
+    Theme.of(context);
+
+/// [base] (see [appBaseTheme]) dressed in [look]: the look attached as its
+/// [AbsorbLook] extension, optionally a different [scheme], and
+/// [frostedThemeData] applied, i.e. the theme the app would have in that look.
+ThemeData themeForLook(ThemeData base, AbsorbLook look, {ColorScheme? scheme}) {
+  var data = base.copyWith(extensions: [...base.extensions.values, look]);
+  if (scheme != null) {
+    final indicator = base.navigationBarTheme.indicatorColor;
+    data = data.copyWith(
+      colorScheme: scheme,
+      // main.dart derives the nav indicator from the accent; follow a new one
+      // (an opaque indicator is e-ink's solid pill, kept as is).
+      navigationBarTheme: indicator == null || indicator.a < 1
+          ? data.navigationBarTheme.copyWith(
+              indicatorColor: scheme.primary.withValues(alpha: 0.15),
+            )
+          : null,
+    );
+  }
+  return frostedThemeData(data);
+}
 
 /// Wraps the bottom nav bar: in Frosted, a light top edge over the bar's
 /// translucent tint (the color comes from [frostedThemeData]); otherwise it

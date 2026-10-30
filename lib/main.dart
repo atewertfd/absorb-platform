@@ -370,6 +370,7 @@ class AbsorbApp extends StatelessWidget {
         einkModeNotifier,
         snappyTransitionsNotifier,
         uiThemeNotifier,
+        uiThemePreviewNotifier, // "Try it" live look (fork UI themes)
       ]),
       builder: (context, _) {
         final isEink = einkModeNotifier.value;

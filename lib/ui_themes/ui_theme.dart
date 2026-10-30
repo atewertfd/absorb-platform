@@ -54,9 +54,10 @@ enum AppUiTheme {
     final look = switch (this) {
       AppUiTheme.plus => AbsorbLook.plus,
       AppUiTheme.classic => AbsorbLook.classic,
-      AppUiTheme.frosted => brightness == Brightness.dark
-          ? AbsorbLook.frostedDark
-          : AbsorbLook.frostedLight,
+      AppUiTheme.frosted =>
+        brightness == Brightness.dark
+            ? AbsorbLook.frostedDark
+            : AbsorbLook.frostedLight,
     };
     return eink ? look.withNeutralSurfaces() : look;
   }
@@ -225,8 +226,9 @@ class AbsorbLook extends ThemeExtension<AbsorbLook> {
 
   /// The 1 px panel edge for a scheme of [brightness].
   Color panelEdge(Brightness brightness) =>
-      (brightness == Brightness.dark ? Colors.white : Colors.black)
-          .withValues(alpha: panelBorderAlpha);
+      (brightness == Brightness.dark ? Colors.white : Colors.black).withValues(
+        alpha: panelBorderAlpha,
+      );
 
   @override
   AbsorbLook copyWith({
@@ -280,10 +282,17 @@ class AbsorbLook extends ThemeExtension<AbsorbLook> {
       glowStrength: nullable(glowStrength, other.glowStrength),
       backdropTint: lerpDouble(backdropTint, other.backdropTint, t)!,
       panelFillAlpha: nullable(panelFillAlpha, other.panelFillAlpha),
-      panelBorderAlpha: lerpDouble(panelBorderAlpha, other.panelBorderAlpha, t)!,
+      panelBorderAlpha: lerpDouble(
+        panelBorderAlpha,
+        other.panelBorderAlpha,
+        t,
+      )!,
       panelBlurSigma: lerpDouble(panelBlurSigma, other.panelBlurSigma, t)!,
-      cornerRadiusBoost:
-          lerpDouble(cornerRadiusBoost, other.cornerRadiusBoost, t)!,
+      cornerRadiusBoost: lerpDouble(
+        cornerRadiusBoost,
+        other.cornerRadiusBoost,
+        t,
+      )!,
       sheetFillAlpha: nullable(sheetFillAlpha, other.sheetFillAlpha),
       frostedNavBar: near.frostedNavBar,
       frostedSheets: near.frostedSheets,
@@ -341,13 +350,22 @@ const AppUiTheme kDefaultUiTheme = AppUiTheme.plus;
 /// The chosen UI theme for this device; null means it was never chosen.
 final ValueNotifier<AppUiTheme?> uiThemeNotifier = ValueNotifier(null);
 
-/// The active theme ([kDefaultUiTheme] until one is chosen).
-AppUiTheme get currentUiTheme => uiThemeNotifier.value ?? kDefaultUiTheme;
+/// A look being tried live ("Try it" in the picker), shown app-wide ahead of
+/// the saved choice. Memory only: it is never stored, so a restart shows the
+/// saved look, and saving any look ([UiThemeStore.choose]) clears it.
+final ValueNotifier<AppUiTheme?> uiThemePreviewNotifier = ValueNotifier(null);
 
-/// The active look's behavior flags, read without a [BuildContext] (image
-/// cache policy). Widgets should use [AbsorbLook.of] so they rebuild when the
-/// look changes.
-AbsorbLook get currentAbsorbLook => currentUiTheme.spec;
+/// The saved theme ([kDefaultUiTheme] until one is chosen), ignoring a live
+/// preview.
+AppUiTheme get savedUiTheme => uiThemeNotifier.value ?? kDefaultUiTheme;
+
+/// The active theme: the look being tried live, else the saved one.
+AppUiTheme get currentUiTheme => uiThemePreviewNotifier.value ?? savedUiTheme;
+
+/// The saved look's behavior flags, read without a [BuildContext] (image
+/// cache policy, which follows saved choices only, not live previews).
+/// Widgets should use [AbsorbLook.of] so they rebuild when the look changes.
+AbsorbLook get currentAbsorbLook => savedUiTheme.spec;
 
 /// Device-wide storage for the chosen look. It is deliberately not a
 /// per-account (scoped) setting: the look belongs to the device, like the
@@ -364,11 +382,12 @@ abstract final class UiThemeStore {
     return theme;
   }
 
-  /// Saves [theme] and applies it right away.
+  /// Saves [theme] and applies it right away, ending any live preview.
   static Future<void> choose(AppUiTheme theme) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(prefKey, theme.id);
     uiThemeNotifier.value = theme;
+    uiThemePreviewNotifier.value = null;
   }
 
   /// True until a look has been chosen (or the picker was dismissed) on this
@@ -380,20 +399,33 @@ abstract final class UiThemeStore {
 }
 
 /// Makes the active look available below it and rebuilds dependents when it
-/// changes. Sits above [MaterialApp] so dialogs and sheets see it too. The
-/// app theme's [AbsorbLook] extension takes precedence (see [AbsorbLook.of]);
-/// this is the fallback for widgets built outside it.
-class UiThemeScope extends InheritedNotifier<ValueNotifier<AppUiTheme?>> {
+/// (or a live preview) changes. Sits above [MaterialApp] so dialogs and
+/// sheets see it too. The app theme's [AbsorbLook] extension takes precedence
+/// (see [AbsorbLook.of]); this is the fallback for widgets built outside it.
+class UiThemeScope extends InheritedNotifier<Listenable> {
   UiThemeScope({
     super.key,
     ValueNotifier<AppUiTheme?>? notifier,
     required super.child,
-  }) : super(notifier: notifier ?? uiThemeNotifier);
+  }) : saved = notifier ?? uiThemeNotifier,
+       super(notifier: _withPreview(notifier ?? uiThemeNotifier));
 
-  /// The active look. Subscribes [context] to changes when a scope is
-  /// present; without one (some tests) it reads the global notifier.
+  /// The saved choice this scope follows.
+  final ValueNotifier<AppUiTheme?> saved;
+
+  static final Expando<Listenable> _merged = Expando();
+
+  /// One stable merged listenable per saved notifier, so rebuilding the
+  /// scope doesn't count as a change.
+  static Listenable _withPreview(ValueNotifier<AppUiTheme?> saved) =>
+      _merged[saved] ??= Listenable.merge([saved, uiThemePreviewNotifier]);
+
+  /// The active look, a live preview first. Subscribes [context] to changes
+  /// when a scope is present; without one (some tests) it reads the globals.
   static AppUiTheme themeOf(BuildContext context) {
     final scope = context.dependOnInheritedWidgetOfExactType<UiThemeScope>();
-    return (scope?.notifier ?? uiThemeNotifier).value ?? kDefaultUiTheme;
+    return uiThemePreviewNotifier.value ??
+        (scope?.saved ?? uiThemeNotifier).value ??
+        kDefaultUiTheme;
   }
 }
