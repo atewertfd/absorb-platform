@@ -71,6 +71,12 @@ ColorScheme _appScheme(Color seed, Brightness b) {
       : base.copyWith(surface: const Color(0xFFF6F6F6));
 }
 
+/// Every Frosted preset: each brightness at each glass strength.
+final _frostedVariants = [
+  for (final b in Brightness.values)
+    for (final glass in GlassStrength.values) (b, glass),
+];
+
 void main() {
   late ValueNotifier<AppUiTheme?> look;
   setUp(() => look = ValueNotifier<AppUiTheme?>(null));
@@ -346,8 +352,8 @@ void main() {
         const Color(0xFFFFFFFF), // white cover
         const Color(0xFF00E5FF), // neon cyan cover
       ];
-      for (final b in Brightness.values) {
-        final look = AppUiTheme.frosted.lookFor(b);
+      for (final (b, glass) in _frostedVariants) {
+        final look = AppUiTheme.frosted.lookFor(b, glass: glass);
         for (final seed in seeds) {
           final cs = _appScheme(seed, b);
           // The preset's glow and the owner's upper bound (0.30).
@@ -360,12 +366,12 @@ void main() {
             expect(
               _contrast(cs.onSurface, panel),
               greaterThanOrEqualTo(4.5),
-              reason: 'onSurface $b seed=$seed glow=$glow',
+              reason: 'onSurface $b $glass seed=$seed glow=$glow',
             );
             expect(
               _contrast(cs.onSurfaceVariant, panel),
               greaterThanOrEqualTo(3.0),
-              reason: 'onSurfaceVariant $b seed=$seed glow=$glow',
+              reason: 'onSurfaceVariant $b $glass seed=$seed glow=$glow',
             );
           }
         }
@@ -373,8 +379,8 @@ void main() {
     });
 
     test('frosted sheets stay readable over the worst backdrop', () {
-      for (final b in Brightness.values) {
-        final look = AppUiTheme.frosted.lookFor(b);
+      for (final (b, glass) in _frostedVariants) {
+        final look = AppUiTheme.frosted.lookFor(b, glass: glass);
         final cs = _appScheme(const Color(0xFF7C6FBF), b);
         final sheetBase = b == Brightness.dark
             ? const Color(0xFF1A1A1A)
@@ -386,7 +392,11 @@ void main() {
           sheetBase.withValues(alpha: look.sheetFillAlpha!),
           behind,
         );
-        expect(_contrast(cs.onSurface, sheet), greaterThanOrEqualTo(4.5));
+        expect(
+          _contrast(cs.onSurface, sheet),
+          greaterThanOrEqualTo(4.5),
+          reason: '$b $glass',
+        );
       }
     });
   });

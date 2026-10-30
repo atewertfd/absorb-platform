@@ -6,6 +6,7 @@ import '../main.dart'
         applyManualSeed,
         colorSourceNotifier,
         coverSchemeNotifier,
+        einkModeNotifier,
         flatNotifier,
         gradientIntensityNotifier,
         manualSeedNotifier;
@@ -26,8 +27,7 @@ class AppColorChoice {
 
   @override
   bool operator ==(Object other) =>
-      other is AppColorChoice &&
-      other.seed?.toARGB32() == seed?.toARGB32();
+      other is AppColorChoice && other.seed?.toARGB32() == seed?.toARGB32();
 
   @override
   int get hashCode => seed?.toARGB32().hashCode ?? 0;
@@ -47,6 +47,9 @@ abstract class UiThemeAppearance {
 
   /// Whether Flat background is on (no glow in any look).
   bool get flat;
+
+  /// Whether e-ink mode is on (looks keep their flags, not their surfaces).
+  bool get eink;
 
   /// Saves [choice] exactly as the Settings color controls do and applies it.
   Future<void> saveColor(AppColorChoice choice);
@@ -71,6 +74,9 @@ class AppUiThemeAppearance implements UiThemeAppearance {
 
   @override
   bool get flat => flatNotifier.value;
+
+  @override
+  bool get eink => einkModeNotifier.value;
 
   @override
   Future<void> saveColor(AppColorChoice choice) async {

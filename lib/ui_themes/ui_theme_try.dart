@@ -26,38 +26,64 @@ abstract final class UiThemeTryOut {
   static Completer<UiThemeTryOutOutcome>? _session;
   static UiThemeTryOutOutcome? _pendingOutcome;
 
+  /// Set while [keep] is saving, so a Go back tap in that moment can't
+  /// report "went back" for a look that is being saved.
+  static bool _keeping = false;
+
   /// The look being previewed, or null.
   static AppUiTheme? get previewing => uiThemePreviewNotifier.value;
 
-  /// Shows [theme] app-wide without saving it. Completes when the preview
-  /// ends: [keep], [goBack], or any saved look ([UiThemeStore.choose]).
-  static Future<UiThemeTryOutOutcome> start(AppUiTheme theme) {
+  /// Shows [theme] (with Frosted's [glass] strength) app-wide without saving
+  /// it. Completes when the preview ends: [keep], [goBack], or any saved
+  /// look ([UiThemeStore.choose]). Starting another preview ends this one as
+  /// [UiThemeTryOutOutcome.ended], leaving the new preview up.
+  static Future<UiThemeTryOutOutcome> start(
+    AppUiTheme theme, {
+    GlassStrength? glass,
+  }) {
     _finish(UiThemeTryOutOutcome.ended);
     final session = Completer<UiThemeTryOutOutcome>();
     _session = session;
+    // Before listening: only the look clearing ends a session.
+    glassStrengthPreviewNotifier.value = glass ?? savedGlassStrength;
     uiThemePreviewNotifier.addListener(_onPreviewChanged);
     uiThemePreviewNotifier.value = theme;
     return session.future;
   }
 
-  /// Saves the previewed look the same way the picker does, ending the
-  /// preview.
+  /// Saves the previewed look and glass the same way the picker does,
+  /// ending the preview. If saving fails, the preview ends and the saved
+  /// look comes back.
   static Future<void> keep() async {
     final theme = previewing;
-    if (theme == null) return;
+    if (theme == null || _keeping) return;
+    final glass = glassStrengthPreviewNotifier.value;
+    _keeping = true;
     _pendingOutcome = UiThemeTryOutOutcome.kept;
-    await UiThemeStore.choose(theme);
-    // choose() already cleared the preview; this covers a store failure.
-    if (_session != null) end(UiThemeTryOutOutcome.kept);
+    try {
+      await UiThemeStore.choose(theme, glass: glass);
+      // choose() already cleared the preview; this is a safety net.
+      if (_session != null) end(UiThemeTryOutOutcome.kept);
+    } catch (e) {
+      debugPrint('[UiTheme] keeping $theme failed: $e');
+      end(UiThemeTryOutOutcome.ended);
+    } finally {
+      _keeping = false;
+    }
   }
 
-  /// Drops the preview; the saved look comes back.
-  static void goBack() => end(UiThemeTryOutOutcome.wentBack);
+  /// Drops the preview; the saved look comes back. Ignored while [keep] is
+  /// saving.
+  static void goBack() {
+    if (_keeping) return;
+    end(UiThemeTryOutOutcome.wentBack);
+  }
 
   /// Clears the preview and completes the session with [outcome].
   static void end(UiThemeTryOutOutcome outcome) {
     _pendingOutcome = outcome;
     uiThemePreviewNotifier.value = null;
+    glassStrengthPreviewNotifier.value = null;
     _finish(outcome);
   }
 

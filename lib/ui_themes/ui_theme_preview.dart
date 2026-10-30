@@ -10,6 +10,7 @@ import '../widgets/absorb_page_header.dart';
 import '../widgets/absorb_wave_icon.dart';
 import '../widgets/absorbing_shared.dart' show CoverPlaceholder;
 import '../widgets/collapsible_section.dart';
+import '../widgets/cover_decode.dart';
 import 'frosted.dart';
 import 'ui_theme.dart';
 import 'ui_theme_hooks.dart';
@@ -128,38 +129,52 @@ class UiThemePreview extends StatelessWidget {
     return Size(width, width / aspect);
   }
 
+  /// Themes already built per app base theme, by look and scheme, so
+  /// rebuilding a preview doesn't redo [themeForLook].
+  static final Expando<Map<(AbsorbLook, ColorScheme), ThemeData>> _themes =
+      Expando();
+
+  static ThemeData _themeFor(ThemeData base, AbsorbLook look, ColorScheme cs) {
+    final cache = _themes[base] ??= {};
+    if (cache.length > 12) cache.clear();
+    return cache[(look, cs)] ??= themeForLook(base, look, scheme: cs);
+  }
+
   @override
   Widget build(BuildContext context) {
     final virtual = virtualSizeFor(MediaQuery.sizeOf(context));
-    final themed = themeForLook(appBaseTheme(context), look, scheme: scheme);
+    final themed = _themeFor(appBaseTheme(context), look, scheme);
     final media = MediaQuery.of(context).copyWith(
       size: virtual,
       padding: EdgeInsets.zero,
       viewPadding: EdgeInsets.zero,
       viewInsets: EdgeInsets.zero,
     );
+    // A picture of the app: no semantics, taps or keyboard focus inside.
     return ExcludeSemantics(
       child: IgnorePointer(
-        child: RepaintBoundary(
-          child: AspectRatio(
-            key: const ValueKey('ui-preview-frame'),
-            aspectRatio: virtual.aspectRatio,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: FittedBox(
-                fit: BoxFit.contain,
-                alignment: Alignment.topCenter,
-                child: SizedBox.fromSize(
-                  size: virtual,
-                  child: MediaQuery(
-                    data: media,
-                    child: Theme(
-                      data: themed,
-                      child: _PreviewScreen(
-                        glow: glow,
-                        flat: flat,
-                        covers: covers,
-                        coverHeaders: coverHeaders,
+        child: ExcludeFocus(
+          child: RepaintBoundary(
+            child: AspectRatio(
+              key: const ValueKey('ui-preview-frame'),
+              aspectRatio: virtual.aspectRatio,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: FittedBox(
+                  fit: BoxFit.contain,
+                  alignment: Alignment.topCenter,
+                  child: SizedBox.fromSize(
+                    size: virtual,
+                    child: MediaQuery(
+                      data: media,
+                      child: Theme(
+                        data: themed,
+                        child: _PreviewScreen(
+                          glow: glow,
+                          flat: flat,
+                          covers: covers,
+                          coverHeaders: coverHeaders,
+                        ),
                       ),
                     ),
                   ),
@@ -225,7 +240,13 @@ class _PreviewScreen extends StatelessWidget {
                 child: _PreviewCover(
                   cover: i < covers.length ? covers[i] : null,
                   headers: coverHeaders,
-                  decodeWidth: (coverSize * 2).round(),
+                  // Home's decode size for a cover this big, so the
+                  // image cache entries are shared.
+                  decodeWidth: coverDecodeWidth(
+                    width: coverSize,
+                    height: coverSize,
+                    devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+                  ),
                 ),
               ),
             ],

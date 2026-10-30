@@ -86,10 +86,13 @@ List<Color> lookBackdrop(BuildContext context, List<Color> colors) {
 
 /// A card's own fill [colors] (e.g. tinted from its cover): in Frosted they
 /// turn partly translucent so the screen's color shows through like glass,
-/// keeping their tint; other looks get them back unchanged.
+/// keeping their tint (how much follows the glass strength); other looks get
+/// them back unchanged.
 List<Color> lookCardColors(BuildContext context, List<Color> colors) {
-  if (!AbsorbLook.of(context).frostedPanels) return colors;
-  return [for (final c in colors) c.withValues(alpha: c.a * 0.62)];
+  final look = AbsorbLook.of(context);
+  if (!look.frostedPanels) return colors;
+  final opacity = look.cardFillOpacity;
+  return [for (final c in colors) c.withValues(alpha: c.a * opacity)];
 }
 
 /// A panel's fill: frosted glass when the look frosts panels, else [opaque].

@@ -17,7 +17,7 @@ List<SettingSearchEntry> settingsSearchEntries(BuildContext context) {
   return [
     // ── Appearance ──
     SettingSearchEntry('Appearance', l.sectionAppearance, l.languageLabel, [l.languageSystemDefault]),
-    SettingSearchEntry('Appearance', l.sectionAppearance, l.uiThemeLabel, [l.uiThemePlusName, l.uiThemeClassicName]),
+    SettingSearchEntry('Appearance', l.sectionAppearance, l.uiThemeLabel, [l.uiThemePlusName, l.uiThemeClassicName, l.uiThemeFrostedName, l.uiThemeGlass]),
     SettingSearchEntry('Appearance', l.sectionAppearance, l.themeLabel, [l.themeDark, l.themeLight, l.themeAuto]),
     SettingSearchEntry('Appearance', l.sectionAppearance, l.flatBackgroundLabel, [l.flatBackgroundSubtitle]),
     SettingSearchEntry('Appearance', l.sectionAppearance, l.einkModeLabel, [l.einkModeSubtitle]),

@@ -12984,4 +12984,16 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get uiThemeGoBack => 'Go back';
+
+  @override
+  String get uiThemeGlass => 'Glass';
+
+  @override
+  String get uiThemeGlassLight => 'Light';
+
+  @override
+  String get uiThemeGlassMedium => 'Medium';
+
+  @override
+  String get uiThemeGlassStrong => 'Strong';
 }

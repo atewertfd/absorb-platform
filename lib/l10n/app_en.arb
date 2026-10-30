@@ -7085,5 +7085,21 @@
     }
   },
   "uiThemeKeep": "Keep",
-  "uiThemeGoBack": "Go back"
+  "uiThemeGoBack": "Go back",
+  "uiThemeGlass": "Glass",
+  "@uiThemeGlass": {
+    "description": "Label of the Frosted look's glass strength choice (Light / Medium / Strong)"
+  },
+  "uiThemeGlassLight": "Light",
+  "@uiThemeGlassLight": {
+    "description": "Glass strength: subtle frosted glass"
+  },
+  "uiThemeGlassMedium": "Medium",
+  "@uiThemeGlassMedium": {
+    "description": "Glass strength: the standard Frosted look"
+  },
+  "uiThemeGlassStrong": "Strong",
+  "@uiThemeGlassStrong": {
+    "description": "Glass strength: more see-through, more blur"
+  }
 }

@@ -21956,6 +21956,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Go back'**
   String get uiThemeGoBack;
+
+  /// Label of the Frosted look's glass strength choice (Light / Medium / Strong)
+  ///
+  /// In en, this message translates to:
+  /// **'Glass'**
+  String get uiThemeGlass;
+
+  /// Glass strength: subtle frosted glass
+  ///
+  /// In en, this message translates to:
+  /// **'Light'**
+  String get uiThemeGlassLight;
+
+  /// Glass strength: the standard Frosted look
+  ///
+  /// In en, this message translates to:
+  /// **'Medium'**
+  String get uiThemeGlassMedium;
+
+  /// Glass strength: more see-through, more blur
+  ///
+  /// In en, this message translates to:
+  /// **'Strong'**
+  String get uiThemeGlassStrong;
 }
 
 class _AppLocalizationsDelegate

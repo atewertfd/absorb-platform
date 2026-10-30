@@ -49,19 +49,49 @@ enum AppUiTheme {
 
   /// The look's preset for [brightness]. E-ink always gets neutral surfaces
   /// (translucency and glow dither into noise there), but keeps the look's
-  /// behavior flags.
-  AbsorbLook lookFor(Brightness brightness, {bool eink = false}) {
+  /// behavior flags. [glass] picks Frosted's strength; other looks ignore it.
+  AbsorbLook lookFor(
+    Brightness brightness, {
+    bool eink = false,
+    GlassStrength glass = kDefaultGlassStrength,
+  }) {
     final look = switch (this) {
       AppUiTheme.plus => AbsorbLook.plus,
       AppUiTheme.classic => AbsorbLook.classic,
-      AppUiTheme.frosted =>
-        brightness == Brightness.dark
-            ? AbsorbLook.frostedDark
-            : AbsorbLook.frostedLight,
+      AppUiTheme.frosted => AbsorbLook.frosted(brightness, glass),
     };
     return eink ? look.withNeutralSurfaces() : look;
   }
 }
+
+/// How strong the Frosted look's glass is. Medium is the original Frosted.
+enum GlassStrength {
+  /// Subtler: more solid panels and sheets, less blur and accent tint.
+  light('light'),
+
+  /// The original Frosted values.
+  medium('medium'),
+
+  /// More see-through, more blur, a stronger tint and glow.
+  strong('strong');
+
+  const GlassStrength(this.id);
+
+  /// Stable id stored in preferences. Never rename an existing id.
+  final String id;
+
+  /// The strength stored under [id], or null for a missing or unknown id.
+  static GlassStrength? fromId(String? id) {
+    if (id == null) return null;
+    for (final strength in values) {
+      if (strength.id == id) return strength;
+    }
+    return null;
+  }
+}
+
+/// The glass strength used while none has been chosen: the original Frosted.
+const GlassStrength kDefaultGlassStrength = GlassStrength.medium;
 
 /// What a UI theme changes, as a [ThemeExtension] on the app's [ThemeData].
 ///
@@ -84,6 +114,7 @@ class AbsorbLook extends ThemeExtension<AbsorbLook> {
     this.panelBlurSigma = 0,
     this.cornerRadiusBoost = 0,
     this.sheetFillAlpha,
+    this.cardFillOpacity = 1,
     this.frostedNavBar = false,
     this.frostedSheets = false,
     this.frostedPlayerCard = false,
@@ -143,6 +174,11 @@ class AbsorbLook extends ThemeExtension<AbsorbLook> {
   /// readable even where no blur sits behind it. Null keeps them opaque.
   final double? sheetFillAlpha;
 
+  /// How much of a cover-tinted card's own fill stays when panels are
+  /// frosted (Home's Continue Listening cards): 1 keeps it, lower lets the
+  /// screen's color through. Only applies with frosted panels.
+  final double cardFillOpacity;
+
   /// The bottom nav bar is translucent with a blur behind it and a top edge.
   final bool frostedNavBar;
 
@@ -170,8 +206,8 @@ class AbsorbLook extends ThemeExtension<AbsorbLook> {
     compactHeaderActions: true,
   );
 
-  /// Frosted in dark mode: the owner-approved demo's values (white 7% glass,
-  /// 12% light edge, blur 18, radius +4) over a ~0.24 glow.
+  /// Frosted in dark mode, medium glass: the owner-approved demo's values
+  /// (white 7% glass, 12% light edge, blur 18, radius +4) over a ~0.24 glow.
   static const AbsorbLook frostedDark = AbsorbLook(
     glowStrength: 0.30,
     backdropTint: 0.16,
@@ -180,13 +216,14 @@ class AbsorbLook extends ThemeExtension<AbsorbLook> {
     panelBlurSigma: 18,
     cornerRadiusBoost: 4,
     sheetFillAlpha: 0.90,
+    cardFillOpacity: 0.62,
     frostedNavBar: true,
     frostedSheets: true,
     frostedPlayerCard: true,
   );
 
-  /// Frosted in light mode: milky glass (white 50%) with a faint dark edge,
-  /// and a softer glow since the light accent tone is darker.
+  /// Frosted in light mode, medium glass: milky glass (white 50%) with a
+  /// faint dark edge, and a softer glow since the light accent tone is darker.
   static const AbsorbLook frostedLight = AbsorbLook(
     glowStrength: 0.22,
     backdropTint: 0.10,
@@ -195,10 +232,87 @@ class AbsorbLook extends ThemeExtension<AbsorbLook> {
     panelBlurSigma: 18,
     cornerRadiusBoost: 4,
     sheetFillAlpha: 0.90,
+    cardFillOpacity: 0.62,
     frostedNavBar: true,
     frostedSheets: true,
     frostedPlayerCard: true,
   );
+
+  /// Frosted dark, light glass: a fainter sheen and edge, less tint and blur,
+  /// more solid sheets and cards; closer to Absorb Plus but still glass.
+  static const AbsorbLook frostedDarkGlassLight = AbsorbLook(
+    glowStrength: 0.26,
+    backdropTint: 0.10,
+    panelFillAlpha: 0.08,
+    panelBorderAlpha: 0.12,
+    panelBlurSigma: 12,
+    cornerRadiusBoost: 4,
+    sheetFillAlpha: 0.94,
+    cardFillOpacity: 0.78,
+    frostedNavBar: true,
+    frostedSheets: true,
+    frostedPlayerCard: true,
+  );
+
+  /// Frosted dark, strong glass: a brighter sheen and edge over more accent
+  /// color, more blur, and sheets and cards that let more through.
+  static const AbsorbLook frostedDarkGlassStrong = AbsorbLook(
+    glowStrength: 0.34,
+    backdropTint: 0.22,
+    panelFillAlpha: 0.12,
+    panelBorderAlpha: 0.20,
+    panelBlurSigma: 26,
+    cornerRadiusBoost: 4,
+    sheetFillAlpha: 0.84,
+    cardFillOpacity: 0.48,
+    frostedNavBar: true,
+    frostedSheets: true,
+    frostedPlayerCard: true,
+  );
+
+  /// Frosted light, light glass: milkier (more solid) panels, less tint and
+  /// blur, more solid sheets and cards.
+  static const AbsorbLook frostedLightGlassLight = AbsorbLook(
+    glowStrength: 0.18,
+    backdropTint: 0.06,
+    panelFillAlpha: 0.62,
+    panelBorderAlpha: 0.07,
+    panelBlurSigma: 12,
+    cornerRadiusBoost: 4,
+    sheetFillAlpha: 0.94,
+    cardFillOpacity: 0.78,
+    frostedNavBar: true,
+    frostedSheets: true,
+    frostedPlayerCard: true,
+  );
+
+  /// Frosted light, strong glass: clearer (less milky) panels over more
+  /// accent color, more blur, and sheets and cards that let more through.
+  static const AbsorbLook frostedLightGlassStrong = AbsorbLook(
+    glowStrength: 0.26,
+    backdropTint: 0.14,
+    panelFillAlpha: 0.40,
+    panelBorderAlpha: 0.10,
+    panelBlurSigma: 26,
+    cornerRadiusBoost: 4,
+    sheetFillAlpha: 0.84,
+    cardFillOpacity: 0.48,
+    frostedNavBar: true,
+    frostedSheets: true,
+    frostedPlayerCard: true,
+  );
+
+  /// The Frosted preset for [brightness] and glass [strength].
+  static AbsorbLook frosted(Brightness brightness, GlassStrength strength) {
+    final dark = brightness == Brightness.dark;
+    return switch (strength) {
+      GlassStrength.light =>
+        dark ? frostedDarkGlassLight : frostedLightGlassLight,
+      GlassStrength.medium => dark ? frostedDark : frostedLight,
+      GlassStrength.strong =>
+        dark ? frostedDarkGlassStrong : frostedLightGlassStrong,
+    };
+  }
 
   /// The look in effect for [context]: the app theme's extension, or (in
   /// tests and widgets built outside the app theme) the active look from
@@ -206,7 +320,9 @@ class AbsorbLook extends ThemeExtension<AbsorbLook> {
   static AbsorbLook of(BuildContext context) {
     final theme = Theme.of(context);
     return theme.extension<AbsorbLook>() ??
-        UiThemeScope.themeOf(context).lookFor(theme.brightness);
+        UiThemeScope.themeOf(
+          context,
+        ).lookFor(theme.brightness, glass: currentGlassStrength);
   }
 
   /// The same behavior flags with every visual token neutral.
@@ -244,6 +360,7 @@ class AbsorbLook extends ThemeExtension<AbsorbLook> {
     double? panelBlurSigma,
     double? cornerRadiusBoost,
     double? sheetFillAlpha,
+    double? cardFillOpacity,
     bool? frostedNavBar,
     bool? frostedSheets,
     bool? frostedPlayerCard,
@@ -260,6 +377,7 @@ class AbsorbLook extends ThemeExtension<AbsorbLook> {
     panelBlurSigma: panelBlurSigma ?? this.panelBlurSigma,
     cornerRadiusBoost: cornerRadiusBoost ?? this.cornerRadiusBoost,
     sheetFillAlpha: sheetFillAlpha ?? this.sheetFillAlpha,
+    cardFillOpacity: cardFillOpacity ?? this.cardFillOpacity,
     frostedNavBar: frostedNavBar ?? this.frostedNavBar,
     frostedSheets: frostedSheets ?? this.frostedSheets,
     frostedPlayerCard: frostedPlayerCard ?? this.frostedPlayerCard,
@@ -294,6 +412,7 @@ class AbsorbLook extends ThemeExtension<AbsorbLook> {
         t,
       )!,
       sheetFillAlpha: nullable(sheetFillAlpha, other.sheetFillAlpha),
+      cardFillOpacity: lerpDouble(cardFillOpacity, other.cardFillOpacity, t)!,
       frostedNavBar: near.frostedNavBar,
       frostedSheets: near.frostedSheets,
       frostedPlayerCard: near.frostedPlayerCard,
@@ -315,6 +434,7 @@ class AbsorbLook extends ThemeExtension<AbsorbLook> {
       other.panelBlurSigma == panelBlurSigma &&
       other.cornerRadiusBoost == cornerRadiusBoost &&
       other.sheetFillAlpha == sheetFillAlpha &&
+      other.cardFillOpacity == cardFillOpacity &&
       other.frostedNavBar == frostedNavBar &&
       other.frostedSheets == frostedSheets &&
       other.frostedPlayerCard == frostedPlayerCard;
@@ -333,6 +453,7 @@ class AbsorbLook extends ThemeExtension<AbsorbLook> {
     panelBlurSigma,
     cornerRadiusBoost,
     sheetFillAlpha,
+    cardFillOpacity,
     frostedNavBar,
     frostedSheets,
     frostedPlayerCard,
@@ -342,18 +463,50 @@ class AbsorbLook extends ThemeExtension<AbsorbLook> {
 /// The [AbsorbLook] to attach to the app's [ThemeData] of [brightness]: the
 /// active look's preset. One-line hook in main.dart's `extensions:`.
 AbsorbLook absorbLookFor(Brightness brightness, {bool eink = false}) =>
-    currentUiTheme.lookFor(brightness, eink: eink);
+    currentUiTheme.lookFor(brightness, eink: eink, glass: currentGlassStrength);
 
 /// The look used while none has been chosen.
 const AppUiTheme kDefaultUiTheme = AppUiTheme.plus;
 
+/// The saved glass strength for Frosted on this device.
+final ValueNotifier<GlassStrength> glassStrengthNotifier = ValueNotifier(
+  kDefaultGlassStrength,
+);
+
+/// A glass strength being tried live with a look ("Try it"), ahead of the
+/// saved one. Memory only, like [uiThemePreviewNotifier].
+final ValueNotifier<GlassStrength?> glassStrengthPreviewNotifier =
+    ValueNotifier(null);
+
 /// The chosen UI theme for this device; null means it was never chosen.
-final ValueNotifier<AppUiTheme?> uiThemeNotifier = ValueNotifier(null);
+/// It also notifies when the saved glass strength changes, so everything that
+/// follows the look (the app theme in main.dart, [UiThemeScope]) follows the
+/// glass too.
+final ValueNotifier<AppUiTheme?> uiThemeNotifier = _LookNotifier(
+  glassStrengthNotifier,
+);
 
 /// A look being tried live ("Try it" in the picker), shown app-wide ahead of
 /// the saved choice. Memory only: it is never stored, so a restart shows the
-/// saved look, and saving any look ([UiThemeStore.choose]) clears it.
-final ValueNotifier<AppUiTheme?> uiThemePreviewNotifier = ValueNotifier(null);
+/// saved look, and saving any look ([UiThemeStore.choose]) clears it. It
+/// also notifies when the previewed glass strength changes.
+final ValueNotifier<AppUiTheme?> uiThemePreviewNotifier = _LookNotifier(
+  glassStrengthPreviewNotifier,
+);
+
+/// A look notifier that also notifies its listeners when [glass] changes.
+class _LookNotifier extends ValueNotifier<AppUiTheme?> {
+  _LookNotifier(Listenable glass) : super(null) {
+    glass.addListener(notifyListeners);
+  }
+}
+
+/// The saved glass strength, ignoring a live preview.
+GlassStrength get savedGlassStrength => glassStrengthNotifier.value;
+
+/// The active glass strength: the one being tried live, else the saved one.
+GlassStrength get currentGlassStrength =>
+    glassStrengthPreviewNotifier.value ?? savedGlassStrength;
 
 /// The saved theme ([kDefaultUiTheme] until one is chosen), ignoring a live
 /// preview.
@@ -373,21 +526,53 @@ AbsorbLook get currentAbsorbLook => savedUiTheme.spec;
 abstract final class UiThemeStore {
   static const prefKey = 'fork_ui_theme';
 
-  /// Loads the saved look into [uiThemeNotifier]; null when never chosen
-  /// (or when the stored id is unknown, e.g. from a newer build).
+  /// Frosted's glass strength, device-wide like the look.
+  static const glassPrefKey = 'fork_ui_glass';
+
+  /// Loads the saved look into [uiThemeNotifier] (null when never chosen, or
+  /// when the stored id is unknown, e.g. from a newer build) and the saved
+  /// glass strength into [glassStrengthNotifier] (medium when unset).
   static Future<AppUiTheme?> load() async {
     final prefs = await SharedPreferences.getInstance();
     final theme = AppUiTheme.fromId(prefs.getString(prefKey));
+    glassStrengthNotifier.value =
+        GlassStrength.fromId(prefs.getString(glassPrefKey)) ??
+        kDefaultGlassStrength;
     uiThemeNotifier.value = theme;
     return theme;
   }
 
-  /// Saves [theme] and applies it right away, ending any live preview.
-  static Future<void> choose(AppUiTheme theme) async {
+  /// Saves [theme] (and [glass], when given) and applies it right away,
+  /// ending any live preview.
+  static Future<void> choose(AppUiTheme theme, {GlassStrength? glass}) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(prefKey, theme.id);
+    if (glass != null) {
+      await prefs.setString(glassPrefKey, glass.id);
+      glassStrengthNotifier.value = glass;
+    }
     uiThemeNotifier.value = theme;
+    glassStrengthPreviewNotifier.value = null;
     uiThemePreviewNotifier.value = null;
+  }
+
+  /// Applies Frosted's glass strength right away and saves it. A live
+  /// preview, if any, is left alone.
+  static Future<void> chooseGlass(GlassStrength glass) async {
+    glassStrengthNotifier.value = glass;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(glassPrefKey, glass.id);
+  }
+
+  /// Records that the question was answered (the first-launch picker was
+  /// dismissed or interrupted) without changing the look or ending a live
+  /// preview: stores the saved look when nothing valid is stored yet.
+  static Future<void> markChosen() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (AppUiTheme.fromId(prefs.getString(prefKey)) != null) return;
+    final theme = savedUiTheme;
+    await prefs.setString(prefKey, theme.id);
+    uiThemeNotifier.value = theme;
   }
 
   /// True until a look has been chosen (or the picker was dismissed) on this
@@ -418,7 +603,11 @@ class UiThemeScope extends InheritedNotifier<Listenable> {
   /// One stable merged listenable per saved notifier, so rebuilding the
   /// scope doesn't count as a change.
   static Listenable _withPreview(ValueNotifier<AppUiTheme?> saved) =>
-      _merged[saved] ??= Listenable.merge([saved, uiThemePreviewNotifier]);
+      _merged[saved] ??= Listenable.merge([
+        saved,
+        uiThemePreviewNotifier,
+        glassStrengthNotifier,
+      ]);
 
   /// The active look, a live preview first. Subscribes [context] to changes
   /// when a scope is present; without one (some tests) it reads the globals.
