@@ -3677,6 +3677,9 @@ class AudioPlayerService extends ChangeNotifier {
     bool loadOnly = false,
   }) async {
     _pauseRequested = false;
+    // A pause timeout armed for the previous item must not fire into this one.
+    _pauseStopTimer?.cancel();
+    _pauseStopTimer = null;
     _playFromUi = fromUi;
     if (_handler == null) {
       debugPrint('[Player] Handler not yet initialized, waiting…');
@@ -3722,6 +3725,20 @@ class AudioPlayerService extends ChangeNotifier {
         episodeTitle != title) {
       if (author.isEmpty) author = title; // `title` is the show name here
       title = episodeTitle;
+    }
+
+    // A downloaded play's local session ends with it: left active, a later
+    // flush would still send it, after an account switch to the wrong one.
+    // The same item keeps it - beginSession resumes it.
+    if (_localSessionMode &&
+        _currentItemId != null &&
+        playbackDownloadKey(_currentItemId!, _currentEpisodeId) !=
+            playbackDownloadKey(itemId, episodeId)) {
+      try {
+        await LocalSessionService().finalizeActive();
+      } catch (e) {
+        debugPrint('[Player] Could not finalize the previous local session: $e');
+      }
     }
 
     _isLoadingNewItem = true;
@@ -6320,7 +6337,12 @@ class AudioPlayerService extends ChangeNotifier {
         if (_lastKnownPositionSec > 0 && _totalDuration > 0) {
           final wasNearEnd = _lastKnownPositionSec >= _totalDuration - 5.0;
           final nowNearStart = posSec < 2.0;
-          if (wasNearEnd && nowNearStart) {
+          // The listener sought back to the start themselves.
+          final userSeekToStart = (_lastSeekTargetSec ?? 2.0) < 2.0 &&
+              _lastSeekAt != null &&
+              DateTime.now().difference(_lastSeekAt!) <
+                  const Duration(seconds: 10);
+          if (wasNearEnd && nowNearStart && !userSeekToStart) {
             if (_preloadedNextBook != null) {
               debugPrint(
                 '[PreBuffer] Position jump near-end → 0 with pre-buffer loaded — firing auto-queue advance',
@@ -6538,13 +6560,18 @@ class AudioPlayerService extends ChangeNotifier {
                   !_recreatingSession) {
                 _recreatingSession = true;
                 try {
+                  final api = _api!;
+                  final gen = _playbackGeneration;
+                  final itemId = _currentItemId!;
+                  final epId = _currentEpisodeId;
                   final sessionData = _currentEpisodeId != null
                       ? await _api!.startEpisodePlaybackSession(
                           _currentItemId!,
                           _currentEpisodeId!,
                         )
                       : await _api!.startPlaybackSession(_currentItemId!);
-                  if (sessionData != null) {
+                  if (sessionData != null &&
+                      !_dropStaleSession(api, gen, itemId, epId, sessionData)) {
                     _playbackSessionId = sessionData['id'] as String?;
                     if (_playbackSessionId != null) {
                       debugPrint(
@@ -7078,6 +7105,23 @@ class AudioPlayerService extends ChangeNotifier {
     return null;
   }
 
+  /// A background session re-create for [itemId]/[episodeId], begun under
+  /// [generation], that came back after another item started or playback
+  /// stopped. Closes the session it got and returns true, so it is not
+  /// adopted into what is playing now.
+  bool _dropStaleSession(ApiService api, int generation, String itemId,
+      String? episodeId, Map<String, dynamic>? sessionData) {
+    if (!_startSuperseded(generation) &&
+        _currentItemId == itemId &&
+        _currentEpisodeId == episodeId) {
+      return false;
+    }
+    final sid = sessionData?['id'] as String?;
+    debugPrint('[Player] Session re-create for $itemId outlived it - closing $sid');
+    if (sid != null) unawaited(api.closePlaybackSession(sid));
+    return true;
+  }
+
   bool get _isCachedStartReconcilePending =>
       _cachedStartReconcileGeneration == _playbackGeneration;
 
@@ -7222,12 +7266,17 @@ class AudioPlayerService extends ChangeNotifier {
   Future<void> _recoverSession(double currentTime, int lostTimeListened) async {
     if (_api == null || _currentItemId == null) return;
     try {
+      final api = _api!;
+      final gen = _playbackGeneration;
+      final itemId = _currentItemId!;
+      final epId = _currentEpisodeId;
       final sessionData = _currentEpisodeId != null
           ? await _api!.startEpisodePlaybackSession(
               _currentItemId!,
               _currentEpisodeId!,
             )
           : await _api!.startPlaybackSession(_currentItemId!);
+      if (_dropStaleSession(api, gen, itemId, epId, sessionData)) return;
       if (sessionData != null) {
         _playbackSessionId = sessionData['id'] as String?;
         debugPrint('[Player] Recovered session: $_playbackSessionId');
@@ -7801,6 +7850,10 @@ class AudioPlayerService extends ChangeNotifier {
       if (_recreatingSession) return false;
       _recreatingSession = true;
       try {
+        final api = _api!;
+        final gen = _playbackGeneration;
+        final itemId = _currentItemId!;
+        final epId = _currentEpisodeId;
         final sessionData = _currentEpisodeId != null
             ? await _api!.startEpisodePlaybackSession(
                 _currentItemId!,
@@ -7808,6 +7861,7 @@ class AudioPlayerService extends ChangeNotifier {
               )
             : await _api!.startPlaybackSession(_currentItemId!);
         if (sessionData == null) return false;
+        if (_dropStaleSession(api, gen, itemId, epId, sessionData)) return false;
         _playbackSessionId = sessionData['id'] as String?;
         _logEvent(PlaybackEventType.sessionStart, detail: 'dead source');
         _stashSessionUpgrade(sessionData);
@@ -7864,13 +7918,18 @@ class AudioPlayerService extends ChangeNotifier {
     }
     _recreatingSession = true;
     try {
+      final api = _api!;
+      final gen = _playbackGeneration;
+      final itemId = _currentItemId!;
+      final epId = _currentEpisodeId;
       final sessionData = _currentEpisodeId != null
           ? await _api!.startEpisodePlaybackSession(
               _currentItemId!,
               _currentEpisodeId!,
             )
           : await _api!.startPlaybackSession(_currentItemId!);
-      if (sessionData != null) {
+      if (sessionData != null &&
+          !_dropStaleSession(api, gen, itemId, epId, sessionData)) {
         _playbackSessionId = sessionData['id'] as String?;
         debugPrint(
           '[Player] Re-created session on resume: $_playbackSessionId',
@@ -7968,6 +8027,7 @@ class AudioPlayerService extends ChangeNotifier {
     // responsive after a long pause. Same pattern as Spotify and Pocket Casts.
     _pauseStopTimer?.cancel();
     _pauseStopTimer = Timer(_pauseStopTimeout, () async {
+      if (isPlaying) return;
       debugPrint('[Player] Pause timeout - releasing server session');
       // Close server playback session. timeListened=0 because the user has
       // been paused for the whole pause-timeout window - the wall-clock diff
@@ -8249,7 +8309,8 @@ class AudioPlayerService extends ChangeNotifier {
           await _api!.closePlaybackSession(_playbackSessionId!);
         } catch (_) {}
       } else if (_currentItemId != null && _api != null) {
-        await _progressSync.syncToServer(api: _api!, itemId: _currentItemId!);
+        // Episodes keep their progress under the compound key, as in pause().
+        await _progressSync.syncToServer(api: _api!, itemId: _mediaItemKey);
       }
     }
 

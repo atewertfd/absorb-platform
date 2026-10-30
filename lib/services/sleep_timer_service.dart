@@ -122,6 +122,9 @@ class SleepTimerService extends ChangeNotifier {
   int _chaptersRemaining = 0;
   int _targetChapterIndex = -1;
   double _targetEndSeconds = -1;
+  // The item the chapter target belongs to: its end position means nothing
+  // in another book or episode.
+  String? _chapterItemKey;
   StreamSubscription? _positionSub;
 
   // Where a sleep rewind put us, so hitting play again shortly after can undo
@@ -391,6 +394,7 @@ class SleepTimerService extends ChangeNotifier {
     _mode = SleepTimerMode.chapters;
     _targetChapterIndex = target;
     _targetEndSeconds = _chapterEnd(target);
+    _chapterItemKey = _playingItemKey();
     _chaptersRemaining = (target - currentIdx + 1).clamp(0, 999);
     debugPrint('[SleepTimer] Set chapter sleep: current=$currentIdx '
         'target=$target end=${_targetEndSeconds.toStringAsFixed(0)}s');
@@ -412,6 +416,12 @@ class SleepTimerService extends ChangeNotifier {
     _positionSub = stream.listen((pos) {
       if (!_isPlaybackActive) return;
       if (_targetEndSeconds <= 0) return;
+      final key = _playingItemKey();
+      if (key != null && _chapterItemKey != null && key != _chapterItemKey) {
+        debugPrint('[SleepTimer] Another item is playing - chapter sleep off');
+        cancel();
+        return;
+      }
 
       // Trigger off the position, not the chapter index: a position that lands
       // in a gap between chapters resolves to no index at all.
@@ -483,6 +493,15 @@ class SleepTimerService extends ChangeNotifier {
 
   List<dynamic> _chapterList() =>
       _cast.isCasting ? _cast.castingChapters : _player.chapters;
+
+  /// The playing book or episode (`item-episode`), cast or local.
+  String? _playingItemKey() {
+    final item = _cast.isCasting ? _cast.castingItemId : _player.currentItemId;
+    if (item == null) return null;
+    final ep =
+        _cast.isCasting ? _cast.castingEpisodeId : _player.currentEpisodeId;
+    return ep == null ? item : '$item-$ep';
+  }
 
   double _currentPositionSeconds() => _cast.isCasting
       ? _cast.castPosition.inMilliseconds / 1000.0
