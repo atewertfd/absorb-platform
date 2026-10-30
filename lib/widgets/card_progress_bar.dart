@@ -453,6 +453,7 @@ class _CardDualProgressBarState extends State<CardDualProgressBar> with WidgetsB
                       child: chName != null
                           ? MarqueeText(
                               text: chName,
+                              animate: isPlaying,
                               style: TextStyle(
                                 color: cs.onSurface.withValues(alpha: 0.9),
                                 fontWeight: FontWeight.w600,
@@ -655,7 +656,10 @@ class ChapterPillPainter extends CustomPainter {
 class MarqueeText extends StatefulWidget {
   final String text;
   final TextStyle style;
-  const MarqueeText({super.key, required this.text, required this.style});
+  /// Scroll only while true (the book is playing); paused text stays still
+  /// at its start instead of animating forever.
+  final bool animate;
+  const MarqueeText({super.key, required this.text, required this.style, this.animate = true});
   @override State<MarqueeText> createState() => _MarqueeTextState();
 }
 
@@ -687,6 +691,14 @@ class _MarqueeTextState extends State<MarqueeText> with SingleTickerProviderStat
       _loopWidth = 0;
       if (_scrollController.hasClients) _scrollController.jumpTo(0);
       WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
+    } else if (old.animate != widget.animate && _loopWidth > 0) {
+      if (widget.animate) {
+        if (!_animController.isAnimating) _animController.repeat();
+      } else {
+        _animController.stop();
+        _animController.value = 0;
+        if (_scrollController.hasClients) _scrollController.jumpTo(0);
+      }
     }
   }
 
@@ -707,7 +719,7 @@ class _MarqueeTextState extends State<MarqueeText> with SingleTickerProviderStat
       final durationMs = (_loopWidth / _speed * 1000).round();
       _animController.duration = Duration(milliseconds: durationMs);
       Future.delayed(const Duration(seconds: 2), () {
-        if (mounted) _animController.repeat();
+        if (mounted && widget.animate) _animController.repeat();
       });
     });
   }
