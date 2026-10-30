@@ -122,6 +122,23 @@ class LibraryProvider extends ChangeNotifier
     });
   }
 
+  // Release what the provider started: its timers, the connectivity stream
+  // and the DownloadService listener (matters for tests and hot restart).
+  @override
+  void dispose() {
+    if (_listeningToDownloads) {
+      DownloadService().removeListener(_onDownloadsChanged);
+    }
+    _connectivitySub?.cancel();
+    _connectivityDebounce?.cancel();
+    _progressRefreshDebounce?.cancel();
+    _stopServerPingTimer();
+    _stopHealthCheckTimer();
+    _stopBookOrbitPoll();
+    _stopLocalProbeTimer();
+    super.dispose();
+  }
+
   void updateAuth(AuthProvider auth) {
     if (!_listeningToDownloads) {
       _listeningToDownloads = true;
