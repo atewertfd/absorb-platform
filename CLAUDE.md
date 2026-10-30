@@ -64,7 +64,7 @@ Claude is the main and only developer of Absorb Plus, a fork of [pounat/absorb](
   - Windows: locally, into the owner's Release folder.
   - Android, Linux and web: GitHub Actions. It's free (public repo) and runs in the background, and Android gets the permanent signing key there.
   - A signed phone-test APK: run `gh workflow run ci.yml --ref <branch>` and download the `absorb-android-apk` artifact.
-  - There is no Android SDK on this PC; installing one needs the owner's OK.
+  - **Local APKs (owner OK, 2026-10-30):** the Android SDK is installed at `%LOCALAPPDATA%\Android\Sdk` (JDK 21 from `JAVA_HOME`). `dev.ps1 apk -Local` builds the signed arm64 test APK here, checks its signature and copies it to the beta folder. It needs `android\key.properties` (git-ignored), which **the owner** creates once with `toolndroid-signing-setup.ps1`. Never read, print or copy `key.properties` or the key folder's `password.txt`. Without it, `dev.ps1 apk` builds on CI as before.
 - **Scripts:**
   - `tool/dev.ps1` (check, build, bump, footprint, merge);
   - `tool/align_with_upstream.py` (undo formatting churn);

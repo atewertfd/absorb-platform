@@ -42,6 +42,7 @@ param(
   [string]$Action = '',
   [int]$Beta = 0,
   [switch]$CloseRunning,
+  [switch]$Local,
   [switch]$NextBeta,
   [switch]$Full
 )
@@ -126,7 +127,8 @@ function Write-BetaNotes {
       "- $($label[$Matches[1]]): $($text.Substring(0,1).ToUpper())$($text.Substring(1))"
     }
   }
-  $androidLine = if ($AndroidRun) { "Android: Android\Absorb Plus beta.apk (CI run $AndroidRun, $(Get-Date -Format 'yyyy-MM-dd HH:mm'))" }
+  $androidLine = if ($AndroidRun -eq 'local') { "Android: Android\Absorb Plus beta.apk (built on this PC, $(Get-Date -Format 'yyyy-MM-dd HH:mm'))" }
+    elseif ($AndroidRun) { "Android: Android\Absorb Plus beta.apk (CI run $AndroidRun, $(Get-Date -Format 'yyyy-MM-dd HH:mm'))" }
     elseif (Test-Path (Join-Path $BetaDir 'Android\Absorb Plus beta.apk')) {
       $old = Select-String -Path $notesPath -Pattern '^Android: ' -ErrorAction SilentlyContinue | Select-Object -First 1
       if ($old) { $old.Line } else { 'Android: Android\Absorb Plus beta.apk' }
@@ -226,8 +228,33 @@ switch ($Command) {
   'beta-sync' { Update-BetaFolder }
 
   'apk' {
-    # A signed phone-test APK from CI for the current branch, into the beta
-    # folder. Takes ~10 minutes; run it in the background.
+    # A signed phone-test APK into the beta folder. -Local builds it on this
+    # PC (needs the Android SDK and android\key.properties, made once by the
+    # owner with toolndroid-signing-setup.ps1); otherwise CI builds it for
+    # the current branch (~9 minutes). Run either in the background.
+    if ($Local) {
+      if (-not (Test-Path 'android\key.properties')) {
+        throw 'No signing setup on this PC: the owner runs toolndroid-signing-setup.ps1 once.'
+      }
+      Invoke-Step -Name 'flutter-pub-get' -Run { & $flutter pub get }
+      try {
+        Invoke-Step -Name 'apk-local' -Run {
+          & $flutter build apk --release --no-pub --flavor github --target-platform android-arm64 --dart-define=GITHUB_BUILD=true
+        }
+      } finally {
+        Restore-Generated
+      }
+      $apk = Get-ChildItem 'buildpp\outputslutter-apk' -Filter '*github-release*.apk' |
+        Sort-Object LastWriteTime -Descending | Select-Object -First 1
+      if (-not $apk) { throw 'The build produced no APK.' }
+      Invoke-Step -Name 'apk-signature' -Run { python tool/ci/verify_apk_signature.py $apk.FullName }
+      $dest = Join-Path $BetaDir 'Android'
+      New-Item -ItemType Directory -Force -Path $dest | Out-Null
+      Copy-Item $apk.FullName (Join-Path $dest 'Absorb Plus beta.apk') -Force
+      Write-BetaNotes -AndroidRun 'local'
+      Write-Host "APK ready: $(Join-Path $dest 'Absorb Plus beta.apk')" -ForegroundColor Green
+      break
+    }
     $branch = (git rev-parse --abbrev-ref HEAD).Trim()
     $repo = 'atewertfd/absorb-platform'
     $before = (gh run list --repo $repo --workflow ci.yml --branch $branch --limit 1 --json databaseId --jq '.[0].databaseId')

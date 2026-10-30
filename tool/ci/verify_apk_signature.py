@@ -17,7 +17,8 @@ EXPECTED_FILE = Path(__file__).resolve().parents[1] / "android-signing-cert-sha2
 
 def apksigner() -> str:
     sdk = os.environ.get("ANDROID_HOME") or os.environ.get("ANDROID_SDK_ROOT") or ""
-    tools = sorted(glob.glob(os.path.join(sdk, "build-tools", "*", "apksigner")))
+    name = "apksigner.bat" if os.name == "nt" else "apksigner"
+    tools = sorted(glob.glob(os.path.join(sdk, "build-tools", "*", name)))
     if not tools:
         sys.exit("apksigner not found (ANDROID_HOME/build-tools/*/apksigner)")
     return tools[-1]
