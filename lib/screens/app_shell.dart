@@ -205,7 +205,7 @@ class _AppShellState extends State<AppShell>
   // ── Scroll-to-hide bottom nav (driven by Library screen) ──
   late final AnimationController _navBarAnimController = AnimationController(
     vsync: this,
-    duration: AppMotion.state,
+    duration: const Duration(milliseconds: 250),
     value: 1.0,
   );
   VoidCallback? _navBarListener;
@@ -270,12 +270,13 @@ class _AppShellState extends State<AppShell>
           .disableAnimations,
     );
     _fadeController.duration = AppMotion.duration(
-      AppMotion.navigation,
+      const Duration(milliseconds: 200),
       motionMode,
     );
     final request = ++_navigationRequest;
     if (motionMode != AppMotionMode.normal) {
       _fadeController.stop(canceled: false);
+      _fadeController.value = 1.0; // never leave a half-faded page
       setState(() => _currentIndex = index);
       _syncPlayerOnScreen();
     } else {
@@ -374,20 +375,9 @@ class _AppShellState extends State<AppShell>
 
   late final AnimationController _fadeController = AnimationController(
     vsync: this,
-    duration: AppMotion.navigation,
+    duration: const Duration(milliseconds: 200),
     value: 1.0,
   );
-  late final CurvedAnimation _fadeAnimation = CurvedAnimation(
-    parent: _fadeController,
-    curve: AppMotion.navigationCurve,
-  );
-  // Keep a little of the old page visible while the index swaps. A full
-  // fade-to-black makes desktop tab changes feel like a route reload; this
-  // still gives the transition a clear motion cue without a blank flash.
-  late final Animation<double> _pageOpacity = Tween<double>(
-    begin: 0.86,
-    end: 1.0,
-  ).animate(_fadeAnimation);
 
   void _loadStartScreen() {
     PlayerSettings.getStartScreen().then((idx) {
@@ -532,7 +522,6 @@ class _AppShellState extends State<AppShell>
 
   @override
   void dispose() {
-    _fadeAnimation.dispose();
     _incomingNotifications?.cancel();
     _fadeController.dispose();
     _detachNavBarListener();
@@ -867,7 +856,7 @@ class _AppShellState extends State<AppShell>
             },
             child: Scaffold(
         body: FadeTransition(
-          opacity: _pageOpacity,
+          opacity: _fadeController,
           child: IndexedStack(
             index: _currentIndex,
             children: List<Widget>.generate(
@@ -950,10 +939,12 @@ class _AppShellState extends State<AppShell>
         onLongPressStart: (details) =>
             _onNavLongPress(details.localPosition.dx, destinations.length),
         child: NavigationBar(
-          animationDuration: AppMotion.duration(
-            AppMotion.state,
-            AppMotionScope.maybeOf(context) ?? AppMotionMode.normal,
-          ),
+          // null keeps Material's default indicator animation (as upstream).
+          animationDuration: (AppMotionScope.maybeOf(context) ??
+                      AppMotionMode.normal) ==
+                  AppMotionMode.normal
+              ? null
+              : Duration.zero,
           selectedIndex: _selectedDest(lib, podcastsShown),
           height: isPhoneLandscape ? 56 : null,
           labelBehavior: isPhoneLandscape

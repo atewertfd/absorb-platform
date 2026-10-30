@@ -4,17 +4,17 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:absorb/main.dart' show buildAppPageTransitionsTheme;
 
 void main() {
-  test('normal motion uses an animated desktop transition builder', () {
+  test('normal motion matches upstream: Cupertino on mobile, '
+      "Flutter's default on desktop", () {
     final theme = buildAppPageTransitionsTheme(instant: false);
 
-    expect(theme.builders[TargetPlatform.windows],
-        isA<FadeUpwardsPageTransitionsBuilder>());
-    expect(theme.builders[TargetPlatform.linux],
-        isA<FadeUpwardsPageTransitionsBuilder>());
-    expect(theme.builders[TargetPlatform.macOS],
-        isA<FadeUpwardsPageTransitionsBuilder>());
     expect(theme.builders[TargetPlatform.android],
         isA<CupertinoPageTransitionsBuilder>());
+    expect(theme.builders[TargetPlatform.iOS],
+        isA<CupertinoPageTransitionsBuilder>());
+    // No override, so desktop keeps Flutter's own animated transition.
+    expect(theme.builders[TargetPlatform.windows], isNull);
+    expect(theme.builders[TargetPlatform.linux], isNull);
   });
 
   test('instant motion uses the immediate builder on every platform', () {

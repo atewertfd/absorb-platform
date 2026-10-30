@@ -36,14 +36,4 @@ void main() {
       requested,
     );
   });
-
-  test('shared durations increase with interaction scope', () {
-    expect(AppMotion.micro, const Duration(milliseconds: 90));
-    expect(AppMotion.state, const Duration(milliseconds: 140));
-    expect(AppMotion.navigation, const Duration(milliseconds: 170));
-    expect(AppMotion.modal, const Duration(milliseconds: 220));
-    expect(AppMotion.micro < AppMotion.state, isTrue);
-    expect(AppMotion.state < AppMotion.navigation, isTrue);
-    expect(AppMotion.navigation < AppMotion.modal, isTrue);
-  });
 }

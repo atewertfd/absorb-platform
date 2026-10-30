@@ -49,6 +49,7 @@ import 'widgets/auth_loading_screen.dart';
 import 'widgets/beta_logging_notice.dart';
 import 'widgets/setup_link_login.dart';
 import 'utils/app_motion.dart';
+import 'utils/smooth_wheel_scroll.dart';
 import 'utils/memory_policy.dart';
 
 /// Global notifier so any widget (e.g. settings) can change the theme instantly.
@@ -110,24 +111,27 @@ class _InstantPageTransitionsBuilder extends PageTransitionsBuilder {
       child;
 }
 
-/// Builds the app-wide route transition policy. Mobile keeps its existing
-/// Cupertino transition; desktop and web use a restrained Material fade/slide
-/// so pushed pages do not appear to snap in from nowhere.
+/// Builds the app-wide route transition policy. Normal motion matches
+/// upstream Absorb: Cupertino on mobile, Flutter's default page transition on
+/// desktop. Instant motion (e-ink, "Disable page fade", OS reduce-motion)
+/// skips transitions everywhere.
 PageTransitionsTheme buildAppPageTransitionsTheme({required bool instant}) {
-  final mobile = instant
-      ? const _InstantPageTransitionsBuilder()
-      : const CupertinoPageTransitionsBuilder();
-  final desktop = instant
-      ? const _InstantPageTransitionsBuilder()
-      : const FadeUpwardsPageTransitionsBuilder();
-  return PageTransitionsTheme(
+  if (!instant) {
+    return const PageTransitionsTheme(
+      builders: {
+        TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+      },
+    );
+  }
+  return const PageTransitionsTheme(
     builders: {
-      TargetPlatform.android: mobile,
-      TargetPlatform.iOS: mobile,
-      TargetPlatform.windows: desktop,
-      TargetPlatform.linux: desktop,
-      TargetPlatform.macOS: desktop,
-      TargetPlatform.fuchsia: desktop,
+      TargetPlatform.android: _InstantPageTransitionsBuilder(),
+      TargetPlatform.iOS: _InstantPageTransitionsBuilder(),
+      TargetPlatform.windows: _InstantPageTransitionsBuilder(),
+      TargetPlatform.linux: _InstantPageTransitionsBuilder(),
+      TargetPlatform.macOS: _InstantPageTransitionsBuilder(),
+      TargetPlatform.fuchsia: _InstantPageTransitionsBuilder(),
     },
   );
 }
@@ -240,6 +244,10 @@ Future<void> applyOrientationLock() async {
 void main() async {
   HttpOverrides.global = _CertOverrides();
   final widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+  installSmoothWheelScroll(
+    enabled: () =>
+        !einkModeNotifier.value && !snappyTransitionsNotifier.value,
+  );
   configureImageCache(PaintingBinding.instance.imageCache);
   ReadListenSync.instance.start();
   BookOrbitApiService.placeReadingSpot = NarrationService.readingSpotSeconds;
@@ -486,15 +494,13 @@ class AbsorbApp extends StatelessWidget {
             final pageTransition = buildAppPageTransitionsTheme(
               instant: motionMode != AppMotionMode.normal,
             );
-            final interactionDuration = AppMotion.duration(
-              AppMotion.state,
-              motionMode,
-            );
-            // Keep Material button families on the same short, desktop-sized
-            // timing token without editing every individual button callsite.
+            // Normal motion keeps Material's own button timing (null = default);
+            // reduced or instant motion turns button animations off.
             final buttonMotion = ButtonStyle(
-              animationDuration: interactionDuration,
-                  );
+              animationDuration: motionMode == AppMotionMode.normal
+                  ? null
+                  : Duration.zero,
+            );
 
             return MaterialApp(
               navigatorKey: rootNavigatorKey,

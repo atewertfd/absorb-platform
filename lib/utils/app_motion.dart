@@ -3,20 +3,13 @@ import 'package:flutter/widgets.dart';
 /// The motion modes shared by shell, navigation, and desktop input.
 enum AppMotionMode { normal, reduced, instant }
 
-/// Central timing tokens for interactions that should feel related.
+/// The app-wide motion policy. Animation timings themselves stay at upstream
+/// Absorb's and Material's values; this only decides when they are skipped.
 ///
 /// Keep this class pure so policy decisions can be tested without a widget
 /// tree. Widgets decide whether reduced motion is requested and pass the
 /// resulting mode here.
 abstract final class AppMotion {
-  static const micro = Duration(milliseconds: 90);
-  static const state = Duration(milliseconds: 140);
-  static const navigation = Duration(milliseconds: 170);
-  static const modal = Duration(milliseconds: 220);
-
-  static const curve = Curves.easeOutCubic;
-  static const navigationCurve = Curves.easeInOutCubic;
-
   static AppMotionMode resolveMode({
     required bool eInk,
     required bool snappy,
