@@ -1,0 +1,26 @@
+# Paths removed from Absorb Plus on purpose. They stay deleted:
+#  - tool/upstream_merge.py deletes them again after every upstream merge,
+#  - tool/check_fork_removed.py (CI) fails if any of them comes back,
+#  - the pre-edit hook (tool/claude_hooks.py) blocks editing them.
+# One path or directory prefix per line (directories end with /). # starts a comment.
+
+# Apple platforms (owner decision 2026-10-29: Apple support removed)
+ios/
+packages/flutter_carplay/
+packages/whisper_ggml_plus/ios/
+packages/whisper_ggml_plus/macos/
+lib/services/carplay_image_url.dart          # only used by the real CarPlay service
+.github/workflows/ios-release.yml
+.github/workflows/whisper-metallib.yml       # builds an Apple Metal library
+
+# Upstream release workflows that need upstream's signing secrets / accounts and
+# duplicate the fork's own release workflow
+.github/workflows/all-release.yml
+.github/workflows/android-release.yml
+.github/workflows/github-release.yml
+.github/workflows/windows-build.yml
+codemagic.yaml                               # upstream's Codemagic CI, unused here
+
+# Fork docs superseded by CLAUDE.md, AGENTS.md, docs/ARCHITECTURE.md and README.md
+docs/superpowers/
+DESKTOP-PORT-README.md

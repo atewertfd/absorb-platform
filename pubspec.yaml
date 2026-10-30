@@ -53,11 +53,6 @@ dependencies:
   html: ^0.15.4
   xml: ^6.5.0
 
-  # CarPlay - vendored copy of 1.2.11 with a patched image loader (downsampled +
-  # cached list thumbnails) so large browse lists don't run CarPlay out of memory.
-  flutter_carplay:
-    path: packages/flutter_carplay
-  
   # Permissions
   permission_handler: ^12.0.1
 
@@ -164,8 +159,6 @@ flutter:
 
 flutter_launcher_icons:
   android: true
-  ios: true
-  remove_alpha_ios: true
   image_path: "assets/icon/app_icon.png"
   adaptive_icon_background: "#000000"
   adaptive_icon_foreground: "assets/icon/app_icon_foreground.png"
@@ -176,4 +169,3 @@ flutter_native_splash:
   android_12:
     color: "#000000"
     image: "assets/icon/splash_logo.png"
-  ios: true

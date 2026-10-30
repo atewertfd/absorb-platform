@@ -380,13 +380,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.4.1"
-  flutter_carplay:
-    dependency: "direct main"
-    description:
-      path: "packages/flutter_carplay"
-      relative: true
-    source: path
-    version: "1.2.11"
   flutter_chrome_cast:
     dependency: "direct main"
     description:

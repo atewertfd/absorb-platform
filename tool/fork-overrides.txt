@@ -1,0 +1,6 @@
+# Files where Absorb Plus's version always wins when an upstream merge
+# conflicts on them (tool/upstream_merge.py takes "ours" for these).
+# Review upstream's change afterwards in case something there is worth porting.
+
+lib/services/carplay_service.dart   # no-op stub; Apple support removed
+README.md                           # Absorb Plus's own README
