@@ -8,8 +8,8 @@ Claude is the main and only developer of Absorb Plus, a fork of [pounat/absorb](
 
 | Platform | Who tests it | So Claude must |
 |---|---|---|
-| Windows | The owner, the most | Build the local Release folder every time |
-| Android | The owner's phone, often but less | Ship testable APKs (releases or CI) |
+| Windows | The owner, the most | Build after every change; `dev.ps1 build` refreshes `Desktop\Absorb Plus Beta\Windows` |
+| Android | The owner's phone, often but less | After meaningful changes, `dev.ps1 apk` (background) puts a signed APK in `Desktop\Absorb Plus Beta\Android` |
 | Web | Nobody by hand | Check it through CI builds and the Pages deploy |
 | Linux | Never by hand | Cover it through CI builds and checks |
 
@@ -33,7 +33,13 @@ Claude is the main and only developer of Absorb Plus, a fork of [pounat/absorb](
 
 ## Location and remotes
 
-- The main checkout is `C:\Users\pc\Desktop\claude\Absorb`. The owner runs `build\windows\x64\runner\Release\absorb.exe` from it.
+- The main checkout is `C:\Users\pc\Desktop\claude\Absorb`.
+- **The owner tests from `C:\Users\pc\Desktop\Absorb Plus Beta`** (owner request, 2026-10-30): one folder that's always current.
+  - `Windows\` is refreshed by every `dev.ps1 build`, or `beta-sync` if it was open during the build.
+  - `Android\Absorb Plus beta.apk` comes from `dev.ps1 apk`.
+  - `What's new.txt` lists the changes since the last published release.
+  - The desktop shortcut "Absorb Plus (test build)" opens the Windows copy.
+  - Every change is also pushed to `fork`. Releases stay batched.
 - `origin` is upstream; **never push to it** (hook- and permission-enforced). `fork` is where everything is pushed. `codex-local` is the old Codex checkout under `C:\Users\pc\Documents\Codex\2026-09-29\`, kept read-only as a backup; don't build or commit there.
 - A `v*` tag on the fork publishes a pre-release through CI. Pushing `main` redeploys the web build to GitHub Pages.
 
@@ -76,7 +82,7 @@ Claude is the main and only developer of Absorb Plus, a fork of [pounat/absorb](
   - **Repair:** find empty folders under `%LOCALAPPDATA%\Pub\Cache\hosted\pub.dev`, `rmdir` them, then run `flutter pub get`.
 - **Generated plugin files** (`*/flutter/generated_plugin*`): restore them only **after** building. The committed list names `jni`, which this machine's Flutter drops, so restoring before a `--no-pub` build breaks CMake. `dev.ps1` handles this.
 - **NuGet is required for Windows builds** (WebView2 plugin). If CMake cached `NUGET-NOTFOUND`, delete `build\windows\x64\CMakeCache.txt`.
-- **If the owner is running the Release build**, don't close or overwrite it. Verify in a separate worktree, or ask.
+- **If the owner has Absorb open from the beta folder**, don't close it. `dev.ps1 build` still builds, skips refreshing the open copy, and says so; run `beta-sync` once it's closed.
 - **Bash heredocs on this machine collapse `\\`.** Write scripts containing backslashes or regexes to a file with the Write tool.
 - **Never `dart format` existing upstream files**: it rewraps hundreds of lines into future conflicts.
 

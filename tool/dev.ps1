@@ -5,8 +5,13 @@
 .DESCRIPTION
   check      pub get, analyze, full test suite, tool tests, removed-paths check
   build      Windows release into build\windows\x64\runner\Release, then
-             verify the exe's version matches pubspec.yaml
-  bump       next build number (+1) in pubspec.yaml, for every build the
+             verify the exe's version matches pubspec.yaml and refresh the
+             owner's test copy in Desktop\Absorb Plus Beta
+  beta-sync  refresh Desktop\Absorb Plus Beta from the last build (when it
+             was open during the build)
+  apk        signed phone-test APK from CI into Absorb Plus Beta\Android
+             (~10 min; run it in the background)
+  bump      next build number (+1) in pubspec.yaml, for every build the
              owner gets. The beta number (lib/build_info.dart) names the
              next beta to be published and stays put; after publishing one,
              run bump -NextBeta (or -Beta N to set it).
@@ -31,7 +36,7 @@
 #>
 param(
   [Parameter(Mandatory = $true, Position = 0)]
-  [ValidateSet('check', 'build', 'bump', 'footprint', 'merge', 'server', 'itest')]
+  [ValidateSet('check', 'build', 'beta-sync', 'apk', 'bump', 'footprint', 'merge', 'server', 'itest')]
   [string]$Command,
   [Parameter(Position = 1)]
   [string]$Action = '',
@@ -98,6 +103,54 @@ function Invoke-Flutter {
   Invoke-Step -Name $name -Run { & $flutter @flutterArgs } `
     -SummaryPattern 'No issues found|issues found|All tests passed|tests? passed|Built '
 }
+# The owner's always-current test copy (Desktop\Absorb Plus Beta): Windows\
+# is refreshed after every build, Android\ by `apk`, and "What's new.txt"
+# lists the changes since the last published release. Copies never delete
+# anything; a running copy is left alone and refreshed next time.
+$BetaDir = Join-Path ([Environment]::GetFolderPath('Desktop')) 'Absorb Plus Beta'
+function Write-BetaNotes {
+  param([string]$AndroidRun = '')
+  New-Item -ItemType Directory -Force -Path $BetaDir | Out-Null
+  $notesPath = Join-Path $BetaDir "What's new.txt"
+  $winVersion = ''
+  $winExe = Join-Path $BetaDir 'Windows\absorb.exe'
+  if (Test-Path $winExe) { $winVersion = (Get-Item $winExe).VersionInfo.ProductVersion }
+  $beta = (Select-String -Path lib/build_info.dart -Pattern 'kBetaNumber = (\d+)').Matches[0].Groups[1].Value
+  $lastTag = (git describe --tags --abbrev=0 --match 'v*' 2>$null)
+  $range = if ($lastTag) { "$lastTag..HEAD" } else { 'HEAD~30..HEAD' }
+  $changes = git log --no-merges --format='- %s' $range |
+    Where-Object { $_ -match '^- (feat|fix|perf)' }
+  $androidLine = if ($AndroidRun) { "Android: Android\Absorb Plus beta.apk (CI run $AndroidRun, $(Get-Date -Format 'yyyy-MM-dd HH:mm'))" }
+    elseif (Test-Path (Join-Path $BetaDir 'Android\Absorb Plus beta.apk')) {
+      $old = Select-String -Path $notesPath -Pattern '^Android: ' -ErrorAction SilentlyContinue | Select-Object -First 1
+      if ($old) { $old.Line } else { 'Android: Android\Absorb Plus beta.apk' }
+    } else { 'Android: not built yet (run tool\dev.ps1 apk)' }
+  @(
+    "Absorb Plus test build - upcoming Beta $beta (not published yet)"
+    "Windows: Windows\absorb.exe $winVersion ($(Get-Date -Format 'yyyy-MM-dd HH:mm'))"
+    $androidLine
+    ''
+    "Changes since the last published release ($lastTag):"
+    $changes
+  ) | Set-Content -Path $notesPath -Encoding utf8
+}
+function Update-BetaFolder {
+  $src = Join-Path $root 'build\windows\x64\runner\Release'
+  $dst = Join-Path $BetaDir 'Windows'
+  $dstExe = Join-Path $dst 'absorb.exe'
+  $running = Get-Process -Name absorb -ErrorAction SilentlyContinue |
+    Where-Object { $_.Path -eq $dstExe }
+  if ($running) {
+    Write-Host "beta folder: Absorb is open from it, so it was not refreshed. Close it and run: .\tool\dev.ps1 beta-sync" -ForegroundColor Yellow
+    return
+  }
+  New-Item -ItemType Directory -Force -Path $dst | Out-Null
+  robocopy $src $dst /E /R:1 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null
+  if ($LASTEXITCODE -ge 8) { throw "Copy to the beta folder failed (robocopy $LASTEXITCODE)" }
+  $global:LASTEXITCODE = 0
+  Write-BetaNotes
+  Write-Host "beta folder: $dst ($((Get-Item $dstExe).VersionInfo.ProductVersion))" -ForegroundColor Green
+}
 function Get-PubspecVersion {
   $line = Select-String -Path pubspec.yaml -Pattern '^version:\s*(\S+)' | Select-Object -First 1
   return $line.Matches[0].Groups[1].Value
@@ -150,6 +203,37 @@ switch ($Command) {
     $actual = (Get-Item $exe).VersionInfo.ProductVersion
     if ($actual -ne $expected) { throw "absorb.exe reports $actual but pubspec.yaml says $expected" }
     Write-Host "built $exe ($actual, $((Get-Item $exe).LastWriteTime))" -ForegroundColor Green
+    Update-BetaFolder
+  }
+
+  'beta-sync' { Update-BetaFolder }
+
+  'apk' {
+    # A signed phone-test APK from CI for the current branch, into the beta
+    # folder. Takes ~10 minutes; run it in the background.
+    $branch = (git rev-parse --abbrev-ref HEAD).Trim()
+    $repo = 'atewertfd/absorb-platform'
+    $before = (gh run list --repo $repo --workflow ci.yml --branch $branch --limit 1 --json databaseId --jq '.[0].databaseId')
+    gh workflow run ci.yml --repo $repo --ref $branch | Out-Null
+    $runId = $null
+    for ($i = 0; $i -lt 30 -and -not $runId; $i++) {
+      Start-Sleep -Seconds 4
+      $latest = (gh run list --repo $repo --workflow ci.yml --branch $branch --event workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId')
+      if ($latest -and $latest -ne $before) { $runId = $latest }
+    }
+    if (-not $runId) { throw 'Could not find the CI run that was just started.' }
+    Write-Host "CI run $runId building the APK..."
+    Invoke-Step -Name 'apk-ci' -Run { gh run watch $runId --repo $repo --exit-status --interval 30 }
+    $tmp = Join-Path $env:TEMP "absorb-apk-$runId"
+    New-Item -ItemType Directory -Force -Path $tmp | Out-Null
+    Invoke-Step -Name 'apk-download' -Run { gh run download $runId --repo $repo -n absorb-android-apk -D $tmp }
+    $apk = Get-ChildItem $tmp -Filter *.apk -Recurse | Select-Object -First 1
+    if (-not $apk) { throw 'The CI run produced no APK.' }
+    $dest = Join-Path $BetaDir 'Android'
+    New-Item -ItemType Directory -Force -Path $dest | Out-Null
+    Copy-Item $apk.FullName (Join-Path $dest 'Absorb Plus beta.apk') -Force
+    Write-BetaNotes -AndroidRun $runId
+    Write-Host "APK ready: $(Join-Path $dest 'Absorb Plus beta.apk')" -ForegroundColor Green
   }
 
   'bump' {
