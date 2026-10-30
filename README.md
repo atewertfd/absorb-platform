@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="../../releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/atewertfd/absorb-platform?include_prereleases&label=latest&color=5fd0c0"></a>
+  <a href="../../releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/atewertfd/absorb-platform?include_prereleases&filter=!*pixel*&label=latest&color=5fd0c0"></a>
   <img alt="Platforms" src="https://img.shields.io/badge/platforms-Windows%20%7C%20Android%20%7C%20Linux%20%7C%20Web-101014">
   <a href="LICENSE"><img alt="License: GPL v3" src="https://img.shields.io/badge/license-GPLv3-101014"></a>
 </p>
