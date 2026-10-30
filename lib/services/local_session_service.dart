@@ -345,11 +345,17 @@ class LocalSessionService {
       await _loadActive();
       final pendingRaw = await ScopedPrefs.getStringList(_kPending);
       final sessions = <Map<String, dynamic>>[];
+      // Raw entries that are done with: sent, or unreadable. Only these leave
+      // the queue - sessions queued while a flush awaits must stay.
+      final done = <String>[];
+      final sessionRaw = <String>[];
       for (final raw in pendingRaw) {
         try {
           sessions.add(jsonDecode(raw) as Map<String, dynamic>);
+          sessionRaw.add(raw);
         } catch (e) {
           debugPrint('[LocalSession] queued session unreadable, skipped: ${e.runtimeType}');
+          done.add(raw);
         }
       }
       // Include the active session so its accrued time isn't stranded until the
@@ -357,11 +363,16 @@ class LocalSessionService {
       final combined = [...sessions, if (_active != null) _active!];
       if (combined.isEmpty) return;
 
-      if (_localUnsupported) {
-        for (final s in combined) {
-          await _legacyFlush(api, s);
+      Future<void> legacyAll() async {
+        for (var i = 0; i < combined.length; i++) {
+          final sent = await _legacyFlush(api, combined[i]);
+          if (sent && i < sessionRaw.length) done.add(sessionRaw[i]);
         }
-        await ScopedPrefs.setStringList(_kPending, []);
+        await _dropPending(done);
+      }
+
+      if (_localUnsupported) {
+        await legacyAll();
         return;
       }
 
@@ -372,15 +383,12 @@ class LocalSessionService {
       final result = await api.syncLocalSessionsAll(payloads);
       if (result.ok) {
         // Keep the active session live; only clear the finalized queue.
-        await ScopedPrefs.setStringList(_kPending, []);
+        await _dropPending(pendingRaw);
         debugPrint('[LocalSession] Flushed ${combined.length} local session(s)');
       } else if (result.serverTooOld) {
         debugPrint('[LocalSession] Server lacks /api/session/local-all — falling back to /play');
         _localUnsupported = true;
-        for (final s in combined) {
-          await _legacyFlush(api, s);
-        }
-        await ScopedPrefs.setStringList(_kPending, []);
+        await legacyAll();
       }
       // Network failure: leave the queue intact for the next trigger.
     } finally {
@@ -390,26 +398,38 @@ class LocalSessionService {
 
   /// Fallback for servers without /api/session/local: record the listening time
   /// via the legacy open `/play` session. Loses per-day attribution and logs as
-  /// Direct Play (the old behavior), but doesn't lose the time.
-  Future<void> _legacyFlush(ApiService api, Map<String, dynamic> s) async {
+  /// Direct Play (the old behavior), but doesn't lose the time. True once the
+  /// server took the time (or there was none to send).
+  Future<bool> _legacyFlush(ApiService api, Map<String, dynamic> s) async {
     try {
       final libId = s['libraryItemId'] as String;
       final epId = s['episodeId'] as String?;
       final currentTime = (s['currentTime'] as num?)?.toDouble() ?? 0;
       final duration = (s['duration'] as num?)?.toDouble() ?? 0;
       final secs = (s['timeListening'] as num?)?.toInt() ?? 0;
-      if (secs <= 0) return;
+      if (secs <= 0) return true;
       final data = epId != null
           ? await api.startEpisodePlaybackSession(libId, epId)
           : await api.startPlaybackSession(libId);
       final sid = data?['id'] as String?;
-      if (sid != null) {
-        await api.syncPlaybackSession(sid,
-            currentTime: currentTime, duration: duration, timeListened: secs);
-        await api.closePlaybackSession(sid);
-      }
+      if (sid == null) return false;
+      final ok = await api.syncPlaybackSession(sid,
+          currentTime: currentTime, duration: duration, timeListened: secs);
+      await api.closePlaybackSession(sid);
+      return ok;
     } catch (e) {
       debugPrint('[LocalSession] legacy flush failed: $e');
+      return false;
     }
+  }
+
+  /// Remove [sent] from the replay queue, leaving anything queued since.
+  Future<void> _dropPending(List<String> sent) async {
+    if (sent.isEmpty) return;
+    final pending = await ScopedPrefs.getStringList(_kPending);
+    for (final raw in sent) {
+      pending.remove(raw);
+    }
+    await ScopedPrefs.setStringList(_kPending, pending);
   }
 }

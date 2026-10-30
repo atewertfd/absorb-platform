@@ -668,6 +668,7 @@ class ProgressSyncService {
           await ScopedPrefs.getStringList('pending_offline_listening'));
       if (pending.isEmpty) return;
       final flushed = <String>{};
+      var notAccepted = 0;
 
       debugPrint('[Sync] Flushing offline listening time for ${pending.length} item(s)');
 
@@ -722,19 +723,32 @@ class ProgressSyncService {
               ? await api.startEpisodePlaybackSession(apiItemId, episodeId)
               : await api.startPlaybackSession(apiItemId);
 
+          var synced = false;
           if (sessionData != null) {
             final sid = sessionData['id'] as String?;
             if (sid != null) {
-              await api.syncPlaybackSession(
+              synced = await api.syncPlaybackSession(
                 sid,
                 currentTime: currentTime,
                 duration: duration,
                 timeListened: reported,
               );
               await api.closePlaybackSession(sid);
-              debugPrint('[Sync] Flushed ${reported}s offline listening for $itemId');
+              if (synced) debugPrint('[Sync] Flushed ${reported}s offline listening for $itemId');
             }
           }
+          // Not sent: keep the time for the next run instead of losing it.
+          // One item the server refuses (e.g. deleted) must not hold back the
+          // rest; several in a row means the server is down, so stop.
+          if (!synced) {
+            debugPrint('[Sync] Offline listening for $itemId not accepted - keeping it');
+            if (++notAccepted >= 3) {
+              _consecutiveFailures++;
+              break;
+            }
+            continue;
+          }
+          notAccepted = 0;
           // Subtract only what we actually synced. Any ticks added to the
           // key during the flush (e.g. a +60s tick that fired while the
           // server session was in flight) are preserved for the next run
