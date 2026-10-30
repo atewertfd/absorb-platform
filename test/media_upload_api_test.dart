@@ -369,6 +369,43 @@ void main() {
     expect(matchingLibraryBookTitle({'book': 'bad'}, candidate), isNull);
   });
 
+  test('matchingLibraryBookTitle compares non-Latin titles by their letters', () {
+    Map<String, dynamic> result(String title) => {
+      'book': [
+        {
+          'libraryItem': {
+            'media': {
+              'metadata': {'title': title},
+            },
+          },
+        },
+      ],
+    };
+    LibationBookCandidate candidate(String title) => LibationBookCandidate(
+      directoryPath: '/out/$title',
+      title: title,
+      files: const [],
+    );
+
+    expect(
+      matchingLibraryBookTitle(result('הנסיך הקטן'), candidate('הנסיך הקטן')),
+      'הנסיך הקטן',
+    );
+    expect(
+      matchingLibraryBookTitle(result('Мастер и Маргарита'), candidate('мастер и маргарита')),
+      'Мастер и Маргарита',
+    );
+    // Stripping every non-Latin letter used to leave only "2" on both sides.
+    expect(
+      matchingLibraryBookTitle(result('Другая 2'), candidate('Книга 2')),
+      isNull,
+    );
+    expect(
+      matchingLibraryBookTitle(result('ספר אחר'), candidate('הנסיך הקטן')),
+      isNull,
+    );
+  });
+
   test('import history is bounded and last-seen only moves forward', () async {
     SharedPreferences.setMockInitialValues({
       kLibationImportedFoldersPref: [

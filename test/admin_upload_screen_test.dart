@@ -50,6 +50,7 @@ Future<void> _render(
   LibationExecutableLauncher? executableLauncher,
   bool? showDesktopLibationControls,
   LibrarySearcher? librarySearcher,
+  BookMetadataSearcher? metadataSearcher,
   DateTime Function()? clock,
   Map<String, Object> prefs = const <String, Object>{},
   Size size = const Size(1100, 900),
@@ -88,6 +89,7 @@ Future<void> _render(
           executableLauncher: executableLauncher,
           showDesktopLibationControls: showDesktopLibationControls,
           librarySearcher: librarySearcher,
+          metadataSearcher: metadataSearcher,
           clock: clock,
           pathChecker:
               pathChecker ??
@@ -123,6 +125,20 @@ String _author(WidgetTester tester) => tester
     .widget<TextFormField>(find.byKey(AdminUploadScreen.authorFieldKey))
     .controller!
     .text;
+
+String _series(WidgetTester tester) => tester
+    .widget<TextFormField>(find.byKey(AdminUploadScreen.seriesFieldKey))
+    .controller!
+    .text;
+
+/// Taps without settling first, for when a progress indicator is spinning.
+Future<void> _tapNoSettle(WidgetTester tester, Key key) async {
+  await tester.ensureVisible(find.byKey(key));
+  await tester.pump();
+  await tester.tap(find.byKey(key));
+  await tester.pump();
+  await tester.pump();
+}
 
 void main() {
   testWidgets('capture import screen with the production dark theme', (
@@ -866,4 +882,263 @@ void main() {
       await _clearToasts(tester);
     });
   });
+
+  group('choosing another Libation book', () {
+    LibationBookCandidate exported(String dir) {
+      final title = dir.split('/').last;
+      return LibationBookCandidate(
+        directoryPath: dir,
+        title: title,
+        author: 'Author of $title',
+        files: [_file('$title.m4b')],
+      );
+    }
+
+    testWidgets(
+      'a late metadata result for the previous book does not change the next',
+      (tester) async {
+        final searches = <String, Completer<List<Map<String, dynamic>>>>{};
+        final folders = ['/exports/Book Alpha', '/exports/Book Beta'];
+        var picks = 0;
+        await _render(
+          tester,
+          initialLibationExpanded: true,
+          files: const [],
+          directoryPicker: () async => folders[picks++],
+          directoryScanner: (dir) async => [exported(dir)],
+          metadataSearcher:
+              ({required title, author, required provider}) =>
+                  (searches[title] = Completer()).future,
+          uploader: (_, {onProgress}) async =>
+              const MediaUploadResult(success: true),
+        );
+        await _tap(tester, AdminUploadScreen.autoMetadataKey);
+        await tester.pumpAndSettle();
+
+        await _tapNoSettle(tester, AdminUploadScreen.libationFolderKey);
+        expect(searches.keys, ['Book Alpha']);
+        await _tapNoSettle(tester, AdminUploadScreen.libationFolderKey);
+        expect(_title(tester), 'Book Beta');
+        expect(_author(tester), 'Author of Book Beta');
+
+        // Book Alpha's search answers only now, after Book Beta was chosen.
+        searches['Book Alpha']!.complete([
+          {
+            'title': 'Alpha (Unabridged)',
+            'author': 'Alpha Metadata Author',
+            'series': 'Alpha Saga',
+          },
+        ]);
+        await tester.pump();
+        expect(_title(tester), 'Book Beta');
+        expect(_author(tester), 'Author of Book Beta');
+        expect(_series(tester), isEmpty);
+
+        // Book Beta's own search still runs and fills its details.
+        expect(searches.keys, ['Book Alpha', 'Book Beta']);
+        searches['Book Beta']!.complete([
+          {
+            'title': 'Beta (Unabridged)',
+            'author': 'Beta Metadata Author',
+            'series': [
+              {'series': 'Beta Saga'},
+            ],
+          },
+        ]);
+        await tester.pumpAndSettle();
+        expect(_title(tester), 'Beta (Unabridged)');
+        expect(_author(tester), 'Beta Metadata Author');
+        expect(_series(tester), 'Beta Saga');
+        await _clearToasts(tester);
+      },
+    );
+
+    testWidgets(
+      'a series filled by metadata is cleared for the next book, a typed one kept',
+      (tester) async {
+        final folders = [
+          '/exports/Book Alpha',
+          '/exports/Book Beta',
+          '/exports/Book Alpha',
+          '/exports/Book Beta',
+        ];
+        var picks = 0;
+        await _render(
+          tester,
+          initialLibationExpanded: true,
+          files: const [],
+          directoryPicker: () async => folders[picks++],
+          directoryScanner: (dir) async => [exported(dir)],
+          metadataSearcher: ({required title, author, required provider}) async =>
+              title == 'Book Alpha'
+              ? [
+                  {
+                    'title': 'Book Alpha',
+                    'author': 'Author of Book Alpha',
+                    'series': 'Alpha Saga',
+                  },
+                ]
+              : const [],
+          uploader: (_, {onProgress}) async =>
+              const MediaUploadResult(success: true),
+        );
+        await _tap(tester, AdminUploadScreen.autoMetadataKey);
+        await tester.pumpAndSettle();
+
+        await _tap(tester, AdminUploadScreen.libationFolderKey);
+        await tester.pumpAndSettle();
+        expect(_series(tester), 'Alpha Saga');
+
+        // Book Beta has no metadata match, so Alpha's series must not stay.
+        await _tap(tester, AdminUploadScreen.libationFolderKey);
+        await tester.pumpAndSettle();
+        await _clearToasts(tester);
+        expect(_title(tester), 'Book Beta');
+        expect(_series(tester), isEmpty);
+
+        await _tap(tester, AdminUploadScreen.libationFolderKey);
+        await tester.pumpAndSettle();
+        expect(_series(tester), 'Alpha Saga');
+        await tester.enterText(
+          find.byKey(AdminUploadScreen.seriesFieldKey),
+          'Typed Series',
+        );
+        await tester.pumpAndSettle();
+
+        await _tap(tester, AdminUploadScreen.libationFolderKey);
+        await tester.pumpAndSettle();
+        await _clearToasts(tester);
+        expect(_title(tester), 'Book Beta');
+        expect(_series(tester), 'Typed Series');
+      },
+    );
+
+    testWidgets(
+      'adding to an existing book keeps its title and author, swaps the files',
+      (tester) async {
+        final existingItem = {
+          'id': 'existing-1',
+          'folderId': 'folder',
+          'relPath': 'Existing Author/Existing Book',
+          'media': {
+            'metadata': {
+              'title': 'Existing Book',
+              'authorName': 'Existing Author',
+            },
+          },
+        };
+        final client = MockClient((request) async {
+          final path = request.url.path;
+          if (path == '/api/libraries/books/items') {
+            return http.Response(
+              jsonEncode({
+                'results': [existingItem],
+                'total': 1,
+              }),
+              200,
+            );
+          }
+          if (path == '/api/items/existing-1') {
+            return http.Response(jsonEncode(existingItem), 200);
+          }
+          return http.Response('{}', 200);
+        });
+        addTearDown(client.close);
+        final api = ApiService(
+          baseUrl: 'https://example.invalid',
+          token: 'fake',
+          httpClient: client,
+        );
+        await _render(
+          tester,
+          apiService: api,
+          initialLibationExpanded: true,
+          files: const [],
+          directoryPicker: () async => '/exports/Libation Title',
+          directoryScanner: (dir) async => [
+            LibationBookCandidate(
+              directoryPath: dir,
+              title: 'Libation Title',
+              author: 'Libation Author',
+              files: [_file('part 1.mp3'), _file('part 2.mp3')],
+            ),
+          ],
+          uploader: (_, {onProgress}) async =>
+              const MediaUploadResult(success: true),
+        );
+
+        await tester.tap(find.text('Add to an existing book'));
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.widgetWithText(TextField, 'Search this library'),
+          'Existing',
+        );
+        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Existing Book'));
+        await tester.pumpAndSettle();
+        expect(find.text('Adding files to "Existing Book"'), findsOneWidget);
+        expect(_title(tester), 'Existing Book');
+        expect(_author(tester), 'Existing Author');
+
+        await _tap(tester, AdminUploadScreen.libationFolderKey);
+        await tester.pumpAndSettle();
+        expect(find.text('part 1.mp3'), findsOneWidget);
+        expect(find.text('part 2.mp3'), findsOneWidget);
+        expect(_title(tester), 'Existing Book');
+        expect(_author(tester), 'Existing Author');
+        expect(find.text('Adding files to "Existing Book"'), findsOneWidget);
+        await _clearToasts(tester);
+      },
+    );
+  });
+
+  testWidgets(
+    'only scanning the saved output folder marks Libation exports as seen',
+    (tester) async {
+      final now = DateTime(2026, 10, 29, 12);
+      final modified = now.subtract(const Duration(hours: 1));
+      final scans = <String>[];
+      await _render(
+        tester,
+        initialLibationExpanded: true,
+        showDesktopLibationControls: true,
+        files: const [],
+        clock: () => now,
+        prefs: {kLibationOutputFolderPref: '/out'},
+        directoryPicker: () async => '/elsewhere',
+        directoryScanner: (dir) async {
+          scans.add(dir);
+          return [
+            LibationBookCandidate(
+              directoryPath: '$dir/Some Book',
+              title: 'Some Book',
+              files: [_file('Some Book.m4b')],
+              modified: modified,
+            ),
+          ];
+        },
+        uploader: (_, {onProgress}) async =>
+            const MediaUploadResult(success: true),
+      );
+      final prefs = await SharedPreferences.getInstance();
+      expect(scans, ['/out']); // the quiet startup check marks nothing
+      expect(prefs.getInt(kLibationLastSeenExportPref), isNull);
+
+      await _tap(tester, AdminUploadScreen.libationFolderKey);
+      await tester.pumpAndSettle();
+      expect(scans.last, '/elsewhere');
+      expect(_title(tester), 'Some Book');
+      expect(prefs.getInt(kLibationLastSeenExportPref), isNull);
+
+      await _tap(tester, AdminUploadScreen.libationScanOutputFolderKey);
+      await tester.pumpAndSettle();
+      expect(scans.last, '/out');
+      expect(
+        prefs.getInt(kLibationLastSeenExportPref),
+        modified.millisecondsSinceEpoch,
+      );
+      await _clearToasts(tester);
+    },
+  );
 }

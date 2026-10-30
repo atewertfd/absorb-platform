@@ -280,7 +280,9 @@ Future<int> countNewExportsInSavedLibationFolder({DateTime? now}) async {
 
 String _normalizeLibraryTitle(String title) => cleanLibationBookTitle(
   title,
-).toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '');
+).toLowerCase().replaceAll(RegExp(r'[^\p{L}\p{N}]+', unicode: true), '');
+// Letters and digits of any script count, so a Hebrew or Cyrillic title is
+// not reduced to nothing (or to a bare number that matches other books).
 
 /// The title of a book in an Audiobookshelf library search result
 /// (`{book: [{libraryItem: {media: {metadata: {...}}}}]}`) that matches

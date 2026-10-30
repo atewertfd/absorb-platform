@@ -237,6 +237,7 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
   // Author filled in from the last chosen export folder, so choosing another
   // book replaces it instead of keeping the previous book's author.
   String _candidateAuthor = '';
+  String _autoSeries = '';
   LibationImportHistory _history = const LibationImportHistory(
     importedFolders: <String>{},
   );
@@ -565,8 +566,14 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
 
     setState(() {
       if (matchedTitle.isNotEmpty) _title.text = matchedTitle;
-      if (matchedAuthor.isNotEmpty) _author.text = matchedAuthor;
-      if (matchedSeries.isNotEmpty) _series.text = matchedSeries;
+      if (matchedAuthor.isNotEmpty) {
+        _author.text = matchedAuthor;
+        _candidateAuthor = matchedAuthor; // filled for us, not typed
+      }
+      if (matchedSeries.isNotEmpty) {
+        _series.text = matchedSeries;
+        _autoSeries = matchedSeries;
+      }
       _metadataSearching = false;
       _lastMetadataQuery = _metadataQuery;
     });
@@ -730,6 +737,13 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
       }
     }
     if (newest == null) return;
+    // "New" means new in the Libation output folder; browsing some other
+    // folder must not mark those exports as seen.
+    final outputFolder = _libationOutputFolderPath;
+    if (outputFolder != null &&
+        libationFolderKey(outputFolder) != libationFolderKey(directoryPath)) {
+      return;
+    }
     await LibationImportHistory.markSeen(newest);
     if (!mounted) return;
     final previous = _history.lastSeen;
@@ -770,16 +784,29 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
     }
     setState(() {
       _files = List<MediaUploadFile>.from(candidate.files);
-      if (candidate.title.trim().isNotEmpty) {
-        _title.text = candidate.title.trim();
+      // Adding files to an existing book: its title and author name the
+      // server folder, so leave them as they are.
+      if (_existingTarget == null) {
+        if (candidate.title.trim().isNotEmpty) {
+          _title.text = candidate.title.trim();
+        }
+        final currentAuthor = _author.text.trim();
+        final nextAuthor = candidate.author?.trim() ?? '';
+        // Keep an author the user typed; replace one a previous folder or
+        // metadata search filled.
+        if (currentAuthor.isEmpty || currentAuthor == _candidateAuthor) {
+          _author.text = nextAuthor;
+        }
+        _candidateAuthor = nextAuthor;
+        // A series the previous book's metadata filled in is not this book's.
+        if (_autoSeries.isNotEmpty && _series.text.trim() == _autoSeries) {
+          _series.clear();
+        }
+        _autoSeries = '';
       }
-      final currentAuthor = _author.text.trim();
-      final nextAuthor = candidate.author?.trim() ?? '';
-      // Keep an author the user typed; replace one a previous folder filled.
-      if (currentAuthor.isEmpty || currentAuthor == _candidateAuthor) {
-        _author.text = nextAuthor;
-      }
-      _candidateAuthor = nextAuthor;
+      // A search still running for the previous book must not fill this one.
+      _metadataRequestId++;
+      _metadataSearching = false;
       _lastMetadataQuery = null;
       _activeCandidate = candidate;
       _libraryDuplicateTitle = null;
@@ -957,6 +984,10 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
       if (_autoFetchMetadata &&
         !_isPodcast &&
         _lastMetadataQuery != _metadataQuery) {
+      // A search still running was for older text; drop it and search now,
+      // so a late result can't change the details mid-upload.
+      _metadataRequestId++;
+      _metadataSearching = false;
       await _fetchMetadata();
       if (!mounted) return;
     }
@@ -1074,6 +1105,7 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
         _series.clear();
         _files = [];
           _candidateAuthor = '';
+          _autoSeries = '';
           _lastMetadataQuery = null;
           _activeCandidate = null;
           _libraryDuplicateTitle = null;
