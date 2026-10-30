@@ -1,104 +1,102 @@
-# Absorb Plus
+<p align="center">
+  <img src="assets/icon/app_icon.png" width="128" height="128" alt="Absorb Plus logo">
+</p>
 
-An unofficial enhanced cross-platform edition of [Absorb](https://github.com/pounat/absorb), the Audiobookshelf client, for Android, Windows, Linux, and the web.
+<h1 align="center">Absorb Plus</h1>
 
-> [!WARNING]
-> These ports are experimental and were substantially AI-generated with human direction and verification. They are not official Absorb releases. Review and test changes carefully before relying on them with production data.
+<p align="center">
+  A listening app for your own <a href="https://www.audiobookshelf.org/">Audiobookshelf</a> server,<br>
+  on <b>Windows, Android, Linux and the web</b>.
+</p>
 
-## What this project provides
+<p align="center">
+  <a href="../../releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/atewertfd/absorb-platform?include_prereleases&label=latest&color=5fd0c0"></a>
+  <img alt="Platforms" src="https://img.shields.io/badge/platforms-Windows%20%7C%20Android%20%7C%20Linux%20%7C%20Web-101014">
+  <a href="LICENSE"><img alt="License: GPL v3" src="https://img.shields.io/badge/license-GPLv3-101014"></a>
+</p>
 
-- Android APKs for universal, ARM32, and ARM64 devices
-- Native Windows x64 and Linux x64 desktop executables built with Flutter
-- Browser build for modern web browsers
-- Desktop keyboard controls: Space play/pause, Left/Right rewind or fast-forward, Ctrl+F search, Ctrl+L Library, and Ctrl+N Now Playing
-- Tab-accessible queue, stop, refresh, and offline header controls with visible focus and Enter/Space activation
-- Audiobookshelf server connectivity
-- Library browsing, covers, metadata, search, playback, seeking, and playback speed support as the primary targets
-- Resizable desktop application window
-- Download/offline playback tools with byte progress, transfer speed, estimated time remaining, and persistent retryable failures
-- Persistent download failure explanations for missing files, full storage, and permission problems
-- Listening statistics, custom themes, playlists/queue controls, and optional on-device Whisper bookmark transcription
+Absorb Plus is an unofficial edition of [Absorb](https://github.com/pounat/absorb), the card-based Audiobookshelf client. It keeps everything Absorb does and brings it to the desktop and the browser, with its own looks, keyboard control and a long list of reliability fixes.
 
-## Plus features
+## Download
 
-Absorb Plus builds on the upstream client with desktop-first controls and cross-platform improvements. Existing upstream features remain the foundation; platform-specific features are enabled where the target supports them. Windows and Linux playback use libmpv through `just_audio_media_kit`; Android and web retain their existing playback implementations. Windows system media controls use SMTC and Linux uses MPRIS. Physical media-key behavior still needs verification on each desktop environment; this is not a claim of complete platform parity. Optional Whisper transcription is unavailable on the web, and its desktop audio-extraction path still needs implementation/verification.
+| Platform | Get it | Notes |
+|---|---|---|
+| **Windows** (x64) | [Installer or portable ZIP](../../releases) | The installer updates in place and keeps your data. |
+| **Android** | [APK](../../releases) | Pick `arm64-v8a` for any recent phone, or `universal` if unsure. Updates install over the previous version. |
+| **Linux** (x64) | [`.deb` or `.tar.gz`](../../releases) | Needs libmpv (`libmpv2` on Ubuntu 24.04, `libmpv1` on 22.04). |
+| **Web** | [Open in your browser](https://atewertfd.github.io/absorb-platform/) | Nothing to install. Your server must allow requests from this site. |
 
-## Audible and Libation workflow
+Releases marked **pre-release** are betas. The app checks for updates and tells you when one is ready; it never installs anything on its own.
 
-Absorb Plus connects to Audiobookshelf; it does not currently sign in to Audible, store Audible credentials, remove DRM, or bypass Audible protections. If you already have compatible exported files from [Libation](https://github.com/rmcrackan/Libation), open **Settings → Advanced → Import Libation exports** (also under **Manage → Upload**). Choose a book's exported folder, scan your Libation output folder (newest downloads first, with a search box and New/Imported tags), or pick the audio files and cover directly. Review the title and server destination, then explicitly select **Upload**. The app tells you when new Libation downloads are waiting and warns when the book is already in your library. After upload, the app briefly checks whether Audiobookshelf has indexed the destination and tells you when indexing is still in progress. This preserves Audiobookshelf as the source of truth for metadata, playback position, statistics, and downloads.
+## What Plus adds
 
-The exporter handoff is distinct from the requested future **Connect Audible** feature, which would work without a separate Libation installation. That integration is not implemented; its authentication, licensing, platform and content-access constraints are documented in the [feasibility record](docs/AUDIBLE-INTEGRATION.md). Other software integrations are deferred.
+- **Windows, Linux and web.** The full app runs on the desktop with native audio, a resizable window, and Windows media controls (Linux uses MPRIS).
+- **Choose your look.** Absorb Plus (today's look), Classic (the first Windows version), or Frosted (soft frosted-glass panels) with three glass strengths. Every choice shows a live preview of the real app, and **Try it** lets you walk around in a look before keeping it. Pick in *Settings › Appearance › UI theme*.
+- **Keyboard first on desktop.** Play, seek, speed, search and navigation all have shortcuts (below), and the header controls work with Tab and Enter.
+- **Smooth scrolling** with a mouse wheel, without changing how touch scrolling feels.
+- **Libation import.** Upload books you exported with [Libation](https://github.com/rmcrackan/Libation) straight to your server (details below).
+- **Fewer surprises.** Crash fixes after leaving a screen mid-load; offline listening time that waits for the server instead of being dropped; multi-disc books that download every track; download names that work on Windows; and failures in sync, downloads and sign-in written to the log (without passwords or tokens) so problems can be tracked down.
+- **Lighter when idle.** The app no longer redraws non-stop while nothing is happening.
+- **Updates from this project.** Settings › *Check for update*, with an optional beta channel.
 
-The exact formats and export options depend on the titles and rights available in your Audible/Libation setup. Absorb Plus does not attempt to automate protected Audible downloads.
+## Everything from Absorb
 
-See [import verification](docs/IMPORT-VERIFICATION.md) for tests, visual checks, and remaining limits. File imports currently handle one book at a time, require server upload permissions, and do not provide a batch queue or resumable uploads. The app performs a short post-upload indexing check but does not track a long-running server scan.
+The card-based **Absorbing** player, downloads for offline listening, podcasts, multiple accounts and servers, sleep timer with auto-sleep, per-book speed, auto-rewind, bookmarks and notes, chapter navigation, search and filters, playlists and collections, listening stats, an ebook reader with read-along, custom headers for reverse proxies, OpenID sign-in, server admin tools, backup and restore, and community translations.
 
-## Downloads
+Some of these are Android-only because they depend on Android itself: Android Auto, Chromecast, home-screen widgets, the equalizer and silence skipping.
 
-The Windows GitHub build includes **Settings → Check for update** and an
-optional pre-release channel. Running a newer installer with the same Inno
-Setup application ID upgrades the existing installation in place and preserves
-user data; portable copies remain manual-update.
+## Keyboard shortcuts (desktop)
 
-Download Android, desktop, and web builds from the [Releases](../../releases) page. The [Release workflow](../../actions/workflows/release.yml) publishes Android APKs, a Play Store AAB when signing secrets are configured, Windows x64 installer/portable files, Linux x64 packages, and the web ZIP. APKs marked `-ci` use a temporary CI signing key and are for testing only; update-safe APKs need the Android signing secrets configured for the Release workflow. Windows and Linux desktop releases target x64. The Windows installer creates desktop and Start-menu shortcuts, contains the complete Flutter bundle, and can be removed from Windows Apps. Extract the **entire** portable archive if you use that option, and keep its libraries and data alongside it. Windows bundles its native audio decoder. Linux requires a system libmpv runtime (`libmpv1` on Ubuntu 22.04, `libmpv2` on Ubuntu 24.04) and a desktop session bus for MPRIS controls. The hosted web build is available at the project’s [GitHub Pages site](https://atewertfd.github.io/absorb-platform/).
+| Key | Action |
+|---|---|
+| <kbd>Space</kbd> | Play / pause |
+| <kbd>←</kbd> / <kbd>→</kbd> | Rewind / fast-forward |
+| <kbd>[</kbd> / <kbd>]</kbd> | Slower / faster |
+| <kbd>\\</kbd> | Normal speed |
+| <kbd>Ctrl</kbd>+<kbd>F</kbd> | Search |
+| <kbd>Ctrl</kbd>+<kbd>L</kbd> | Library |
+| <kbd>Ctrl</kbd>+<kbd>N</kbd> | Now playing |
 
-## Build requirements
+Shortcuts without <kbd>Ctrl</kbd> only act when you're not typing in a text field.
 
-- Flutter stable with the desired desktop/web support enabled
-- Windows: Visual Studio with the **Desktop development with C++** workload, Windows Developer Mode, and NuGet CLI
-- Linux: GTK 3 development packages, CMake, Ninja, Clang, pkg-config, libmpv-dev, and WebKitGTK 4.0 development packages (CI uses Ubuntu 22.04)
-- Android: Android SDK, Java 17, and an optional signing keystore for Play Store bundles
-- Web: Flutter web support and a modern browser
+## Screenshots
 
-## Build
+<p align="center">
+  <img src="screenshots/absorbing.png" width="200" alt="The Absorbing player">
+  &nbsp;
+  <img src="screenshots/library.png" width="200" alt="Library">
+  &nbsp;
+  <img src="screenshots/details.png" width="200" alt="Book details">
+</p>
 
-```powershell
+## Libation import
+
+If you already have audiobooks exported with Libation, Absorb Plus can upload them to your Audiobookshelf server: *Settings › Advanced › Import Libation exports* (also under *Manage › Upload*).
+
+- Scan your Libation folder (newest first, with **New** and **Imported** tags), or pick a book folder or files directly.
+- Check the title and destination, then press **Upload**. Nothing is uploaded without that.
+- The app warns when a book is already in your library and tells you when the server has finished indexing it.
+
+Absorb Plus does **not** sign in to Audible, store Audible credentials, remove DRM or download protected content. It only uploads files you already exported. Books are uploaded one at a time; see [import verification](docs/IMPORT-VERIFICATION.md) for details and limits.
+
+## Building from source
+
+You need Flutter stable. On Windows you also need Visual Studio with *Desktop development with C++* and the NuGet CLI; on Linux, the GTK 3, CMake, Ninja, Clang, libmpv and WebKitGTK development packages.
+
+```bash
 flutter pub get
-flutter build windows --release
-flutter build linux --release
-flutter build web --release
-```
-
-Outputs are produced under `build/windows/x64/runner/Release/`, `build/linux/x64/release/bundle/`, and `build/web/`. Every push to `main` rebuilds the web site through GitHub Actions (the CI workflow) and deploys it to GitHub Pages.
-
-Run the local regression tests with:
-
-```powershell
+flutter build windows --release   # or: linux, web, apk
 flutter test
 ```
 
-The web build and Pages deployment also run analysis and regression tests before publishing. Coverage includes token refresh recovery, failed-download persistence and retry rejection, and keyboard/screen-reader behavior for the compact header controls. These checks do not replace playback testing against a real server on each platform.
+Contributors on Windows can use `tool/dev.ps1` (`check`, `build`, `apk`, …). The code map is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and the house rules are in [AGENTS.md](AGENTS.md).
 
-### Native audio smoke test
+## Good to know
 
-See the [verification record](docs/DESKTOP-AUDIO-VERIFICATION.md) for tested behavior, fixed failures, and remaining gaps.
+- **Not official.** Absorb Plus is a separate project from Absorb. Report Windows, Android, Linux and web problems [here](../../issues). For iPhone, iPad, Mac and CarPlay, use upstream [Absorb](https://github.com/pounat/absorb); Absorb Plus doesn't build for Apple platforms.
+- **Built with AI.** Most of the code is written by AI (Claude Code) under the direction of a human owner, who decides what ships and tests every build. Every change goes through automated checks, and a throwaway test server is used for integration tests.
+- **Your server, your data.** Absorb Plus talks to the Audiobookshelf server you sign in to. Uploads and changes to your server only happen when you ask for them.
 
-Build the isolated test target on the target desktop, then run the generated executable:
+## Credits and license
 
-```powershell
-flutter build windows --release -t tool/desktop_audio_smoke.dart
-# Run build/windows/x64/runner/Release/absorb.exe
-# On Linux: flutter build linux --release -t tool/desktop_audio_smoke.dart
-```
-
-On Windows, `pwsh -File tool/verify-desktop-audio.ps1` automates the build/run checks and restores the normal application build afterward. Pass `-Flutter C:\path\to\flutter.bat` if Flutter is not on PATH. Run on a desktop with an audio output device; headless CI is not a substitute for that check.
-
-The test generates a silent WAV in a unique temporary directory, initializes the real audio handler/native media service, and checks local playback, pause, seeking, speed, multi-file playlist selection, and HTTP playback against a loopback-only fixture with a fake authorization header. It removes its fixture afterward and requires both `DESKTOP_AUDIO_SMOKE PASS` and a clean process exit. It does not use Audiobookshelf credentials or library data, and does not prove audible speaker output, physical media keys, server synchronization, or codec compatibility beyond WAV. Rebuild the normal application afterward with `flutter build windows --release -t lib/main.dart` (or `linux`); **do not distribute the smoke-test executable**.
-
-## Limitations
-
-Android-only or mobile-specific features are not included in desktop/web targets, including Android Auto, Chromecast, home-screen widgets, Android background services, and APK self-updating. Some features require platform-specific implementations and further testing. Linux builds are produced in CI when a native Linux toolchain is not available. Android ARM32/ARM64 APKs are supported; Windows desktop releases target x64.
-
-The desktop audio backend does not implement the mobile equalizer or silence skipping. Windows SMTC integration does not currently expose OS timeline scrubbing; use the app's seek controls. Real Audiobookshelf playback, reconnect/sync behavior, physical media keys, and Linux runtime audio still need end-to-end verification. A successful build alone is not evidence that those flows work.
-
-Windows media integration includes a [small vendored patch](packages/audio_service_win/PATCHES.md) for native-object cleanup and platform-thread callback delivery. Desktop cross-file seeking reloads the selected file before applying its position to avoid an adapter timing race; this can introduce a brief pause when crossing file boundaries.
-
-Windows builds also apply a scoped WebView shutdown fix for [upstream issue #2733](https://github.com/pichillilorenzo/flutter_inappwebview/issues/2733). CMake compiles a patched copy in the build directory, without changing the shared Pub cache. It verifies the original source hash and requires review if an upstream update changes that file.
-
-## Attribution
-
-This project is derived from the upstream [pounat/absorb](https://github.com/pounat/absorb) repository. Absorb Plus does not build for Apple platforms (iOS, macOS, CarPlay); use upstream Absorb there. Please report Windows, Linux, web and Android issues here.
-
-## License
-
-Absorb is distributed under the GNU General Public License v3.0. See [LICENSE](LICENSE).
+Absorb Plus is built on [Absorb](https://github.com/pounat/absorb) by [pounat](https://github.com/pounat) and its contributors. Like Absorb, it is licensed under the [GNU General Public License v3.0](LICENSE).
