@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/server_url.dart';
 import 'api_service.dart';
 import 'auth_tokens.dart';
+import 'server_backend.dart';
 
 /// Represents a saved user account (server + credentials).
 class SavedAccount {
@@ -14,6 +15,7 @@ class SavedAccount {
   final String? userId;
   final bool isLegacyToken;
   final Map<String, String> customHeaders;
+  final ServerBackend backend;
 
   SavedAccount({
     required this.serverUrl,
@@ -23,6 +25,7 @@ class SavedAccount {
     this.userId,
     this.isLegacyToken = false,
     Map<String, String> customHeaders = const {},
+    this.backend = ServerBackend.audiobookshelf,
   }) : customHeaders = Map.unmodifiable(customHeaders);
 
   /// Unique key for scoping per-user SharedPreferences data.
@@ -43,6 +46,7 @@ class SavedAccount {
         'userId': userId,
         'isLegacyToken': isLegacyToken,
         'customHeaders': customHeaders,
+        'backend': backend.key,
       };
 
   factory SavedAccount.fromJson(
@@ -59,6 +63,7 @@ class SavedAccount {
         customHeaders: json.containsKey('customHeaders')
             ? Map<String, String>.from(json['customHeaders'] as Map? ?? const {})
             : legacyCustomHeaders,
+        backend: ServerBackend.fromKey(json['backend'] as String?),
       );
 
   @override
@@ -87,7 +92,11 @@ class UserAccountService {
 
   /// Runs before a sign-in changes the active account, so anything still
   /// being recorded for the old one is saved under it first.
-  static Future<void> Function()? beforeAccountChange;
+  static Future<void> Function(SavedAccount next)? beforeAccountChange;
+
+  /// Told when an account's address changes, for data kept outside its
+  /// scope that names the scope (which account each download came from).
+  static Future<void> Function(String from, String to)? onScopeMoved;
 
   List<SavedAccount> _accounts = [];
   String? _activeScopeKey;
@@ -159,7 +168,7 @@ class UserAccountService {
     // this far has already written the new session, and bailing out now
     // leaves the old account's scope active under it.
     try {
-      await beforeAccountChange?.call();
+      await beforeAccountChange?.call(account);
     } catch (e) {
       debugPrint('[UserAccount] beforeAccountChange failed: $e');
     }
@@ -205,6 +214,10 @@ class UserAccountService {
         (a) => a.serverUrl == serverUrl && a.username == username);
     if (idx >= 0) {
       final old = _accounts[idx];
+      if (old.token == newToken &&
+          (refreshToken == null || old.refreshToken == refreshToken)) {
+        return;
+      }
       _accounts[idx] = SavedAccount(
         serverUrl: old.serverUrl,
         username: old.username,
@@ -213,6 +226,7 @@ class UserAccountService {
         userId: old.userId,
         isLegacyToken: old.isLegacyToken,
         customHeaders: old.customHeaders,
+        backend: old.backend,
       );
       await _persist();
     }
@@ -328,6 +342,7 @@ class UserAccountService {
       userId: old.userId,
       isLegacyToken: old.isLegacyToken,
       customHeaders: old.customHeaders,
+      backend: old.backend,
     );
     await _persist();
   }
@@ -371,11 +386,13 @@ class UserAccountService {
       userId: old.userId,
       isLegacyToken: old.isLegacyToken,
       customHeaders: customHeaders,
+      backend: old.backend,
     );
 
     final oldScope = old.scopeKey;
     final newScope = updated.scopeKey;
     await _migrateScopedData(oldScope, newScope);
+    if (oldScope != newScope) await onScopeMoved?.call(oldScope, newScope);
 
     _accounts[idx] = updated;
     // If this was the active account, re-point the active scope so scoped

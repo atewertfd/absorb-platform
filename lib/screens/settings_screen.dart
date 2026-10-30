@@ -12,6 +12,7 @@ import '../providers/library_provider.dart';
 import '../services/audio_player_service.dart';
 import '../services/download_service.dart';
 import '../services/android_auto_service.dart';
+import '../services/siri_service.dart';
 import '../services/episode_notification_service.dart';
 import '../services/sleep_timer_service.dart';
 import '../services/user_account_service.dart';
@@ -28,8 +29,16 @@ import '../services/libation_import_helper.dart';
 import '../services/audiobookshelf_update_service.dart';
 import '../widgets/update_dialog.dart';
 import '../widgets/nav_hold_options.dart';
+import '../widgets/now_playing_text_sheet.dart';
 import '../screens/admin_screen.dart';
 import '../screens/admin_upload_screen.dart';
+import '../screens/bookorbit_admin_screen.dart';
+import '../screens/book_requests_screen.dart';
+import '../screens/achievements_screen.dart';
+import '../screens/server_notifications_screen.dart';
+import '../services/achievements.dart';
+import '../services/bookorbit_notification_socket.dart';
+import '../services/api_service.dart';
 import '../screens/downloads_screen.dart';
 import '../screens/bookmarks_screen.dart';
 import '../screens/backup_sync_screen.dart';
@@ -53,11 +62,13 @@ import '../widgets/overlay_toast.dart';
 import '../widgets/tips_sheet.dart';
 import '../widgets/feature_hint.dart';
 import '../widgets/welcome_sheet.dart';
+import '../widgets/whats_new_prompt.dart';
 import '../widgets/rmab_config_sheet.dart';
 import '../widgets/rmab_search_results_sheet.dart';
 import '../widgets/server_connection_editor.dart';
 import '../widgets/server_admin_status_badges.dart';
 import '../l10n/app_localizations.dart';
+import '../widgets/sign_in_again.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -184,10 +195,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _notifSpeedBookmark = false;
   bool _duckBriefInterruptions = false;
   bool _autoplayOnCarConnect = false;
+  bool _keepScreenOnPlayer = false;
+  bool _keepScreenOnCarMode = false;
   String _carBookSort = 'title';
   bool _carBookSortReverse = false;
   String _carPodcastSort = 'title';
   bool _carEpisodesOldestFirst = false;
+  String _siriStatus = 'notDetermined';
   bool _lockSeekBar = false;
   bool _mp3IndexSeeking = false;
   bool _speedAdjustedTime = true;
@@ -232,7 +246,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   int _maxConcurrentDownloads = 1;
   bool _hideEbookOnly = false;
   bool _showGoodreadsButton = false;
+  bool _homeCardsOpenDetails = false;
   bool _showExplicitBadge = true;
+  bool _showEbookBadge = true;
   bool _loggingEnabled = false;
   bool _fullScreenPlayer = false;
   bool _lockPortrait = false;
@@ -243,6 +259,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _rectangleCovers = false;
   bool _showSubtitles = false;
   String _coverSize = 'medium';
+  String _cardButtonFill = 'subtle';
   // Per-library overrides shown in the Library section, scoped to whichever
   // library is currently selected (scales to accounts with many libraries -
   // no giant list, just "whatever you're browsing right now").
@@ -277,8 +294,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // Recent sessions is intentionally absent: it infinite-scrolls, so it is
   // pinned to the bottom of the stats page and can't be reordered or hidden.
   static const _statsSectionIds = [
-    'hero', 'goals', 'periods', 'activity', 'chart', 'heatmap', 'dayofweek', 'top', 'yearreview',
+    'hero', 'goals', 'periods', 'activity', 'chart', 'heatmap', 'dayofweek', 'timeofday', 'top',
+    'finished', 'sources', 'habits', 'yearreview',
   ];
+  // Only BookOrbit has the numbers behind these.
+  static const _bookOrbitStatsSections = {'timeofday', 'finished', 'sources', 'habits'};
   int _streamingCacheSizeMb = 0;
   bool _localServerEnabled = false;
   String _localServerUrl = '';
@@ -287,6 +307,101 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _includePreReleases = false;
   UpdateCheckFrequency _updateCheckFrequency = UpdateCheckFrequency.everyTwelveHours;
   String? _rmabBaseUrl;
+  bool _bookRequestsOn = false;
+
+  ApiService? _inboxApi;
+  bool _boNotificationsOn = false;
+  int? _boUnread;
+  bool? _boAchievementsOn;
+  AchievementCatalogue? _boAchievements;
+
+  /// BookOrbit's notification badge and achievement count for the tiles under
+  /// the account card.
+  Future<void> _loadBookOrbitInbox() async {
+    final auth = context.read<AuthProvider>();
+    final api = auth.apiService;
+    _inboxApi = api;
+    if (api == null || !auth.isBookOrbit) {
+      if (_boNotificationsOn || _boAchievementsOn != null) {
+        setState(() {
+          _boNotificationsOn = false;
+          _boUnread = null;
+          _boAchievementsOn = null;
+          _boAchievements = null;
+        });
+      }
+      return;
+    }
+    final (notificationsOn, achievementsOn) = await (api.hasServerNotifications(), api.achievementsEnabled()).wait;
+    final (unread, catalogue) = await (
+      notificationsOn ? api.unreadNotificationCount() : Future<int?>.value(),
+      achievementsOn == true ? api.achievements() : Future<AchievementCatalogue?>.value(),
+    ).wait;
+    if (!mounted || _inboxApi != api) return;
+    if (unread != null) BookOrbitNotificationSocket.instance.unread.value = (api: api, count: unread);
+    setState(() {
+      _boNotificationsOn = notificationsOn;
+      _boUnread = unread;
+      _boAchievementsOn = achievementsOn;
+      _boAchievements = catalogue;
+    });
+  }
+
+  Future<void> _setAchievementsOn(bool on) async {
+    final api = context.read<AuthProvider>().apiService;
+    if (api == null) return;
+    final l = AppLocalizations.of(context)!;
+    final before = _boAchievementsOn;
+    setState(() => _boAchievementsOn = on);
+    if (await api.setAchievementsEnabled(on)) {
+      if (!mounted) return;
+      showOverlayToast(context, on ? l.achievementsTurnedOn : l.achievementsTurnedOff,
+          icon: Icons.check_circle_outline_rounded);
+      _loadBookOrbitInbox();
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _boAchievementsOn = before);
+    showOverlayToast(context, l.achievementsSwitchFailed, icon: Icons.error_outline_rounded);
+  }
+
+  Widget _inboxTile(ColorScheme cs, TextTheme tt,
+      {required IconData icon, required String title, required String subtitle, bool dot = false, required VoidCallback onTap}) {
+    return Material(
+      color: cs.surfaceContainerHigh,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(children: [
+            Badge(
+              isLabelVisible: dot,
+              smallSize: 8,
+              child: Icon(icon, color: cs.primary, size: 22),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(title, maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+                if (subtitle.isNotEmpty)
+                  Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+              ]),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _loadBookRequests() async {
+    final api = context.read<AuthProvider>().apiService;
+    final on = api != null && (await api.bookRequestAccess()).canRequest;
+    if (mounted && on != _bookRequestsOn) setState(() => _bookRequestsOn = on);
+  }
   String? _rmabApiToken;
   // New exports in the saved Libation output folder (0 when none is saved).
   int _libationNewCount = 0;
@@ -330,11 +445,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
   }
 
+  bool _whatsNewOn = true;
+
   @override
   void initState() {
     super.initState();
     _localServerController = TextEditingController();
     _loadSettings();
+    WhatsNewPrompt.isEnabled().then((on) {
+      if (mounted) setState(() => _whatsNewOn = on);
+    });
+    _loadBookRequests();
     _loadAdminIssueCount();
     _refreshSyncStatus();
     SocketService().addItemsChangedListener(_onServerItemsChanged);
@@ -612,6 +733,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         for (final lib in libraries)
           if ((lib['id'] as String?)?.isNotEmpty == true) lib['id'] as String,
       ],
+      bookRequests: context.read<AuthProvider>().apiService?.isBookOrbit == true,
     );
     final validIds = ids.toSet();
     final podcastTab = await PlayerSettings.getPodcastTabEnabled();
@@ -867,10 +989,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
     PlayerSettings.setStatsBookGoal(_statsBookGoal);
   }
 
-  List<String> get _mergedStatsOrder => [
-        ..._statsSectionOrder.where(_statsSectionIds.contains),
-        ..._statsSectionIds.where((id) => !_statsSectionOrder.contains(id)),
-      ];
+  List<String> get _mergedStatsOrder {
+    final bookOrbit = context.read<AuthProvider>().isBookOrbit;
+    final ids = [
+      for (final id in _statsSectionIds)
+        if (bookOrbit || !_bookOrbitStatsSections.contains(id)) id,
+    ];
+    return [
+      ..._statsSectionOrder.where(ids.contains),
+      ...ids.where((id) => !_statsSectionOrder.contains(id)),
+    ];
+  }
 
   String _statsSectionLabel(AppLocalizations l, String id) {
     switch (id) {
@@ -881,6 +1010,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       case 'chart': return l.statsChartTitle;
       case 'heatmap': return l.statsChartHeatmap;
       case 'dayofweek': return l.statsDayOfWeek;
+      case 'timeofday': return l.statsTimeOfDay;
+      case 'finished': return l.statsFinishedByMonth;
+      case 'sources': return l.statsWhereTitle;
+      case 'habits': return l.statsHabits;
       case 'top': return l.statsMostListened;
       case 'yearreview': return 'Year in Review';
     }
@@ -896,6 +1029,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       case 'chart': return Icons.bar_chart_rounded;
       case 'heatmap': return Icons.calendar_view_month_rounded;
       case 'dayofweek': return Icons.view_week_rounded;
+      case 'timeofday': return Icons.schedule_rounded;
+      case 'finished': return Icons.event_available_rounded;
+      case 'sources': return Icons.devices_rounded;
+      case 'habits': return Icons.insights_rounded;
       case 'top': return Icons.star_outline_rounded;
       case 'yearreview': return Icons.auto_awesome_rounded;
     }
@@ -1012,7 +1149,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await PlayerSettings.setEpisodeNotifIntervalMinutes(picked);
     await EpisodeNotificationService.syncRegistration();
     // Make sure notifications are allowed when turning the feature on.
-    if (picked > 0) await Permission.notification.request();
+    if (picked > 0) {
+      if (Platform.isIOS) {
+        await EpisodeNotificationService.requestIosPermission();
+      } else {
+        await Permission.notification.request();
+      }
+    }
   }
 
   Future<void> _pickPodcastTabLibrary(List<Map<String, dynamic>> podcastLibs) async {
@@ -1099,8 +1242,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final updateCheckFrequency = results[53] as UpdateCheckFrequency;
     final mp3IndexSeek = await PlayerSettings.getMp3IndexSeeking();
     final coverSize = await PlayerSettings.getCoverSize();
+    final cardButtonFill = await PlayerSettings.getCardButtonFill();
     final flatBackground = await PlayerSettings.getFlatBackground();
     final showSubtitles = await PlayerSettings.getShowSubtitles();
+    final showEbookBadge = await PlayerSettings.getShowEbookBadge();
     final einkMode = await PlayerSettings.getEinkMode();
     final colorSource = await PlayerSettings.getColorSource();
     final manualSeed = await PlayerSettings.getManualSeedColor();
@@ -1181,6 +1326,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final episodeNotifMinutes = await PlayerSettings.getEpisodeNotifIntervalMinutes();
     final duckBriefInterruptions = await PlayerSettings.getDuckBriefInterruptions();
     final autoplayOnCarConnect = await PlayerSettings.getAutoplayOnCarConnect();
+    final keepScreenOnPlayer = await PlayerSettings.getKeepScreenOnInPlayer();
+    final keepScreenOnCarMode = await PlayerSettings.getKeepScreenOnInCarMode();
     final carBookSort = await PlayerSettings.getCarBookSort();
     final carBookSortReverse = await PlayerSettings.getCarBookSortReverse();
     final carPodcastSort = await PlayerSettings.getCarPodcastSort();
@@ -1205,6 +1352,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _notifSpeedBookmark = notifSpeedBookmark;
       _duckBriefInterruptions = duckBriefInterruptions;
       _autoplayOnCarConnect = autoplayOnCarConnect;
+      _keepScreenOnPlayer = keepScreenOnPlayer;
+      _keepScreenOnCarMode = keepScreenOnCarMode;
       _carBookSort = carBookSort;
       _carBookSortReverse = carBookSortReverse;
       _carPodcastSort = carPodcastSort;
@@ -1254,6 +1403,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _rectangleCovers = rectCovers;
       _showSubtitles = showSubtitles;
       _coverSize = coverSize;
+      _cardButtonFill = cardButtonFill;
       _coverPlayButton = coverPlay;
       _cardBackground = cardBg;
       _progressTextScale = progressScale;
@@ -1263,6 +1413,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _longBackSkip = longBack;
       _trustAllCerts = trustCerts;
       _showExplicitBadge = showExplicit;
+      _showEbookBadge = showEbookBadge;
       _includePreReleases = preReleases;
       _updateCheckFrequency = updateCheckFrequency;
       _sleepFadeDuration = fadeDur;
@@ -1284,8 +1435,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
       _loaded = true;
     });
+    final cardsOpenDetails = await PlayerSettings.getHomeCardsOpenDetails();
+    if (mounted) setState(() => _homeCardsOpenDetails = cardsOpenDetails);
     final libId = mounted ? context.read<LibraryProvider>().selectedLibraryId : null;
     if (libId != null) _loadCurrentLibraryOverrides(libId);
+    if (Platform.isIOS) _refreshSiriStatus();
+  }
+
+  Future<void> _refreshSiriStatus() async {
+    final status = await SiriService().authorizationStatus();
+    if (mounted) setState(() => _siriStatus = status);
   }
 
   /// (Re)loads the cover-shape + skip overrides for whichever library is
@@ -1703,6 +1862,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         if (mounted) _loadCurrentLibraryOverrides(lib.selectedLibraryId!);
       });
     }
+    if (auth.apiService != _inboxApi) {
+      _inboxApi = auth.apiService;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _loadBookOrbitInbox();
+      });
+    }
 
     return Scaffold(
       body: Container(
@@ -1812,7 +1977,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                   child: GestureDetector(
-                    onTap: () => _showAccountSheet(context),
+                    onTap: () => auth.isSignedOut ? openSignInAgain(context) : _showAccountSheet(context),
                     child: Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -1841,6 +2006,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           Row(children: [
                             Flexible(child: Text(auth.username ?? l.userFallback, style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w700),
                               overflow: TextOverflow.ellipsis)),
+                            const SizedBox(width: 8),
+                            _serverKindTag(cs, tt, auth.isBookOrbit),
                             if (auth.isAdmin) ...[
                               const SizedBox(width: 8),
                               Container(
@@ -1859,12 +2026,58 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             auth.serverUrl?.replaceAll(RegExp(r'^https?://'), '').replaceAll(RegExp(r'/+$'), '') ?? '',
                             maxLines: 1, overflow: TextOverflow.ellipsis,
                             style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant.withValues(alpha: 0.6))),
+                          if (auth.isSignedOut) ...[
+                            const SizedBox(height: 2),
+                            Text(l.signedOutTapToSignIn,
+                              style: tt.labelSmall?.copyWith(color: cs.error, fontWeight: FontWeight.w600)),
+                          ],
                         ])),
                         Icon(Icons.chevron_right_rounded, size: 20, color: cs.primary.withValues(alpha: 0.5)),
                       ]),
                     ),
                   ),
                 ),
+
+                if (auth.isBookOrbit && (_boNotificationsOn || _boAchievementsOn == true))
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    child: Row(children: [
+                      if (_boNotificationsOn)
+                        Expanded(
+                          child: ValueListenableBuilder(
+                            valueListenable: BookOrbitNotificationSocket.instance.unread,
+                            builder: (context, _, _) {
+                              final unread =
+                                  BookOrbitNotificationSocket.instance.unreadFor(auth.apiService) ?? _boUnread;
+                              return _inboxTile(cs, tt,
+                                  icon: Icons.notifications_rounded,
+                                  title: l.notifications,
+                                  subtitle: unread == null ? '' : l.boNotificationsUnread(unread),
+                                  dot: (unread ?? 0) > 0,
+                                  onTap: () async {
+                                    await ServerNotificationsScreen.open(context);
+                                    if (mounted) _loadBookOrbitInbox();
+                                  });
+                            },
+                          ),
+                        ),
+                      if (_boNotificationsOn && _boAchievementsOn == true) const SizedBox(width: 10),
+                      if (_boAchievementsOn == true)
+                        Expanded(
+                          child: _inboxTile(cs, tt,
+                              icon: Icons.emoji_events_rounded,
+                              title: l.achievementsTitle,
+                              subtitle: _boAchievements == null
+                                  ? ''
+                                  : l.achievementsEarnedSummary(
+                                      _boAchievements!.totalEarned, _boAchievements!.totalAvailable),
+                              onTap: () async {
+                                await AchievementsScreen.open(context);
+                                if (mounted) _loadBookOrbitInbox();
+                              }),
+                        ),
+                    ]),
+                  ),
 
                 // ── Admin Controls ──
                 if (auth.isAdmin)
@@ -1906,6 +2119,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 ),
                                 const SizedBox(width: 10),
                               ],
+                              Icon(Icons.chevron_right_rounded, color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                if (auth.bookOrbitAdmin?.any == true)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                    child: Material(
+                      color: cs.surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(14),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(14),
+                        onTap: () => Navigator.push(context, MaterialPageRoute(
+                          builder: (_) => const BookOrbitAdminScreen(),
+                        )),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          child: Row(
+                            children: [
+                              Icon(Icons.admin_panel_settings_rounded, color: cs.primary, size: 22),
+                              const SizedBox(width: 14),
+                              Expanded(child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(l.serverAdmin, style: tt.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.w600)),
+                                  Text(l.boAdminSubtitle,
+                                    style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+                                ],
+                              )),
                               Icon(Icons.chevron_right_rounded, color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
                             ],
                           ),
@@ -2216,6 +2463,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 final v = selected.first;
                                 setState(() => _coverSize = v);
                                 PlayerSettings.setCoverSize(v);
+                              } : null,
+                              style: const ButtonStyle(
+                                visualDensity: VisualDensity.compact,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(l.cardButtonFill, style: tt.titleSmall),
+                          const SizedBox(height: 4),
+                          Text(
+                            l.cardButtonFillSubtitle,
+                            style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                          ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: SegmentedButton<String>(
+                              showSelectedIcon: false,
+                              segments: [
+                                ButtonSegment(value: 'clear', label: FittedBox(fit: BoxFit.scaleDown, child: Text(l.cardButtonFillClear, maxLines: 1))),
+                                ButtonSegment(value: 'subtle', label: FittedBox(fit: BoxFit.scaleDown, child: Text(l.cardButtonFillSubtle, maxLines: 1))),
+                                ButtonSegment(value: 'solid', label: FittedBox(fit: BoxFit.scaleDown, child: Text(l.cardButtonFillSolid, maxLines: 1))),
+                              ],
+                              selected: {_cardButtonFill},
+                              onSelectionChanged: _loaded ? (selected) {
+                                final v = selected.first;
+                                setState(() => _cardButtonFill = v);
+                                PlayerSettings.setCardButtonFill(v);
                               } : null,
                               style: const ButtonStyle(
                                 visualDensity: VisualDensity.compact,
@@ -2541,6 +2824,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       } : null,
                     ),
                     const Divider(height: 1, indent: 16, endIndent: 16),
+                    SwitchListTile(
+                      title: Text(l.keepScreenOnPlayer),
+                      subtitle: Text(l.keepScreenOnPlayerSubtitle,
+                        style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+                      value: _keepScreenOnPlayer,
+                      onChanged: _loaded ? (v) {
+                        setState(() => _keepScreenOnPlayer = v);
+                        PlayerSettings.setKeepScreenOnInPlayer(v);
+                      } : null,
+                    ),
+                    const Divider(height: 1, indent: 16, endIndent: 16),
                     ValueListenableBuilder<bool>(
                       valueListenable: classicWordingNotifier,
                       builder: (context, _, __) {
@@ -2621,7 +2915,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               ButtonSegment(value: 'off', icon: const Icon(Icons.stop_rounded, size: 18), label: FittedBox(fit: BoxFit.scaleDown, child: Text(l.queueModeOff))),
                               ButtonSegment(value: 'manual', icon: const Icon(Icons.queue_music_rounded, size: 18), label: FittedBox(fit: BoxFit.scaleDown, child: Text(l.queueModeManual))),
                               ButtonSegment(value: 'auto_next', icon: const Icon(Icons.skip_next_rounded, size: 18), label: FittedBox(fit: BoxFit.scaleDown, child: Text(l.queueModeAuto))),
-                              ButtonSegment(value: 'playlist', icon: const Icon(Icons.playlist_play_rounded, size: 18), label: FittedBox(fit: BoxFit.scaleDown, child: Text(l.queueModePlaylist))),
+                              if (!context.read<AuthProvider>().isBookOrbit || _mergedQueueMode == 'playlist')
+                                ButtonSegment(value: 'playlist', icon: const Icon(Icons.playlist_play_rounded, size: 18), label: FittedBox(fit: BoxFit.scaleDown, child: Text(l.queueModePlaylist))),
                             ],
                             selected: {_mergedQueueMode},
                             onSelectionChanged: _loaded
@@ -2639,7 +2934,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               ButtonSegment(value: 'off', icon: const Icon(Icons.stop_rounded, size: 18), label: FittedBox(fit: BoxFit.scaleDown, child: Text(l.queueModeOff))),
                               ButtonSegment(value: 'manual', icon: const Icon(Icons.queue_music_rounded, size: 18), label: FittedBox(fit: BoxFit.scaleDown, child: Text(l.queueModeManual))),
                               ButtonSegment(value: 'auto_next', icon: const Icon(Icons.skip_next_rounded, size: 18), label: FittedBox(fit: BoxFit.scaleDown, child: Text(l.queueModeSeriesLabel))),
-                              ButtonSegment(value: 'playlist', icon: const Icon(Icons.playlist_play_rounded, size: 18), label: FittedBox(fit: BoxFit.scaleDown, child: Text(l.queueModePlaylist))),
+                              if (!context.read<AuthProvider>().isBookOrbit || _bookQueueMode == 'playlist')
+                                ButtonSegment(value: 'playlist', icon: const Icon(Icons.playlist_play_rounded, size: 18), label: FittedBox(fit: BoxFit.scaleDown, child: Text(l.queueModePlaylist))),
                             ],
                             selected: {_bookQueueMode},
                             onSelectionChanged: _loaded
@@ -2657,7 +2953,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 ButtonSegment(value: 'off', icon: const Icon(Icons.stop_rounded, size: 18), label: FittedBox(fit: BoxFit.scaleDown, child: Text(l.queueModeOff))),
                                 ButtonSegment(value: 'manual', icon: const Icon(Icons.queue_music_rounded, size: 18), label: FittedBox(fit: BoxFit.scaleDown, child: Text(l.queueModeManual))),
                                 ButtonSegment(value: 'auto_next', icon: const Icon(Icons.skip_next_rounded, size: 18), label: FittedBox(fit: BoxFit.scaleDown, child: Text(l.queueModeShowLabel))),
-                                ButtonSegment(value: 'playlist', icon: const Icon(Icons.playlist_play_rounded, size: 18), label: FittedBox(fit: BoxFit.scaleDown, child: Text(l.queueModePlaylist))),
+                                if (!context.read<AuthProvider>().isBookOrbit || _podcastQueueMode == 'playlist')
+                                  ButtonSegment(value: 'playlist', icon: const Icon(Icons.playlist_play_rounded, size: 18), label: FittedBox(fit: BoxFit.scaleDown, child: Text(l.queueModePlaylist))),
                               ],
                               selected: {_podcastQueueMode},
                               onSelectionChanged: _loaded
@@ -3126,6 +3423,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       } : null,
                     ),
                     const Divider(height: 1, indent: 16, endIndent: 16),
+                    ListTile(
+                      title: Text(l.nowPlayingText),
+                      subtitle: Text(l.nowPlayingTextSubtitle,
+                        style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+                      trailing: Icon(Icons.chevron_right_rounded, color: cs.onSurfaceVariant),
+                      onTap: () => NowPlayingTextSheet.show(context),
+                    ),
+                    const Divider(height: 1, indent: 16, endIndent: 16),
                     // Cross-platform: drops the seek action so the scrubber in the
                     // notification / lockscreen / car can't be dragged.
                     SwitchListTile(
@@ -3200,6 +3505,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       } : null,
                     ),
                     const Divider(height: 1, indent: 16, endIndent: 16),
+                    SwitchListTile(
+                      title: Text(l.keepScreenOnCarMode),
+                      subtitle: Text(l.keepScreenOnCarModeSubtitle,
+                        style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+                      value: _keepScreenOnCarMode,
+                      onChanged: _loaded ? (v) {
+                        setState(() => _keepScreenOnCarMode = v);
+                        PlayerSettings.setKeepScreenOnInCarMode(v);
+                      } : null,
+                    ),
+                    const Divider(height: 1, indent: 16, endIndent: 16),
                     _carSortPicker(
                       tt,
                       l.carBookOrder,
@@ -3248,6 +3564,60 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ],
                 ),
                 const SizedBox(height: 16),
+
+                if (Platform.isIOS) ...[
+                  // ── Siri ──
+                  CollapsibleSection(
+                    key: _keyFor('Siri'),
+                    icon: Icons.mic_rounded,
+                    title: l.sectionSiri,
+                    cs: cs,
+                    isExpanded: _expandedSection == 'Siri',
+                    onExpansionChanged: (v) {
+                      _onSectionExpanded('Siri', v);
+                      if (v) _refreshSiriStatus();
+                    },
+                    children: [
+                      ListTile(
+                        title: Text(l.siriUseWithSiri),
+                        subtitle: Text(
+                          switch (_siriStatus) {
+                            'authorized' => l.siriStatusOn,
+                            'denied' || 'restricted' => l.siriStatusOff,
+                            _ => l.siriStatusAsk,
+                          },
+                          style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+                        trailing: _siriStatus == 'authorized'
+                            ? Icon(Icons.check_circle_rounded, color: cs.primary)
+                            : FilledButton.tonal(
+                                onPressed: () async {
+                                  if (_siriStatus == 'notDetermined') {
+                                    await SiriService().requestAuthorization();
+                                  } else {
+                                    await SiriService().openSystemSettings();
+                                  }
+                                  await _refreshSiriStatus();
+                                },
+                                child: Text(_siriStatus == 'notDetermined'
+                                    ? l.siriAllow
+                                    : l.siriOpenSettings),
+                              ),
+                      ),
+                      const Divider(height: 1, indent: 16, endIndent: 16),
+                      ListTile(
+                        title: Text(l.siriThingsToSay),
+                        subtitle: Text(l.siriExamples,
+                          style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                        child: Text(l.siriShortcutsNote,
+                          style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                ],
 
                 // ── Sleep Timer ──
                 CollapsibleSection(
@@ -3905,6 +4275,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     const Divider(height: 1, indent: 16, endIndent: 16),
                     SwitchListTile(
+                      title: Text(l.homeCardsOpenDetails),
+                      subtitle: Text(
+                        _homeCardsOpenDetails
+                            ? l.homeCardsOpenDetailsOnSubtitle
+                            : l.homeCardsOpenDetailsOffSubtitle,
+                        style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+                      value: _homeCardsOpenDetails,
+                      onChanged: _loaded ? (v) {
+                        setState(() => _homeCardsOpenDetails = v);
+                        PlayerSettings.setHomeCardsOpenDetails(v);
+                      } : null,
+                    ),
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                    SwitchListTile(
                       title: Text(l.showGoodreadsButton),
                       subtitle: Text(
                         _showGoodreadsButton
@@ -3929,6 +4313,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       onChanged: _loaded ? (v) {
                         setState(() => _showExplicitBadge = v);
                         PlayerSettings.setShowExplicitBadge(v);
+                      } : null,
+                    ),
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                    SwitchListTile(
+                      title: Text(l.showEbookBadge),
+                      subtitle: Text(
+                        _showEbookBadge
+                            ? l.showEbookBadgeOnSubtitle
+                            : l.showEbookBadgeOffSubtitle,
+                        style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+                      value: _showEbookBadge,
+                      onChanged: _loaded ? (v) {
+                        setState(() => _showEbookBadge = v);
+                        PlayerSettings.setShowEbookBadge(v);
                       } : null,
                     ),
                     if (lib.libraries.length > 1) ...[
@@ -4080,7 +4478,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         }
                       },
                     ),
-                    if (Platform.isAndroid) ...[
+                    if (Platform.isAndroid || Platform.isIOS) ...[
                     const Divider(height: 1, indent: 16, endIndent: 16),
                     ListTile(
                       leading: const Icon(Icons.notifications_active_outlined),
@@ -4091,6 +4489,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       trailing: Icon(Icons.chevron_right_rounded, color: cs.onSurfaceVariant),
                       onTap: _loaded ? _pickEpisodeNotifInterval : null,
                     ),
+                    ],
+                    if (Platform.isAndroid) ...[
                     const Divider(height: 1, indent: 16, endIndent: 16),
                     ListTile(
                       leading: const Icon(Icons.battery_saver_outlined),
@@ -4150,6 +4550,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         // Re-trigger the welcome dialog without an app
                         // restart. resetAll() already cleared the flag.
                         WelcomeSheet.showIfNeeded(context);
+                      },
+                    ),
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                    SwitchListTile(
+                      secondary: Icon(Icons.new_releases_outlined, color: cs.onSurfaceVariant),
+                      title: Text(l.settingsWhatsNew),
+                      subtitle: Text(l.settingsWhatsNewSubtitle,
+                          style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+                      value: _whatsNewOn,
+                      onChanged: (v) {
+                        setState(() => _whatsNewOn = v);
+                        WhatsNewPrompt.setEnabled(v);
                       },
                     ),
                     const Divider(height: 1, indent: 16, endIndent: 16),
@@ -4388,6 +4800,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           setState(() => _includePreReleases = v);
                           await PlayerSettings.setIncludePreReleases(v);
                         } : null,
+                      ),
+                    ],
+                    if (_bookRequestsOn) ...[
+                      const Divider(height: 1, indent: 16, endIndent: 16),
+                      ListTile(
+                        leading: Icon(Icons.playlist_add_rounded, color: cs.primary),
+                        title: Text(l.breqTitle),
+                        subtitle: Text(l.breqSettingsSubtitle,
+                          style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+                        trailing: Icon(Icons.chevron_right_rounded, color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
+                        onTap: () => BookRequestsScreen.open(context, openList: true),
                       ),
                     ],
                     const Divider(height: 1, indent: 16, endIndent: 16),
@@ -5089,7 +5512,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(auth.username ?? l.userFallback, style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+              Row(children: [
+                Flexible(child: Text(auth.username ?? l.userFallback, style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                  overflow: TextOverflow.ellipsis)),
+                const SizedBox(width: 8),
+                _serverKindTag(cs, tt, auth.isBookOrbit),
+              ]),
               const SizedBox(height: 6),
               Row(children: [
                 Icon(Icons.dns_rounded, size: 13, color: cs.onSurfaceVariant.withValues(alpha: 0.4)),
@@ -5128,6 +5556,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const SizedBox(height: 12),
           Divider(height: 1, indent: 20, endIndent: 20, color: cs.onSurface.withValues(alpha: 0.06)),
+          if (!auth.isBookOrbit || auth.canChangeBookOrbitPassword) ...[
           InkWell(
             onTap: () {
               Navigator.pop(ctx);
@@ -5142,12 +5571,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(width: 14),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(l.changePasswordTitle, style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
-                  Text(l.changePasswordSubtitle, style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
+                  Text(auth.isBookOrbit ? l.boChangePasswordSubtitle : l.changePasswordSubtitle,
+                    style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
                 ])),
                 Icon(Icons.chevron_right_rounded, size: 18, color: cs.onSurfaceVariant),
               ]),
             ),
           ),
+          if (!auth.isBookOrbit)
           InkWell(
             onTap: () {
               Navigator.pop(ctx);
@@ -5169,6 +5600,55 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           Divider(height: 1, indent: 20, endIndent: 20, color: cs.onSurface.withValues(alpha: 0.06)),
+          ],
+          if (auth.isBookOrbit && (_boAchievementsOn != null || _boNotificationsOn)) ...[
+            if (_boNotificationsOn)
+              InkWell(
+                onTap: () {
+                  Navigator.pop(ctx);
+                  NotificationSettingsSheet.show(context);
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  child: Row(children: [
+                    Icon(Icons.notifications_active_rounded, size: 20, color: cs.onSurfaceVariant),
+                    const SizedBox(width: 14),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(l.boNotificationsSettings, style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+                      Text(l.boNotificationsSettingsIntro, style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
+                    ])),
+                    Icon(Icons.chevron_right_rounded, size: 18, color: cs.onSurfaceVariant),
+                  ]),
+                ),
+              ),
+            if (_boAchievementsOn != null)
+              StatefulBuilder(
+                builder: (sheetContext, setSheet) {
+                  Future<void> toggle(bool on) async {
+                    final change = _setAchievementsOn(on);
+                    setSheet(() {});
+                    await change;
+                    if (sheetContext.mounted) setSheet(() {});
+                  }
+                  return InkWell(
+                    onTap: () => toggle(!(_boAchievementsOn ?? true)),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 8, 12, 8),
+                      child: Row(children: [
+                        Icon(Icons.emoji_events_rounded, size: 20, color: cs.onSurfaceVariant),
+                        const SizedBox(width: 14),
+                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(l.achievementsSwitch, style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+                          Text(l.achievementsSwitchSubtitle, style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
+                        ])),
+                        Switch(value: _boAchievementsOn ?? true, onChanged: toggle),
+                      ]),
+                    ),
+                  );
+                },
+              ),
+            Divider(height: 1, indent: 20, endIndent: 20, color: cs.onSurface.withValues(alpha: 0.06)),
+          ],
           // Other accounts
           if (otherAccounts.isNotEmpty) ...[
             const SizedBox(height: 4),
@@ -5179,9 +5659,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   color: cs.onSurfaceVariant.withValues(alpha: 0.4), fontWeight: FontWeight.w600, letterSpacing: 0.5))),
             ),
             ...otherAccounts.map((account) {
-              final shortUrl = account.serverUrl
+              final host = account.serverUrl
                   .replaceAll(RegExp(r'^https?://'), '')
                   .replaceAll(RegExp(r'/+$'), '');
+              final shortUrl = account.backend.isBookOrbit
+                  ? '$host - ${account.backend.displayName}'
+                  : host;
               return InkWell(
                 onTap: () { Navigator.pop(ctx); _switchAccount(context, account); },
                 onLongPress: () { Navigator.pop(ctx); _accountOptions(context, account); },
@@ -5494,3 +5977,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 }
+
+/// The kind of server the account is on, spelled to show where the app's
+/// name comes from: ABS and orb, or abs and BookOrbit's ORB.
+Widget _serverKindTag(ColorScheme cs, TextTheme tt, bool bookOrbit) => Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+      decoration: BoxDecoration(
+        color: cs.onSurface.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        bookOrbit ? 'absORB' : 'ABSorb',
+        style: tt.labelSmall?.copyWith(
+          color: cs.onSurfaceVariant,
+          fontWeight: FontWeight.w600,
+          fontSize: 9,
+          letterSpacing: 0.4,
+        ),
+      ),
+    );

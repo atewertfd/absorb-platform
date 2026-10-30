@@ -429,6 +429,13 @@ class SettingsSyncService {
 
   Future<void> onAppForegrounded() async {
     if (!await getEnabled()) return;
+
+    _changeCheck?.cancel();
+    _changeCheck = Timer.periodic(
+      _changeCheckInterval,
+      (_) => unawaited(pushIfChanged()),
+    );
+
     final now = DateTime.now();
     if (_lastPullAt != null &&
         now.difference(_lastPullAt!) < _foregroundPullGuard) {
@@ -672,6 +679,8 @@ class SettingsSyncService {
   Future<void> onAppBackgrounded() async {
     _debounce?.cancel();
     _debounce = null;
+    _changeCheck?.cancel();
+    _changeCheck = null;
     await pushIfChanged();
   }
 

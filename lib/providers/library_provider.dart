@@ -8,6 +8,7 @@ import '../services/scoped_prefs.dart';
 import '../services/audio_player_service.dart';
 import 'auth_provider.dart';
 import '../services/api_service.dart';
+import '../services/bookorbit_notification_socket.dart';
 import '../services/progress_sync_service.dart';
 import '../services/local_session_service.dart';
 import '../services/download_service.dart';
@@ -23,10 +24,15 @@ import '../services/socket_service.dart';
 import '../services/book_search_index.dart';
 import '../services/home_widget_service.dart';
 import '../services/queue_download_policy.dart';
+import '../services/siri_service.dart';
 import '../utils/absorbing_inclusion.dart';
 import '../l10n/app_localizations.dart';
 import '../main.dart' show rootNavigatorKey;
 import '../widgets/overlay_toast.dart';
+import '../services/ebook_cache.dart';
+import '../services/screen_wake.dart';
+import '../services/up_next_narration.dart';
+import '../services/narrated_books.dart';
 
 part '_lp_state.dart';
 part '_lp_core.dart';
@@ -46,12 +52,27 @@ class LibraryProvider extends ChangeNotifier
     if (completer != null && !completer.isCompleted) completer.complete();
   }
 
+  Iterable<Map<String, dynamic>> _itemsForSiri() sync* {
+    yield* _absorbingItemCache.values;
+    for (final sections in _sectionsByLibrary.values) {
+      for (final section in sections) {
+        if (section is! Map) continue;
+        for (final e in (section['entities'] as List<dynamic>? ?? const [])) {
+          if (e is Map<String, dynamic>) yield e;
+        }
+      }
+    }
+    yield* BookSearchIndex().indexedItems;
+  }
+
   LibraryProvider() {
+    SiriService.libraryItems = _itemsForSiri;
     // Registered once at provider construction so the audio service can
     // notify this provider on completion/playback events even when the
     // Flutter UI wasn't foregrounded yet (e.g. Android Auto cold-start,
     // where updateAuth may not run until much later).
     AudioPlayerService.setOnBookFinishedCallback(markFinishedLocally);
+    AudioPlayerService.onAppPlay = (itemId) => unawaited(UpNextNarration.instance.checkOnPlay(this, itemId));
     AudioPlayerService.setOnAutoQueueAdvancedCallback((oldItemId) {
       // Pre-buffer auto-advance already loaded and started the next item.
       // Mark the old one finished WITHOUT triggering normal auto-advance
@@ -177,6 +198,10 @@ class LibraryProvider extends ChangeNotifier
         _stopServerPingTimer();
         _stopHealthCheckTimer();
         _isLoading = true;
+        // Signing back in after a lapsed session hands the still-playing
+        // book its new connection.
+        final freshApi = auth.apiService;
+        if (freshApi != null) AudioPlayerService().useApi(freshApi);
         notifyListeners();
       }
 
@@ -250,6 +275,7 @@ class LibraryProvider extends ChangeNotifier
             auth.setEreaderDevices(auth.filterDevicesForCurrentUser(devices));
           };
           socket.connect(auth.serverUrl!, auth.token!, customHeaders: auth.customHeaders);
+          _startBookOrbitPoll();
         }
         debugPrint('[Library] Calling loadLibraries()');
         await loadLibraries();
@@ -261,6 +287,40 @@ class LibraryProvider extends ChangeNotifier
         notifyListeners();
         _completeAccountLoad(accountLoadGeneration);
       });
+    } else if (auth.isSignedOut) {
+      // The session ended but the account stays: show what is on the phone
+      // until the user signs back in, which then loads like a fresh login.
+      final key = 'signed-out:${auth.username}@${auth.serverUrl}';
+      if (_lastAuthKey == key) return;
+      _lastAuthKey = key;
+      _lastUseLocalServer = null;
+      final generation = ++_accountLoadGeneration;
+      final completer = _accountReadyCompleter;
+      if (completer != null && !completer.isCompleted) completer.complete();
+      _accountReadyCompleter = null;
+      _connectivitySub?.cancel();
+      _connectivityDebounce?.cancel();
+      _stopServerPingTimer();
+      _stopHealthCheckTimer();
+      _stopBookOrbitPoll();
+      SocketService().disconnect();
+      _personalizedInFlight = null;
+      _networkOffline = false;
+      debugPrint('[Library] Signed out - showing what is on the phone');
+      () async {
+        await _loadManualAbsorbing();
+        await _loadRollingDownloadSeries();
+        await _loadSubscribedPodcasts();
+        await _loadYearHidden();
+        await _loadKnownEpisodeIds();
+        await _restoreCachedLibraries();
+        if (generation != _accountLoadGeneration) return;
+        _buildOfflineSections();
+        _isLoading = false;
+        notifyListeners();
+        refreshLocalProgress();
+      }();
+      notifyListeners();
     } else {
       _accountLoadGeneration++;
       final completer = _accountReadyCompleter;
@@ -408,7 +468,8 @@ class LibraryProvider extends ChangeNotifier
     // when merge is off, otherwise the player would be unreachable from the
     // new library.
     final merged = await PlayerSettings.getMergeAbsorbingLibraries();
-    if (!merged) {
+    // The Book Dock is somewhere to sort new files, not a place to listen.
+    if (!merged && libraryId != ApiService.bookDockLibraryId) {
       final wasPlaying = AudioPlayerService().isPlaying;
       final wasCasting = ChromecastService().isPlaying;
       if (wasPlaying) {
@@ -449,6 +510,10 @@ class LibraryProvider extends ChangeNotifier
     await _rememberBookLibrary(libraryId);
     await _loadSectionPrefs();
     notifyListeners();
+    // The shelves can come from the cache without a fetch, and playlists
+    // and collections were just cleared, so they load either way.
+    unawaited(loadPlaylists());
+    unawaited(loadCollections());
     await loadPersonalizedView();
     AndroidAutoService().refresh(force: true);
     CarPlayService().refreshTemplates();
@@ -466,7 +531,8 @@ class LibraryProvider extends ChangeNotifier
   /// Track the last non-podcast library so the Home/Library tabs know where
   /// to return when leaving the dedicated Podcasts tab.
   Future<void> _rememberBookLibrary(String libraryId) async {
-    if (!isPodcastLibraryId(libraryId)) {
+    if (!isPodcastLibraryId(libraryId) &&
+        libraryId != ApiService.bookDockLibraryId) {
       await ScopedPrefs.setString('last_book_library', libraryId);
     }
   }

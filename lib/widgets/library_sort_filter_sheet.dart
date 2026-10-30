@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../screens/library_screen.dart';
+import '../utils/read_status.dart';
+import '../services/server_backend.dart';
 
 /// Which library tab the sort/filter sheet is being shown for.
 enum LibraryTab { library, series, authors, narrators, lists }
@@ -45,6 +47,11 @@ class SortFilterSheet extends StatefulWidget {
   final bool canAccessExplicitContent;
   final LibraryTab libraryTab;
   final VoidCallback? onUpcomingReleases;
+  /// Lists tab: start a new collection, playlist or BookOrbit Smart Scope.
+  /// Null hides the row (no permission, or the server has no such list).
+  final VoidCallback? onNewCollection;
+  final VoidCallback? onNewPlaylist;
+  final VoidCallback? onNewSmartScope;
   /// Authors tab only, and only when the user may write metadata - the sheet
   /// hides the row entirely when this is null.
   final VoidCallback? onMatchAllAuthors;
@@ -76,6 +83,9 @@ class SortFilterSheet extends StatefulWidget {
     this.libraryTab = LibraryTab.library,
     this.onMatchAllAuthors,
     this.onUpcomingReleases,
+    this.onNewCollection,
+    this.onNewPlaylist,
+    this.onNewSmartScope,
     this.currentSeriesFilter = SeriesFilter.none,
     this.onSeriesFilterChanged,
   });
@@ -87,6 +97,7 @@ class SortFilterSheet extends StatefulWidget {
 class _SortFilterSheetState extends State<SortFilterSheet> with SingleTickerProviderStateMixin {
   late TabController _tabCtrl;
   bool _genreExpanded = false;
+  bool _readStatusExpanded = false;
   bool _tagExpanded = false;
   bool _missingMetadataExpanded = false;
   bool _seriesExpanded = false;
@@ -121,6 +132,9 @@ class _SortFilterSheetState extends State<SortFilterSheet> with SingleTickerProv
       if (mounted) setState(() {});
     });
     if (widget.currentFilter == LibraryFilter.genre) _genreExpanded = true;
+    if (widget.currentFilter == LibraryFilter.readStatus) {
+      _readStatusExpanded = true;
+    }
     if (widget.currentFilter == LibraryFilter.tag) _tagExpanded = true;
     if (widget.currentFilter == LibraryFilter.missingMetadata) {
       _missingMetadataExpanded = true;
@@ -210,8 +224,9 @@ class _SortFilterSheetState extends State<SortFilterSheet> with SingleTickerProv
       return widget.onMatchAllAuthors != null ? 330 : 230;
     }
     if (widget.libraryTab == LibraryTab.narrators) return 180;
-    if (widget.libraryTab == LibraryTab.lists) return 230;
+    if (widget.libraryTab == LibraryTab.lists) return 230 + _newListRows * 76;
     if (_genreExpanded ||
+        _readStatusExpanded ||
         _tagExpanded ||
         _missingMetadataExpanded ||
         _seriesExpanded ||
@@ -315,6 +330,25 @@ class _SortFilterSheetState extends State<SortFilterSheet> with SingleTickerProv
             ),
           ),
         ],
+        if (widget.libraryTab == LibraryTab.lists && _newListRows > 0) ...[
+          const Divider(height: 24),
+          if (widget.onNewCollection != null)
+            _actionRow(
+              cs,
+              Icons.collections_bookmark_rounded,
+              l.newCollection,
+              ServerBackend.active.isBookOrbit
+                  ? l.listsNewCollectionSubtitle
+                  : l.listsNewCollectionNeedsBookSubtitle,
+              widget.onNewCollection!,
+            ),
+          if (widget.onNewPlaylist != null)
+            _actionRow(cs, Icons.playlist_add_rounded, l.newPlaylist, l.listsNewPlaylistSubtitle,
+                widget.onNewPlaylist!),
+          if (widget.onNewSmartScope != null)
+            _actionRow(cs, Icons.filter_alt_rounded, l.smartScopeNew, l.smartScopeNewSubtitle,
+                widget.onNewSmartScope!),
+        ],
         if (widget.libraryTab == LibraryTab.series && widget.onUpcomingReleases != null) ...[
           const Divider(height: 24),
           GestureDetector(
@@ -349,6 +383,41 @@ class _SortFilterSheetState extends State<SortFilterSheet> with SingleTickerProv
     );
   }
 
+  int get _newListRows => [widget.onNewCollection, widget.onNewPlaylist, widget.onNewSmartScope]
+      .where((c) => c != null)
+      .length;
+
+  Widget _actionRow(ColorScheme cs, IconData icon, String title, String subtitle, VoidCallback onTap) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: cs.primary.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: cs.primary.withValues(alpha: 0.15)),
+          ),
+          child: Row(children: [
+            Icon(icon, size: 20, color: cs.primary),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: cs.primary)),
+                  Text(subtitle, style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, size: 20, color: cs.primary),
+          ]),
+        ),
+      ),
+    );
+  }
+
   List<(LibrarySort, String, IconData)> _getSortOptions(AppLocalizations l) {
     switch (widget.libraryTab) {
       case LibraryTab.series:
@@ -356,6 +425,9 @@ class _SortFilterSheetState extends State<SortFilterSheet> with SingleTickerProv
           (LibrarySort.alphabetical, l.name, Icons.sort_by_alpha_rounded),
           (LibrarySort.recentlyAdded, l.dateAdded, Icons.schedule_rounded),
           (LibrarySort.totalDuration, l.numberOfBooks, Icons.auto_stories_rounded),
+          (LibrarySort.seriesTotalDuration, l.sortTotalDuration, Icons.timer_outlined),
+          (LibrarySort.lastBookAdded, l.sortLastBookAdded, Icons.library_add_rounded),
+          (LibrarySort.lastBookUpdated, l.sortLastBookUpdated, Icons.update_rounded),
         ];
       case LibraryTab.authors:
         return [
@@ -402,7 +474,7 @@ class _SortFilterSheetState extends State<SortFilterSheet> with SingleTickerProv
           (LibrarySort.dateStarted, l.dateStarted, Icons.play_arrow_rounded),
           (LibrarySort.dateFinished, l.dateFinished, Icons.done_all_rounded),
           (LibrarySort.random, l.random, Icons.shuffle_rounded),
-        ];
+        ]..removeWhere((o) => librarySortForServer(o.$1) != o.$1);
         if (widget.currentFilter == LibraryFilter.series &&
             widget.filterValue != null &&
             widget.filterValue != 'no-series') {
@@ -452,6 +524,7 @@ class _SortFilterSheetState extends State<SortFilterSheet> with SingleTickerProv
         (LibraryFilter.explicit, l.explicitContent, Icons.explicit_rounded),
       );
     }
+    filters.removeWhere((f) => !libraryFilterSupportedOnServer(f.$1));
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       children: [
@@ -479,6 +552,20 @@ class _SortFilterSheetState extends State<SortFilterSheet> with SingleTickerProv
             onTap: () => widget.onFilterChanged(filter),
           );
         }),
+        if (libraryFilterSupportedOnServer(LibraryFilter.readStatus))
+          ..._buildStringFilterSection(
+            cs: cs,
+            label: l.readStatusTitle,
+            icon: Icons.bookmark_rounded,
+            filter: LibraryFilter.readStatus,
+            values: bookOrbitReadStatuses,
+            expanded: _readStatusExpanded,
+            onToggle: () => setState(
+              () => _readStatusExpanded = !_readStatusExpanded,
+            ),
+            optionIcon: Icons.bookmark_outline_rounded,
+            valueLabel: (value) => readStatusLabel(l, value),
+          ),
         ..._buildSeriesFilterSection(cs, l),
         ..._buildNamedFilterSection(
           cs: cs,
@@ -554,7 +641,9 @@ class _SortFilterSheetState extends State<SortFilterSheet> with SingleTickerProv
           Padding(
             padding: const EdgeInsets.only(left: 16),
             child: Column(
-              children: MissingMetadataField.values.map((field) {
+              children: MissingMetadataField.values
+                  .where(missingMetadataSupportedOnServer)
+                  .map((field) {
                 final selected =
                     widget.currentFilter == LibraryFilter.missingMetadata &&
                     widget.missingMetadataFilter == field;

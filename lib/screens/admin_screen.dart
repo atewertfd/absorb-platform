@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../services/api_service.dart';
 import '../services/server_task_tracker.dart';
 import '../services/socket_service.dart';
 import '../widgets/admin_adaptive_frame.dart';
@@ -18,6 +19,7 @@ import 'admin_missing_items_screen.dart';
 import 'admin_email_screen.dart';
 import 'admin_api_keys_screen.dart';
 import 'admin_libraries_screen.dart';
+import 'admin_auth_settings_screen.dart';
 import 'admin_server_settings_screen.dart';
 import 'admin_server_logs_screen.dart';
 import 'admin_stats_screen.dart';
@@ -176,14 +178,32 @@ class _AdminScreenState extends State<AdminScreen> with WidgetsBindingObserver {
   Future<void> _refreshIssueCounts() async {
     final api = context.read<AuthProvider>().apiService;
     if (api == null || !mounted) return;
-    for (final lib in _libraries) {
-      final id = lib['id'] as String? ?? '';
-      if (id.isEmpty) continue;
-      _libraryIssues[id] = await api.getIssueItemCount(id);
-      if (!mounted) return;
-    }
-    setState(() {});
+    await Future.wait([
+      for (final id in _libraryIds)
+        api.getIssueItemCount(id).then((count) {
+          if (mounted) setState(() => _libraryIssues[id] = count);
+        }),
+    ]);
   }
+
+  Iterable<String> get _libraryIds => _libraries
+      .map((lib) => lib['id'] as String? ?? '')
+      .where((id) => id.isNotEmpty);
+
+  // Only the library cards use these, so the page shows first and each card
+  // fills in when its numbers arrive.
+  Future<void> _loadLibraryCounts(ApiService api) => Future.wait([
+        for (final id in _libraryIds)
+          Future.wait([api.getLibraryStats(id), api.getIssueItemCount(id)])
+              .then((r) {
+            if (!mounted) return;
+            setState(() {
+              final stats = r[0] as Map<String, dynamic>?;
+              if (stats != null) _libraryStats[id] = stats;
+              _libraryIssues[id] = r[1] as int;
+            });
+          }),
+      ]);
 
   Future<void> _loadAll() async {
     final usersGeneration = _desktopUsersDirtyGeneration;
@@ -206,16 +226,6 @@ class _AdminScreenState extends State<AdminScreen> with WidgetsBindingObserver {
     _sessions = futures[4];
     _serverVersion = context.read<AuthProvider>().serverVersion;
 
-    for (final lib in _libraries) {
-      final id = lib['id'] as String? ?? '';
-      if (id.isNotEmpty) {
-        final stats = await api.getLibraryStats(id);
-        if (!mounted) return;
-        if (stats != null) _libraryStats[id] = stats;
-        _libraryIssues[id] = await api.getIssueItemCount(id);
-        if (!mounted) return;
-      }
-    }
     if (_desktopUsersDirtyGeneration == usersGeneration) {
       _desktopUsersDirty = false;
     }
@@ -230,6 +240,7 @@ class _AdminScreenState extends State<AdminScreen> with WidgetsBindingObserver {
       _loading = false;
     });
     _leaveUnavailablePodcastSection();
+    await _loadLibraryCounts(api);
   }
 
   bool get _hasPodcastLibrary => _libraries.any((l) => l['mediaType'] == 'podcast');
@@ -401,6 +412,16 @@ class _AdminScreenState extends State<AdminScreen> with WidgetsBindingObserver {
                         ),
                         const SizedBox(height: 10),
                         _navButton(cs, tt,
+                          icon: Icons.lock_person_rounded,
+                          label: l.adminAuthentication,
+                          subtitle: l.adminAuthenticationSubtitle,
+                          onTap: () {
+                            Navigator.push(context, MaterialPageRoute(
+                              builder: (_) => const AdminAuthSettingsScreen()));
+                          },
+                        ),
+                        const SizedBox(height: 10),
+                        _navButton(cs, tt,
                           icon: Icons.description_outlined,
                           label: 'Server logs',
                           subtitle: l.sendLogsSubtitle,
@@ -473,6 +494,7 @@ class _AdminScreenState extends State<AdminScreen> with WidgetsBindingObserver {
       AdminSectionDestination('api-keys', Icons.vpn_key_rounded, l.adminApiKeys),
       AdminSectionDestination('libraries', Icons.library_books_rounded, l.adminLibrariesManage),
       AdminSectionDestination('server-settings', Icons.tune_rounded, l.adminServerSettings),
+      AdminSectionDestination('authentication', Icons.lock_person_rounded, l.adminAuthentication),
       const AdminSectionDestination('logs', Icons.description_outlined, 'Server logs'),
       AdminSectionDestination('stats', Icons.bar_chart_rounded, l.adminStats),
       AdminSectionDestination('sessions', Icons.history_rounded, l.adminAllSessions),
@@ -884,6 +906,8 @@ class _AdminScreenState extends State<AdminScreen> with WidgetsBindingObserver {
         return AdminLibrariesScreen(libraries: _libraries);
       case 'server-settings':
         return const AdminServerSettingsScreen();
+      case 'authentication':
+        return const AdminAuthSettingsScreen();
       case 'logs':
         return const AdminServerLogsScreen();
       case 'stats':
@@ -940,7 +964,7 @@ class _AdminScreenState extends State<AdminScreen> with WidgetsBindingObserver {
     final mediaType = lib['mediaType'] as String? ?? 'book';
     final folders = (lib['folders'] as List?)?.length ?? 0;
     final stats = _libraryStats[id];
-    final totalItems = stats?['totalItems'] ?? 0;
+    final totalItems = stats?['totalItems'] ?? '-';
     final totalSize = stats?['totalSize'] as num?;
     final totalDur = stats?['totalDuration'] as num?;
     final isScanning = _scanningLibraries.contains(id) ||

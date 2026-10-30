@@ -17,7 +17,7 @@ class WelcomeSheet {
     // Small delay so the app finishes its initial layout first
     await Future.delayed(const Duration(milliseconds: 800));
     if (!context.mounted) return;
-    showDialog<void>(
+    await showDialog<void>(
       context: context,
       builder: (_) => const _WelcomeDialog(),
     );

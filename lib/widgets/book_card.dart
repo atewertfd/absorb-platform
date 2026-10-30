@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../l10n/app_localizations.dart';
 import 'cover_badges.dart';
+import '../services/narrated_books.dart';
+import '../services/ebook_cache.dart';
 import '../providers/library_provider.dart';
 import '../services/audio_player_service.dart';
 import '../services/download_service.dart';
@@ -55,6 +57,7 @@ class BookCard extends StatelessWidget {
         coverUrl: lib.getCoverUrl(itemId),
         progress: lib.getProgress(itemId),
         isFinished: lib.getProgressData(itemId)?['isFinished'] == true,
+        isSkimmed: lib.getProgressData(itemId)?['skimmed'] == true,
         isPodcastLibrary: isPodcastLibrary,
         isSubscribed: isPodcastLibrary &&
             itemId != null &&
@@ -76,8 +79,11 @@ class BookCard extends StatelessWidget {
     // Progress from LibraryProvider (fetched via /api/me, same source as book detail)
     final progress = snapshot.progress;
     final isFinished = snapshot.isFinished;
+    final isSkimmed = snapshot.isSkimmed;
     final isExplicit = PlayerSettings.showExplicitBadge && metadata['explicit'] == true;
     final isDownloaded = DownloadService().isDownloaded(itemId ?? '');
+    final hasEbook = PlayerSettings.showEbookBadge && hasEbookFile(item);
+    final readAlong = hasEbook && hasReadAlongEbook(item);
     // Only compute for podcast shows that aren't being rendered as an episode
     // (an episode card shows the recentEpisode payload, not show-level info).
     final unfinishedCount = snapshot.unfinishedCount;
@@ -85,8 +91,8 @@ class BookCard extends StatelessWidget {
     final headers = snapshot.mediaHeaders;
 
     final card = isWide
-        ? _buildWideCard(context, cs, tt, l, title, authorName, coverUrl, progress, headers, isExplicit: isExplicit)
-        : _buildCompactCard(context, cs, tt, l, title, subtitle, authorName, coverUrl, progress, headers, isFinished: isFinished, isDownloaded: isDownloaded, isExplicit: isExplicit, unfinishedCount: unfinishedCount);
+        ? _buildWideCard(context, cs, tt, l, title, authorName, coverUrl, progress, headers, isExplicit: isExplicit, hasEbook: hasEbook, readAlong: readAlong)
+        : _buildCompactCard(context, cs, tt, l, title, subtitle, authorName, coverUrl, progress, headers, isFinished: isFinished, isSkimmed: isSkimmed, isDownloaded: isDownloaded, isExplicit: isExplicit, unfinishedCount: unfinishedCount, hasEbook: hasEbook, readAlong: readAlong);
     if (!selectionMode) return card;
     // Selection sits on top of the finished card rather than inside both
     // layouts: the overlay swallows the tap, so nothing below it can open a
@@ -214,6 +220,8 @@ class BookCard extends StatelessWidget {
     double progress,
     Map<String, String> headers, {
     bool isExplicit = false,
+    bool hasEbook = false,
+    bool readAlong = false,
   }) {
     return Card(
       elevation: 0,
@@ -233,6 +241,8 @@ class BookCard extends StatelessWidget {
               child: Stack(
                 children: [
                   _CoverImage(coverUrl: coverUrl, cs: cs, fit: BoxFit.contain, httpHeaders: headers, title: title, author: authorName),
+                  if (hasEbook && !selectionMode)
+                    Positioned(top: 4, left: 4, child: EbookCoverBadge(readAlong: readAlong)),
                   if (isExplicit)
                     Positioned(
                       top: 4, right: DownloadService().isDownloaded(item['id'] as String? ?? '') ? 30 : 4,
@@ -330,9 +340,12 @@ class BookCard extends StatelessWidget {
     double progress,
     Map<String, String> headers, {
     bool isFinished = false,
+    bool isSkimmed = false,
     bool isDownloaded = false,
     bool isExplicit = false,
     int unfinishedCount = 0,
+    bool hasEbook = false,
+    bool readAlong = false,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -408,12 +421,15 @@ class BookCard extends StatelessWidget {
                         ),
                       ),
                     ),
+                  if (hasEbook && !selectionMode)
+                    Positioned(top: 4, left: 4, child: EbookCoverBadge(readAlong: readAlong)),
                   if (isFinished || isDownloaded)
                     Positioned(
                       left: 0, right: 0, bottom: 0,
                       child: CoverStateBadges(
                         isDownloaded: isDownloaded,
                         isFinished: isFinished,
+                        isSkimmed: isSkimmed,
                         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
                       ),
                     ),

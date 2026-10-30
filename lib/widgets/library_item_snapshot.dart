@@ -8,6 +8,7 @@ class LibraryItemSnapshot {
   final String? coverUrl;
   final double progress;
   final bool isFinished;
+  final bool isSkimmed;
   final bool isPodcastLibrary;
   final bool isSubscribed;
   final int unfinishedCount;
@@ -17,6 +18,7 @@ class LibraryItemSnapshot {
     required this.coverUrl,
     required this.progress,
     required this.isFinished,
+    this.isSkimmed = false,
     required this.isPodcastLibrary,
     required this.isSubscribed,
     required this.unfinishedCount,
@@ -29,6 +31,7 @@ class LibraryItemSnapshot {
         other.coverUrl == coverUrl &&
         other.progress == progress &&
         other.isFinished == isFinished &&
+        other.isSkimmed == isSkimmed &&
         other.isPodcastLibrary == isPodcastLibrary &&
         other.isSubscribed == isSubscribed &&
         other.unfinishedCount == unfinishedCount &&
@@ -43,6 +46,7 @@ class LibraryItemSnapshot {
       coverUrl,
       progress,
       isFinished,
+      isSkimmed,
       isPodcastLibrary,
       isSubscribed,
       unfinishedCount,

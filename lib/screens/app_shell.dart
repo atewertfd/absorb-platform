@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/library_provider.dart';
 import '../services/audio_player_service.dart';
+import '../services/screen_wake.dart';
 import '../services/volume_key_service.dart';
 import '../services/chromecast_service.dart';
 import '../services/home_widget_service.dart';
@@ -30,6 +31,7 @@ import 'dart:convert';
 import 'admin_screen.dart';
 import 'admin_api_keys_screen.dart';
 import 'admin_rmab_screen.dart';
+import 'book_requests_screen.dart';
 import '../widgets/rmab_config_sheet.dart'
     show
         showRmabConfigSheet,
@@ -40,6 +42,7 @@ import '../widgets/rmab_search_results_sheet.dart';
 import 'admin_email_screen.dart';
 import 'admin_libraries_screen.dart';
 import 'admin_server_logs_screen.dart';
+import 'admin_auth_settings_screen.dart';
 import 'admin_server_settings_screen.dart';
 import 'admin_sessions_screen.dart';
 import 'admin_stats_screen.dart';
@@ -48,6 +51,9 @@ import 'admin_users_screen.dart';
 import 'bookmarks_screen.dart';
 import 'downloads_screen.dart';
 import 'upcoming_releases_screen.dart';
+import 'server_notifications_screen.dart';
+import '../services/bookorbit_notification_socket.dart';
+import '../services/server_notifications.dart';
 import '../services/ebook_cache.dart';
 import '../widgets/action_pill.dart';
 import '../widgets/book_detail_sheet.dart' show showBookDetailSheet;
@@ -66,6 +72,7 @@ import 'stats_screen.dart';
 import 'settings_screen.dart';
 import 'app_shell_navigation_policy.dart';
 import '../widgets/library_picker_sheet.dart';
+import '../widgets/beta_logging_notice.dart';
 import '../widgets/welcome_sheet.dart';
 import '../widgets/whats_new_prompt.dart';
 import '../services/review_service.dart';
@@ -282,6 +289,7 @@ class _AppShellState extends State<AppShell>
     if (motionMode != AppMotionMode.normal) {
       _fadeController.stop(canceled: false);
       setState(() => _currentIndex = index);
+      _syncPlayerOnScreen();
     } else {
       // A second click should retarget the same transition rather than leave
       // two reverse() completions racing to replace the active page.
@@ -289,9 +297,14 @@ class _AppShellState extends State<AppShell>
       _fadeController.reverse().then((_) {
         if (!mounted || request != _navigationRequest) return;
         setState(() => _currentIndex = index);
+        _syncPlayerOnScreen();
         _fadeController.forward();
       });
     }
+  }
+
+  void _syncPlayerOnScreen() {
+    PlayerScreenWake.onScreen.value = _currentIndex == 2 || _expandedIsOpen;
   }
 
   /// Subscribe to the active screen's barsRevealNotifier when on Home or
@@ -391,6 +404,7 @@ class _AppShellState extends State<AppShell>
     PlayerSettings.getStartScreen().then((idx) {
       if (mounted && idx != _currentIndex && idx >= 0 && idx <= 4) {
         setState(() => _currentIndex = idx);
+        _syncPlayerOnScreen();
         _ensurePageBuilt(idx);
         _restoreBookLibraryForCurrentTab(restoreLibraryPage: true);
       }
@@ -401,9 +415,13 @@ class _AppShellState extends State<AppShell>
   void initState() {
     super.initState();
     _instance = this;
+    _incomingNotifications =
+        BookOrbitNotificationSocket.instance.incoming.listen(showIncomingNotificationToast);
     EreaderVolumeNav.ensureHandler();
+    PlayerScreenWake.start();
     if (!widget.startOnAbsorbing) _loadStartScreen();
     _ensurePageBuilt(_currentIndex);
+    _syncPlayerOnScreen();
     _playerHadBook = _player.hasBook;
     _wasPlaying = _player.isPlaying;
     _lastItemId = _player.currentItemId;
@@ -423,9 +441,17 @@ class _AppShellState extends State<AppShell>
     context.read<LibraryProvider>().addListener(_onLibraryChanged);
     _loadPodcastTabPrefs();
     PlayerSettings.settingsChanged.addListener(_loadPodcastTabPrefs);
-    WhatsNewPrompt.showIfUpdated(context);
-    WelcomeSheet.showIfNeeded(context);
+    _showLaunchPrompts();
     _checkForUpdate();
+  }
+
+  /// One after another, so they never land on top of each other.
+  Future<void> _showLaunchPrompts() async {
+    await WhatsNewPrompt.showIfUpdated(context);
+    if (!mounted) return;
+    await WelcomeSheet.showIfNeeded(context);
+    if (!mounted) return;
+    await BetaLoggingNotice.showIfPending(context);
   }
 
   Future<void> _loadPodcastTabPrefs() async {
@@ -513,9 +539,12 @@ class _AppShellState extends State<AppShell>
     await UpdateDialog.show(context, info);
   }
 
+  StreamSubscription<ServerNotification>? _incomingNotifications;
+
   @override
   void dispose() {
     _fadeAnimation.dispose();
+    _incomingNotifications?.cancel();
     _fadeController.dispose();
     _detachNavBarListener();
     _navBarAnimController.dispose();
@@ -674,6 +703,7 @@ class _AppShellState extends State<AppShell>
     }
 
     _expandedIsOpen = true;
+    _syncPlayerOnScreen();
     final nav = Navigator.of(context, rootNavigator: true);
     await nav.push(
       ExpandedCardRoute(
@@ -682,6 +712,7 @@ class _AppShellState extends State<AppShell>
     );
     // Route was popped — expanded view closed
     _expandedIsOpen = false;
+    _syncPlayerOnScreen();
   }
 
   @override
@@ -987,6 +1018,7 @@ class _AppShellState extends State<AppShell>
 
   bool _rmabConfigured = false;
   bool _rmabWeb = false;
+  bool _bookRequests = false;
 
   Future<void> _loadRmabAvailability() async {
     final base = await ScopedPrefs.getString(kRmabBaseUrlKey);
@@ -997,6 +1029,9 @@ class _AppShellState extends State<AppShell>
     // The site opens from the legacy URL when there is one, otherwise the
     // API base's origin - same rule the setup sheet's button uses.
     _rmabWeb = (legacy?.isNotEmpty ?? false) || (base?.isNotEmpty ?? false);
+    if (!mounted) return;
+    final api = context.read<AuthProvider>().apiService;
+    _bookRequests = api != null && (await api.bookRequestAccess()).canRequest;
   }
 
   Future<void> _runNavHold(String tab) async {
@@ -1010,12 +1045,10 @@ class _AppShellState extends State<AppShell>
     // admin, ReadMeABook before it is set up - asks again instead of doing
     // nothing.
     if (id != null &&
-        !navHoldIdAvailable(
-          id,
-          isAdmin: isAdmin,
-          rmabConfigured: _rmabConfigured,
-          rmabWeb: _rmabWeb,
-        )) {
+        !navHoldIdAvailable(id,
+            isAdmin: isAdmin,
+            rmabConfigured: _rmabConfigured,
+            rmabWeb: _rmabWeb, bookRequests: _bookRequests)) {
       id = null;
     }
     if (id == null) {
@@ -1110,24 +1143,20 @@ class _AppShellState extends State<AppShell>
                         ],
                       )
                     else
-                      ActionPillGrid(
-                        items: [
-                          for (final o in navHoldOptions)
-                            if ((o.isFolder
-                                ? isAdmin
-                                : navHoldIdAvailable(
-                                    o.id,
-                                    isAdmin: isAdmin,
-                                    rmabConfigured: _rmabConfigured,
-                                    rmabWeb: _rmabWeb,
-                                  )))
-                              ActionPillData(
-                                icon: o.icon,
-                                label: navHoldLabel(o.id, l),
-                                onTap: () => Navigator.pop(ctx, o.id),
-                              ),
-                        ],
-                      ),
+                      ActionPillGrid(items: [
+                        for (final o in navHoldOptions)
+                          if ((o.isFolder
+                                  ? isAdmin
+                                  : navHoldIdAvailable(o.id,
+                                      isAdmin: isAdmin,
+                                      rmabConfigured: _rmabConfigured,
+                                      rmabWeb: _rmabWeb, bookRequests: _bookRequests)))
+                            ActionPillData(
+                              icon: o.icon,
+                              label: navHoldLabel(o.id, l),
+                              onTap: () => Navigator.pop(ctx, o.id),
+                            ),
+                      ]),
                   ],
                 ),
               ),
@@ -1158,16 +1187,14 @@ class _AppShellState extends State<AppShell>
         navHoldDefaultMenu(
           isAdmin: isAdmin,
           rmabConfigured: _rmabConfigured,
-          rmabWeb: _rmabWeb,
+          rmabWeb: _rmabWeb, bookRequests: _bookRequests,
         );
     return [
       for (final id in ids)
-        if (navHoldIdAvailable(
-          id,
-          isAdmin: isAdmin,
-          rmabConfigured: _rmabConfigured,
-          rmabWeb: _rmabWeb,
-        ))
+        if (navHoldIdAvailable(id,
+            isAdmin: isAdmin,
+            rmabConfigured: _rmabConfigured,
+            rmabWeb: _rmabWeb, bookRequests: _bookRequests))
           id,
     ];
   }
@@ -1273,8 +1300,9 @@ class _AppShellState extends State<AppShell>
           if ((lib['id'] as String?)?.isNotEmpty == true) lib['id'] as String,
       ],
       rmabConfigured: _rmabConfigured,
-      rmabWeb: _rmabWeb,
-    ).where((id) => id != 'menu' && id != 'none' && !ids.contains(id)).toList();
+      rmabWeb: _rmabWeb, bookRequests: _bookRequests,
+    ).where((id) =>
+        id != 'menu' && id != 'none' && !ids.contains(id)).toList();
     if (all.isEmpty) return null;
     final picked = await _showNavHoldSubSheet([
       for (final id in all)
@@ -1469,6 +1497,8 @@ class _AppShellState extends State<AppShell>
         );
       case 'rmabWeb':
         unawaited(_openRmabSite());
+      case 'bookRequests':
+        unawaited(BookRequestsScreen.open(context));
       case 'none':
         break;
     }
@@ -1484,6 +1514,8 @@ class _AppShellState extends State<AppShell>
     switch (page) {
       case 'settings':
         screen = const AdminServerSettingsScreen();
+      case 'auth':
+        screen = const AdminAuthSettingsScreen();
       case 'logs':
         screen = const AdminServerLogsScreen();
       case 'stats':

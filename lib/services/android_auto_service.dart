@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api_service.dart';
+import 'server_backend.dart';
 import 'audio_player_service.dart';
 import 'book_search_index.dart';
 import 'download_service.dart';
@@ -335,7 +336,8 @@ class AndroidAutoService {
         customHeaders = Map<String, String>.from(jsonDecode(headersJson) as Map);
       } catch (_) {}
     }
-    return ApiService(
+    return ApiService.forSession(
+      backend: ServerBackend.loadActive(prefs),
       baseUrl: url,
       token: token,
       refreshToken: refreshToken,
@@ -350,7 +352,7 @@ class AndroidAutoService {
             serverUrl: url,
             username: username,
           ),
-    );
+    ).withMediaReady();
   }
 
   Future<String?> getDefaultLibraryId() async {
@@ -381,6 +383,9 @@ class AndroidAutoService {
   /// data. CarPlayService sets this in init() to call refreshTemplates();
   /// AndroidAuto uses notifyChildrenChanged below independently.
   static void Function()? onServerDataChanged;
+
+  /// Further listeners for the same moment (Siri's list of books).
+  static final List<void Function()> serverDataListeners = [];
 
   Future<void> refresh({bool force = false}) async {
     // Always populate downloads immediately — no server needed.
@@ -452,6 +457,13 @@ class AndroidAutoService {
         onServerDataChanged?.call();
       } catch (e) {
         debugPrint('[AutoBrowse] onServerDataChanged listener threw: $e');
+      }
+      for (final listener in serverDataListeners) {
+        try {
+          listener();
+        } catch (e) {
+          debugPrint('[AutoBrowse] server data listener threw: $e');
+        }
       }
     }
   }
@@ -647,6 +659,7 @@ class AndroidAutoService {
         debugPrint('[AutoBrowse] getLibraries empty - treating as offline');
         return;
       }
+      // BookOrbit's Book Dock holds files waiting to be filed, nothing to play.
       _libraries = libs.map((l) {
         final m = l as Map<String, dynamic>;
         return AutoLibraryEntry(
@@ -654,7 +667,9 @@ class AndroidAutoService {
           name: m['name'] as String? ?? 'Library',
           mediaType: m['mediaType'] as String? ?? 'book',
         );
-      }).where((l) => l.id.isNotEmpty && (l.isBook || l.isPodcast)).toList();
+      }).where((l) => l.id.isNotEmpty &&
+              l.id != ApiService.bookDockLibraryId &&
+              (l.isBook || l.isPodcast)).toList();
 
       // ── Personalized shelves merged from all libraries ──
       // Book libraries: continue-listening / continue-series for the Continue
@@ -983,11 +998,12 @@ class AndroidAutoService {
         title: l?.androidAutoCatCollections ?? 'Collections',
         playable: false,
       ),
-      MediaItem(
-        id: AutoMediaIds.libPlaylists(libraryId),
-        title: l?.androidAutoCatPlaylists ?? 'Playlists',
-        playable: false,
-      ),
+      if (!ServerBackend.active.isBookOrbit)
+        MediaItem(
+          id: AutoMediaIds.libPlaylists(libraryId),
+          title: l?.androidAutoCatPlaylists ?? 'Playlists',
+          playable: false,
+        ),
     ];
   }
 

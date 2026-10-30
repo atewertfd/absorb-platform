@@ -35,6 +35,7 @@ const navHoldOptions = [
   NavHoldOption('rmabSearch', Icons.auto_stories_rounded),
   NavHoldOption('rmabRequests', Icons.playlist_add_check_rounded),
   NavHoldOption('rmabWeb', Icons.public_rounded),
+  NavHoldOption('bookRequests', Icons.playlist_add_rounded),
   NavHoldOption('admin', Icons.admin_panel_settings_rounded, isFolder: true),
   NavHoldOption('scan', Icons.sync_rounded, isFolder: true),
   NavHoldOption('menu', Icons.apps_rounded),
@@ -51,6 +52,7 @@ const navHoldAdminPages = [
   'email',
   'apikeys',
   'settings',
+  'auth',
   'logs',
   'stats',
 ];
@@ -64,6 +66,7 @@ IconData navHoldAdminIcon(String page) => switch (page) {
       'email' => Icons.email_rounded,
       'apikeys' => Icons.vpn_key_rounded,
       'settings' => Icons.tune_rounded,
+      'auth' => Icons.lock_person_rounded,
       'logs' => Icons.description_outlined,
       _ => Icons.bar_chart_rounded,
     };
@@ -77,6 +80,7 @@ String navHoldAdminPageLabel(String page, AppLocalizations l) => switch (page) {
       'email' => l.adminEmail,
       'apikeys' => l.adminApiKeys,
       'settings' => l.adminServerSettings,
+      'auth' => l.adminAuthentication,
       'logs' => l.navHoldAdminLogs,
       _ => l.adminStats,
     };
@@ -119,6 +123,7 @@ String navHoldLabel(
     'rmabSearch' => l.navHoldRmabSearch,
     'rmabRequests' => l.navHoldRmabRequests,
     'rmabWeb' => l.navHoldRmabWeb,
+    'bookRequests' => l.navHoldBookRequests,
     'menu' => l.navHoldMenu,
     'none' => l.navHoldNothing,
     _ => id,
@@ -133,11 +138,12 @@ List<String> navHoldAllIds({
   required List<String> libraryIds,
   bool rmabConfigured = true,
   bool rmabWeb = true,
+  bool bookRequests = true,
 }) =>
     [
       for (final o in navHoldOptions)
         if (!o.isFolder && navHoldIdAvailable(o.id,
-            isAdmin: isAdmin, rmabConfigured: rmabConfigured, rmabWeb: rmabWeb))
+            isAdmin: isAdmin, rmabConfigured: rmabConfigured, rmabWeb: rmabWeb, bookRequests: bookRequests))
           o.id,
       if (isAdmin) ...[
         for (final p in navHoldAdminPages) 'admin:$p',
@@ -156,8 +162,10 @@ bool navHoldIdAvailable(
   required bool isAdmin,
   required bool rmabConfigured,
   required bool rmabWeb,
+  bool bookRequests = false,
 }) {
   if (id.startsWith('admin') || id.startsWith('scan:')) return isAdmin;
+  if (id == 'bookRequests') return bookRequests;
   if (id.startsWith('rmab')) return false;
   return true;
 }
@@ -169,6 +177,7 @@ List<String> navHoldDefaultMenu({
   required bool isAdmin,
   required bool rmabConfigured,
   required bool rmabWeb,
+  bool bookRequests = false,
 }) =>
     [
       for (final o in navHoldOptions)
@@ -177,7 +186,8 @@ List<String> navHoldDefaultMenu({
             navHoldIdAvailable(o.id,
                 isAdmin: isAdmin,
                 rmabConfigured: rmabConfigured,
-                rmabWeb: rmabWeb))
+                rmabWeb: rmabWeb,
+                bookRequests: bookRequests))
           o.id,
     ];
 

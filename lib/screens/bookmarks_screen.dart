@@ -16,7 +16,7 @@ import '../widgets/bookmark_detail_dialog.dart';
 import '../widgets/card_buttons.dart';
 import '../services/download_service.dart';
 import '../services/ebook_annotation_service.dart';
-import '../services/ebook_cache.dart';
+import '../services/highlight_sync.dart';
 import '../utils/episode_key.dart';
 import '../widgets/absorb_page_header.dart';
 import '../widgets/adaptive_modal.dart';
@@ -124,6 +124,15 @@ class _BookmarksScreenState extends State<BookmarksScreen>
       if (hits.isNotEmpty) out[entry.key] = hits;
     }
     return out;
+  }
+
+  /// A server that keeps highlights too (BookOrbit) hears about deletes
+  /// straight away; offline they wait for the next sync.
+  void _sendHighlightChanges(String itemId) {
+    final api = context.read<AuthProvider>().apiService;
+    if (api != null && api.keepsEbookHighlights) {
+      unawaited(HighlightSync.instance.push(api, itemId, null));
+    }
   }
 
   Future<void> _loadHighlights() async {
@@ -412,6 +421,7 @@ class _BookmarksScreenState extends State<BookmarksScreen>
         await EbookAnnotationService()
             .delete(itemId: entry.key, annotationId: id);
       }
+      _sendHighlightChanges(entry.key);
     }
 
     _exitSelection();
@@ -638,35 +648,8 @@ class _BookmarksScreenState extends State<BookmarksScreen>
   /// Opens the book at the highlight. A downloaded ebook opens from the reader
   /// cache, so this still works offline.
   Future<void> _openHighlight(String itemId, EbookAnnotation highlight) async {
-    final l = AppLocalizations.of(context)!;
-    final api = context.read<AuthProvider>().apiService;
-    var title = _resolveTitle(itemId);
-    var ebookFile = await cachedEbookFileFor(itemId);
-    if (ebookFile == null && api != null) {
-      final item = await api.getLibraryItem(itemId);
-      ebookFile = resolveEbookFile(item);
-      if (title == null) {
-        final media = item?['media'] as Map<String, dynamic>? ?? {};
-        final metadata = media['metadata'] as Map<String, dynamic>? ?? {};
-        title = metadata['title'] as String?;
-      }
-    }
-    if (!mounted) return;
-    if (ebookFile == null) {
-      showOverlayToast(
-        context,
-        api == null ? l.bookmarksNotConnected : l.noEbookFileFound,
-        icon: Icons.menu_book_outlined,
-      );
-      return;
-    }
-    await openEbookReader(
-      context,
-      itemId: itemId,
-      title: title ?? '',
-      ebookFile: ebookFile,
-      openAtCfi: highlight.cfi,
-    );
+    await openHighlightInReader(context,
+        itemId: itemId, cfi: highlight.cfi, title: _resolveTitle(itemId));
     // Highlights added or removed while reading show up on the way back.
     if (mounted) await _loadHighlights();
   }
@@ -728,6 +711,7 @@ class _BookmarksScreenState extends State<BookmarksScreen>
     } else if (action == 'delete') {
       await EbookAnnotationService()
           .delete(itemId: itemId, annotationId: highlight.id);
+      _sendHighlightChanges(itemId);
       await _loadHighlights();
       if (mounted) {
         showOverlayToast(context, l.highlightDeleted,

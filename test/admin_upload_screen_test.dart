@@ -246,7 +246,7 @@ void main() {
   );
 
   testWidgets(
-    'existing destination prevents upload and retains selected files',
+    'existing destination asks first; cancel keeps files, Add files uploads',
     (tester) async {
       var uploads = 0;
       await _render(
@@ -255,7 +255,11 @@ void main() {
         pathChecker: (directory, folder) async {
           expect(directory, 'A Book');
           expect(folder, '/fixture-audiobooks');
-          return const UploadPathCheckResult(success: true, exists: true);
+          return const UploadPathCheckResult(
+            success: true,
+            exists: true,
+            libraryItemTitle: 'A Book',
+          );
         },
         uploader: (_, {onProgress}) async {
           uploads++;
@@ -264,6 +268,11 @@ void main() {
       );
       await _tap(tester, AdminUploadScreen.chooseFilesKey);
       await _tap(tester, AdminUploadScreen.submitKey);
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.text('Folder already exists'), findsOneWidget);
+
+      await tester.tap(find.text('Cancel'));
+      await tester.pump(const Duration(milliseconds: 500));
       expect(uploads, 0);
       expect(find.text('A Book.m4b'), findsOneWidget);
       expect(
@@ -272,6 +281,17 @@ void main() {
             .onPressed,
         isNotNull,
       );
+
+      await _tap(tester, AdminUploadScreen.submitKey);
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.tap(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.text('Add files'),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(uploads, 1);
       await _clearToasts(tester);
     },
   );

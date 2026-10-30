@@ -11,7 +11,16 @@ import 'welcome_sheet.dart';
 /// After an update, offers the GitHub release notes for the new build.
 class WhatsNewPrompt {
   static const _lastBuildKey = 'whats_new_last_build';
+  static const _enabledKey = 'whats_new_enabled';
   static const _isDevBuild = bool.fromEnvironment('DEV_BUILD');
+
+  /// Some people read the release notes on GitHub anyway, so the prompt can
+  /// be turned off, from the prompt itself or in Settings.
+  static Future<bool> isEnabled() async =>
+      (await SharedPreferences.getInstance()).getBool(_enabledKey) ?? true;
+
+  static Future<void> setEnabled(bool on) async =>
+      (await SharedPreferences.getInstance()).setBool(_enabledKey, on);
 
   /// Call before [WelcomeSheet.showIfNeeded]: a fresh install hasn't seen the
   /// welcome yet, and that's how it's told apart from an update.
@@ -25,6 +34,7 @@ class WhatsNewPrompt {
     final lastBuild = prefs.getInt(_lastBuildKey);
     await prefs.setInt(_lastBuildKey, build);
     if (freshInstall || (lastBuild != null && build <= lastBuild)) return;
+    if (prefs.getBool(_enabledKey) == false) return;
 
     final beta = betaNumberFor(info.version);
     final tag = beta == null ? 'v${info.version}' : 'v${info.version}-$build';
@@ -36,11 +46,31 @@ class WhatsNewPrompt {
     final l = AppLocalizations.of(context)!;
     final version =
         beta == null ? info.version : '${info.version} (${l.betaLabel(beta)})';
+    var keepShowing = true;
     final open = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(l.whatsNewTitle),
-        content: Text(l.whatsNewContent(version)),
+        content: StatefulBuilder(
+          builder: (ctx, setDialogState) => Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(l.whatsNewContent(version)),
+              const SizedBox(height: 12),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(l.whatsNewKeepShowing),
+                subtitle: Text(l.whatsNewKeepShowingHint),
+                value: keepShowing,
+                onChanged: (v) {
+                  setDialogState(() => keepShowing = v);
+                  setEnabled(v);
+                },
+              ),
+            ],
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
