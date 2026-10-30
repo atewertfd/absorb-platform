@@ -1,5 +1,6 @@
 import 'dart:async';
 import '../utils/web_safe_platform.dart';
+import '../utils/fork_branding.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -4876,6 +4877,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 16),
 
                 // ── Support the Dev ──
+                if (ForkBranding.showUpstreamSupportCard) ...[
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Column(
@@ -4905,6 +4907,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
 
                 const SizedBox(height: 16),
+                ],
 
                 // ── Backup and sync ──
                 Padding(
