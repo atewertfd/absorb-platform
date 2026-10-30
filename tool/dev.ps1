@@ -13,6 +13,12 @@
   footprint  how far the fork's lib/ code differs from upstream
   merge      merge upstream origin/main with the fork's rules
              (tool/upstream_merge.py); never commits
+  server     the throwaway Audiobookshelf test server (tool/test-server),
+             127.0.0.1:13378 only: server up | seed | down | reset
+             (reset deletes only tool/test-server/data)
+  itest      integration tests (test/integration, tag abs-server) against
+             that server, credentials from tool/test-server/.env; never part
+             of check
 
   Every command leaves the generated plugin registrant files as committed.
 
@@ -21,11 +27,14 @@
   .\tool\dev.ps1 build
   .\tool\dev.ps1 build -CloseRunning   # gracefully close a running Release build first
   .\tool\dev.ps1 bump
+  .\tool\dev.ps1 server up; .\tool\dev.ps1 server seed; .\tool\dev.ps1 itest
 #>
 param(
   [Parameter(Mandatory = $true, Position = 0)]
-  [ValidateSet('check', 'build', 'bump', 'footprint', 'merge')]
+  [ValidateSet('check', 'build', 'bump', 'footprint', 'merge', 'server', 'itest')]
   [string]$Command,
+  [Parameter(Position = 1)]
+  [string]$Action = '',
   [int]$Beta = 0,
   [switch]$CloseRunning,
   [switch]$NextBeta,
@@ -158,6 +167,67 @@ switch ($Command) {
     $info -replace 'const int kBetaNumber = \d+;', "const int kBetaNumber = $beta;" |
       Set-Content lib/build_info.dart -NoNewline
     Write-Host "version $version -> $next, beta -> $beta (commit with: chore: bump build identifier to $next (Beta $beta))" -ForegroundColor Green
+  }
+
+  'server' {
+    # Throwaway Audiobookshelf for integration tests. Never the owner's server.
+    $serverDir = Join-Path $root 'tool\test-server'
+    $compose = @('compose', '-f', (Join-Path $serverDir 'docker-compose.yml'))
+    if ($Action -notin @('up', 'seed', 'down', 'reset')) {
+      throw 'Usage: dev.ps1 server up|seed|down|reset'
+    }
+    docker info *> $null
+    if ($LASTEXITCODE -ne 0) { throw 'Docker engine is not running. Start Docker Desktop and retry.' }
+    switch ($Action) {
+      'up' {
+        Invoke-Step -Name 'server-up' -Run { docker @compose up -d }
+        $deadline = (Get-Date).AddSeconds(120)
+        $ready = $false
+        while (-not $ready -and (Get-Date) -lt $deadline) {
+          try {
+            $ready = (Invoke-WebRequest 'http://127.0.0.1:13378/healthcheck' -TimeoutSec 3).StatusCode -eq 200
+          } catch { Start-Sleep -Seconds 2 }
+        }
+        if (-not $ready) { throw 'Test server did not answer on 127.0.0.1:13378 within 120 s (docker compose logs abs).' }
+        Write-Host 'ok: server ready on http://127.0.0.1:13378'
+      }
+      'seed' {
+        Invoke-Step -Name 'server-seed' -Run { python (Join-Path $serverDir 'seed.py') } -SummaryPattern '^seed: done'
+      }
+      'down' { Invoke-Step -Name 'server-down' -Run { docker @compose down } }
+      'reset' {
+        Invoke-Step -Name 'server-down' -Run { docker @compose down -v --remove-orphans }
+        # Only ever the git-ignored data folder, and never through a link.
+        $data = Join-Path $serverDir 'data'
+        if (Test-Path -LiteralPath $data) {
+          $links = @(Get-ChildItem -LiteralPath $data -Recurse -Force -Attributes ReparsePoint -ErrorAction SilentlyContinue)
+          if ($links.Count -gt 0) { throw "Refusing to delete ${data}: it contains a link ($($links[0].FullName))" }
+          Remove-Item -LiteralPath $data -Recurse -Force
+        }
+        Write-Host "ok: server reset ($data removed; .env kept for reuse)"
+      }
+    }
+  }
+
+  'itest' {
+    # Integration tests against tool/test-server. dart_test.yaml skips the
+    # abs-server tag everywhere else, so --run-skipped is what enables them;
+    # each suite still skips itself when the server or credentials are missing.
+    $envFile = Join-Path $root 'tool\test-server\.env'
+    if (Test-Path -LiteralPath $envFile) {
+      foreach ($line in Get-Content -LiteralPath $envFile) {
+        if ($line -match '^\s*(ABS_TEST_\w+)\s*=\s*(.*)$') {
+          Set-Item -Path "env:$($Matches[1])" -Value $Matches[2].Trim()
+        }
+      }
+    } else {
+      Write-Host 'No tool/test-server/.env: tests will skip (run server up, then server seed).' -ForegroundColor Yellow
+    }
+    try {
+      Invoke-Step -Name 'flutter-itest' `
+        -Run { & $flutter test --no-pub --tags abs-server --run-skipped --concurrency=1 --reporter expanded test/integration } `
+        -SummaryPattern '^\d+:\d+ \+\d+.*(passed|skipped|failed)'
+    } finally { Restore-Generated }
   }
 
   'footprint' {

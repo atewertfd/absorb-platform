@@ -1,0 +1,28 @@
+# Throwaway Audiobookshelf server for Absorb Plus integration tests.
+# Never point this at, or copy data from, a real server or NAS.
+#
+#   .\tool\dev.ps1 server up      start it (127.0.0.1:13378 only)
+#   .\tool\dev.ps1 server seed    root user, test books, library, second user
+#   .\tool\dev.ps1 itest          integration tests against it
+#   .\tool\dev.ps1 server down    stop it (data kept)
+#   .\tool\dev.ps1 server reset   stop it and delete tool/test-server/data
+name: absorb-test-server
+
+services:
+  abs:
+    # Pinned: bump deliberately and re-run seed + itest from an empty data dir.
+    image: ghcr.io/advplyr/audiobookshelf:2.37.2
+    container_name: absorb-test-abs
+    restart: "no"
+    ports:
+      # Loopback only: never reachable from the LAN.
+      - "127.0.0.1:13378:80"
+    environment:
+      TZ: UTC
+      # The suite logs in many times; with the default login rate limit a
+      # second run within ~10 minutes fails with HTTP 429. Test server only.
+      RATE_LIMIT_AUTH_MAX: "0"
+    volumes:
+      - ./data/config:/config
+      - ./data/metadata:/metadata
+      - ./data/audiobooks:/audiobooks

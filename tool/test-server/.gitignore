@@ -1,0 +1,3 @@
+# Throwaway server state and generated test credentials: never commit.
+/data/
+/.env

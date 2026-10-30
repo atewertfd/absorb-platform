@@ -53,7 +53,9 @@ How Absorb Plus is put together and where to look. The layout under `lib/` is up
 
 | What | Where | Use |
 |---|---|---|
-| Everyday commands | `tool/dev.ps1` | `check`, `build`, `bump`, `footprint` |
+| Everyday commands | `tool/dev.ps1` | `check`, `build`, `bump`, `footprint`, `server`, `itest` |
+| Throwaway test server | `tool/test-server/` (`docker-compose.yml`, `seed.py`; `data/` and `.env` git-ignored) | Audiobookshelf 2.37.2 on `127.0.0.1:13378` only, never a real server. `dev.ps1 server up`, `server seed` (root + second account with generated test credentials in `.env`, a 3-file MP3 book and a 2-chapter M4B made by the container's ffmpeg, library scan; idempotent), `server down`, `server reset` (deletes only `tool/test-server/data`) |
+| Integration tests | `test/integration/*_test.dart`, tag `abs-server`; `dart_test.yaml` skips the tag so `check` never loads them | `dev.ps1 itest` (`--tags abs-server --run-skipped`): the real `ApiService` for login, token refresh, libraries/items, progress, two accounts, a playback session, admin and Libation uploads. Plain `test()` only (the widget binding blocks real HTTP); suites skip with a reason when `.env` or the server is missing |
 | Undo formatting churn | `tool/align_with_upstream.py` | `python tool/align_with_upstream.py [--apply] FILE...` |
 | RAM/CPU sampling | `tool/measure-windows-usage.ps1` | Read-only process counters for a running build |
 | Frame/rebuild diagnostics | `lib/utils/scroll_diagnostics.dart` | Start the app with `ABSORB_SCROLL_DIAG=1`; logs wheel input, frame timings, redraws per frame and rebuild sources to `%TEMP%\absorb-scroll-diag.txt`. Debug builds also log which widget starts each frame's rebuild and, at 15–17 s, the stacks that marked widgets dirty. Found the idle redraw loop in `AbsorbingScreen._loadQueueMode`. |
