@@ -1,0 +1,34 @@
+name: Analyze and test
+
+# Fast check on every branch push and pull request, so a broken change is
+# caught before it is tagged for a release.
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Analyze and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version-file: .flutter-version
+          cache: true
+      - run: flutter pub get
+      - name: Analyze
+        run: flutter analyze --no-pub --no-fatal-infos
+      - name: Test
+        run: flutter test --no-pub
