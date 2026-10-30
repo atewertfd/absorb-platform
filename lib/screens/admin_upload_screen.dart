@@ -12,6 +12,10 @@ import '../services/api_service.dart';
 import '../services/book_search_index.dart';
 import '../services/libation_import_helper.dart';
 import '../widgets/absorb_page_header.dart';
+import '../widgets/libation_book_picker_sheet.dart'
+    as libation_picker
+    show libationPickerSearchKey, showLibationBookPicker;
+import '../widgets/libation_import_card.dart';
 import '../widgets/overlay_toast.dart';
 import '../widgets/stackable_sheet.dart';
 
@@ -50,23 +54,20 @@ class AdminUploadScreen extends StatefulWidget {
   static const chooseFilesKey = Key('adminUploadChooseFiles');
   static const submitKey = Key('adminUploadSubmit');
   static const permissionBannerKey = Key('adminUploadPermissionBanner');
-  static const libationGuideKey = Key('libationImportGuide');
-  static const libationFilesKey = Key('libationImportFiles');
-  static const libationFolderKey = Key('libationImportFolder');
-  static const libationLaunchKey = Key('libationImportLaunch');
-  static const libationSetAppKey = Key('libationImportSetApp');
-  static const libationSetOutputFolderKey = Key(
-    'libationImportSetOutputFolder',
-  );
-  static const libationScanProgressKey = Key('libationImportScanProgress');
-  static const libationScanOutputFolderKey = Key(
-    'libationImportScanOutputFolder',
-  );
-  static const libationReviewNewKey = Key('libationImportReviewNew');
-  static const libationPickerSearchKey = Key('libationImportPickerSearch');
-  static const libationDuplicateWarningKey = Key(
-    'libationImportDuplicateWarning',
-  );
+  static const libationGuideKey = LibationImportCard.guideKey;
+  static const libationFilesKey = LibationImportCard.filesKey;
+  static const libationFolderKey = LibationImportCard.folderKey;
+  static const libationLaunchKey = LibationImportCard.launchKey;
+  static const libationSetAppKey = LibationImportCard.setAppKey;
+  static const libationSetOutputFolderKey =
+      LibationImportCard.setOutputFolderKey;
+  static const libationScanProgressKey = LibationImportCard.scanProgressKey;
+  static const libationScanOutputFolderKey =
+      LibationImportCard.scanOutputFolderKey;
+  static const libationReviewNewKey = LibationImportCard.reviewNewKey;
+  static const libationPickerSearchKey = libation_picker.libationPickerSearchKey;
+  static const libationDuplicateWarningKey =
+      LibationImportCard.duplicateWarningKey;
 
   final List<dynamic> libraries;
   final String? initialLibraryId;
@@ -750,176 +751,13 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
   Future<LibationBookCandidate?> _showBookCandidatePicker(
     List<LibationBookCandidate> candidates, {
     Set<String> newFolders = const <String>{},
-  }) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-    final l = AppLocalizations.of(context)!;
-    final imported = _history.importedFolders;
-    final showSearch = candidates.length > 8;
-    var query = '';
-    return showModalBottomSheet<LibationBookCandidate>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: cs.surfaceContainerHigh,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (sheetContext) {
-        return StatefulBuilder(
-          builder: (sheetContext, setSheetState) {
-            final needle = query.trim().toLowerCase();
-            final visible = needle.isEmpty
-                ? candidates
-                : candidates
-                      .where(
-                        (candidate) =>
-                            candidate.title.toLowerCase().contains(needle) ||
-                            (candidate.author ?? '').toLowerCase().contains(
-                              needle,
-                            ),
-                      )
-                      .toList();
-            return SafeArea(
-              child: Padding(
-                padding: EdgeInsets.only(
-                  bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
-                ),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.75,
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    l.libationImportSelectBookTitle,
-                                    style: tt.titleMedium?.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    l.libationImportSelectBookSubtitle,
-                                    style: tt.bodySmall?.copyWith(
-                                      color: cs.onSurfaceVariant,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            IconButton(
-                              tooltip: MaterialLocalizations.of(
-                                sheetContext,
-                              ).closeButtonTooltip,
-                              onPressed: () => Navigator.pop(sheetContext),
-                              icon: const Icon(Icons.close_rounded),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (showSearch)
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                          child: TextField(
-                            key: AdminUploadScreen.libationPickerSearchKey,
-                            decoration: InputDecoration(
-                              hintText: l.libationImportSearchHint,
-                              prefixIcon: const Icon(Icons.search_rounded),
-                              isDense: true,
-                              border: const OutlineInputBorder(),
-                            ),
-                            onChanged: (value) =>
-                                setSheetState(() => query = value),
-                          ),
-                        ),
-                      const Divider(height: 1),
-                      if (visible.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Text(
-                            l.libationImportNoSearchMatches,
-                            textAlign: TextAlign.center,
-                            style: tt.bodyMedium?.copyWith(
-                              color: cs.onSurfaceVariant,
-                            ),
-                          ),
-                        )
-                      else
-                        Flexible(
-                          child: ListView.separated(
-                            shrinkWrap: true,
-                            itemCount: visible.length,
-                            separatorBuilder: (_, _) => const Divider(
-                              height: 1,
-                              indent: 16,
-                              endIndent: 16,
-                            ),
-                            itemBuilder: (itemContext, index) {
-                              final candidate = visible[index];
-                              final key = libationFolderKey(
-                                candidate.directoryPath,
-                              );
-                              final modified = candidate.modified;
-                              final details = <String>[
-                                if (imported.contains(key))
-                                  l.libationImportTagImported
-                                else if (newFolders.contains(key))
-                                  l.libationImportTagNew,
-                                if (candidate.author != null &&
-                                    candidate.author!.isNotEmpty)
-                                  candidate.author!,
-                                if (modified != null)
-                                  MaterialLocalizations.of(
-                                    itemContext,
-                                  ).formatShortDate(modified.toLocal()),
-                                l.adminUploadSelectedFiles(
-                                  candidate.files.length,
-                                ),
-                                _formatBytes(candidate.totalBytes),
-                              ].join(' · ');
-                              return ListTile(
-                                leading: Icon(
-                                  Icons.audio_file_rounded,
-                                  color: cs.primary,
-                                ),
-                                title: Text(
-                                  candidate.title,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                subtitle: Text(
-                                  details,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: tt.bodySmall?.copyWith(
-                                    color: cs.onSurfaceVariant,
-                                  ),
-                                ),
-                                onTap: () =>
-                                    Navigator.pop(sheetContext, candidate),
-                              );
-                            },
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
+  }) => libation_picker.showLibationBookPicker(
+    context,
+    candidates,
+    importedFolders: _history.importedFolders,
+    newFolders: newFolders,
+    formatBytes: _formatBytes,
+  );
 
   Future<void> _applyBookCandidate(LibationBookCandidate candidate) async {
     final l = AppLocalizations.of(context)!;
@@ -1822,143 +1660,22 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
   }
 
   Widget _libationCard(ColorScheme cs, TextTheme tt, AppLocalizations l) {
-    final showDesktopControls = _desktopLibationEnabled;
     return _card(
       cs,
-      child: ExpansionTile(
-        key: AdminUploadScreen.libationGuideKey,
+      child: LibationImportCard(
         initiallyExpanded: widget.initialLibationExpanded,
-        tilePadding: EdgeInsets.zero,
-        childrenPadding: const EdgeInsets.only(top: 8),
-        shape: const Border(),
-        collapsedShape: const Border(),
-        leading: Icon(Icons.drive_folder_upload_outlined, color: cs.primary),
-        title: Text(
-          l.libationImportTitle,
-          style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-        ),
-        subtitle: Text(
-          _newExportCount > 0
-              ? l.libationImportNewReady(_newExportCount)
-              : l.libationImportSubtitle,
-          style: tt.bodySmall?.copyWith(
-            color: _newExportCount > 0 ? cs.primary : cs.onSurfaceVariant,
-          ),
-        ),
-        children: [
-          if (_newExportCount > 0) ...[
-            Align(
-              alignment: Alignment.centerLeft,
-              child: FilledButton.tonalIcon(
-                key: AdminUploadScreen.libationReviewNewKey,
-                onPressed: _busy ? null : _scanConfiguredOutputFolder,
-                icon: const Icon(Icons.new_releases_outlined, size: 18),
-                label: Text(l.libationImportReviewNew),
-              ),
-            ),
-            const SizedBox(height: 12),
-          ],
-          Text(l.libationImportSteps, style: tt.bodyMedium),
-          const SizedBox(height: 12),
-          Text(
-            l.libationImportPrivacy,
-            style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-          ),
-          const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                OutlinedButton.icon(
-                  key: AdminUploadScreen.libationFilesKey,
-                  onPressed: _busy
-                      ? null
-                      : () => _pickFiles(exportedOnly: true),
-                  icon: const Icon(Icons.audio_file_outlined, size: 18),
-                  label: Text(l.libationImportChooseFiles),
-                ),
-                OutlinedButton.icon(
-                  key: AdminUploadScreen.libationFolderKey,
-                  onPressed: _busy ? null : _pickExportFolder,
-                  icon: const Icon(Icons.folder_open_rounded, size: 18),
-                  label: Text(l.libationImportChooseFolder),
-                ),
-              ],
-            ),
-          ),
-          if (_scanning) ...[
-            const SizedBox(height: 12),
-            const LinearProgressIndicator(
-              key: AdminUploadScreen.libationScanProgressKey,
-            ),
-          ],
-          if (_libraryDuplicateTitle != null) ...[
-            const SizedBox(height: 12),
-            Row(
-              key: AdminUploadScreen.libationDuplicateWarningKey,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(Icons.warning_amber_rounded, size: 18, color: cs.error),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    l.libationImportAlreadyInLibrary(_libraryDuplicateTitle!),
-                    style: tt.bodySmall?.copyWith(color: cs.error),
-                  ),
-                ),
-              ],
-            ),
-          ],
-          if (showDesktopControls) ...[
-            const SizedBox(height: 12),
-            Text(
-              l.libationImportDesktopHint,
-              style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-            ),
-            const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  OutlinedButton.icon(
-                    key: AdminUploadScreen.libationLaunchKey,
-                    onPressed: _busy ? null : _launchLibation,
-                    icon: const Icon(Icons.open_in_new_rounded, size: 18),
-                    label: Text(l.libationImportLaunchApp),
-                  ),
-                  OutlinedButton.icon(
-                    key: AdminUploadScreen.libationSetAppKey,
-                    onPressed: _busy ? null : _configureLibationExecutable,
-                    icon: const Icon(
-                      Icons.settings_applications_outlined,
-                      size: 18,
-                    ),
-                    label: Text(l.libationImportSetApp),
-                  ),
-                  OutlinedButton.icon(
-                    key: AdminUploadScreen.libationScanOutputFolderKey,
-                    onPressed: _busy ? null : _scanConfiguredOutputFolder,
-                    icon: const Icon(Icons.library_music_outlined, size: 18),
-                    label: Text(l.libationImportScanOutputFolder),
-                  ),
-                  OutlinedButton.icon(
-                    key: AdminUploadScreen.libationSetOutputFolderKey,
-                    onPressed: _busy ? null : _configureLibationOutputFolder,
-                    icon: const Icon(
-                      Icons.create_new_folder_outlined,
-                      size: 18,
-                    ),
-                    label: Text(l.libationImportSetOutputFolder),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ],
+        busy: _busy,
+        scanning: _scanning,
+        newExportCount: _newExportCount,
+        duplicateTitle: _libraryDuplicateTitle,
+        showDesktopControls: _desktopLibationEnabled,
+        onChooseFiles: () => _pickFiles(exportedOnly: true),
+        onChooseFolder: _pickExportFolder,
+        onReviewNew: _scanConfiguredOutputFolder,
+        onLaunch: _launchLibation,
+        onSetApp: _configureLibationExecutable,
+        onScanOutputFolder: _scanConfiguredOutputFolder,
+        onSetOutputFolder: _configureLibationOutputFolder,
       ),
     );
   }
