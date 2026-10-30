@@ -4,3 +4,40 @@
 
 lib/services/carplay_service.dart   # no-op stub; Apple support removed
 README.md                           # Absorb Plus's own README
+
+# Absorb Plus's own logo (made by tool/make_icons.py from one drawing).
+assets/icon/app_icon.png
+assets/icon/app_icon_foreground.png
+assets/icon/splash_logo.png
+windows/runner/resources/app_icon.ico
+web/favicon.png
+web/icons/Icon-192.png
+web/icons/Icon-512.png
+web/icons/Icon-maskable-192.png
+web/icons/Icon-maskable-512.png
+android/app/src/main/res/drawable/ic_notification.png
+android/app/src/main/res/mipmap-mdpi/ic_launcher.png
+android/app/src/main/res/mipmap-hdpi/ic_launcher.png
+android/app/src/main/res/mipmap-xhdpi/ic_launcher.png
+android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
+android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+android/app/src/main/res/drawable-mdpi/ic_launcher_foreground.png
+android/app/src/main/res/drawable-mdpi/splash.png
+android/app/src/main/res/drawable-mdpi/android12splash.png
+android/app/src/main/res/drawable-night-mdpi/android12splash.png
+android/app/src/main/res/drawable-hdpi/ic_launcher_foreground.png
+android/app/src/main/res/drawable-hdpi/splash.png
+android/app/src/main/res/drawable-hdpi/android12splash.png
+android/app/src/main/res/drawable-night-hdpi/android12splash.png
+android/app/src/main/res/drawable-xhdpi/ic_launcher_foreground.png
+android/app/src/main/res/drawable-xhdpi/splash.png
+android/app/src/main/res/drawable-xhdpi/android12splash.png
+android/app/src/main/res/drawable-night-xhdpi/android12splash.png
+android/app/src/main/res/drawable-xxhdpi/ic_launcher_foreground.png
+android/app/src/main/res/drawable-xxhdpi/splash.png
+android/app/src/main/res/drawable-xxhdpi/android12splash.png
+android/app/src/main/res/drawable-night-xxhdpi/android12splash.png
+android/app/src/main/res/drawable-xxxhdpi/ic_launcher_foreground.png
+android/app/src/main/res/drawable-xxxhdpi/splash.png
+android/app/src/main/res/drawable-xxxhdpi/android12splash.png
+android/app/src/main/res/drawable-night-xxxhdpi/android12splash.png
