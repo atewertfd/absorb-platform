@@ -140,8 +140,18 @@ function Update-BetaFolder {
   $dstExe = Join-Path $dst 'absorb.exe'
   $running = Get-Process -Name absorb -ErrorAction SilentlyContinue |
     Where-Object { $_.Path -eq $dstExe }
+  if ($running -and $CloseRunning) {
+    # Closing Absorb's window only hides it to the tray; ask it to quit.
+    foreach ($p in $running) { [void]$p.CloseMainWindow() }
+    $deadline = (Get-Date).AddSeconds(15)
+    while ((Get-Date) -lt $deadline -and
+           (Get-Process -Id $running.Id -ErrorAction SilentlyContinue)) {
+      Start-Sleep -Milliseconds 500
+    }
+    $running = Get-Process -Id $running.Id -ErrorAction SilentlyContinue
+  }
   if ($running) {
-    Write-Host "beta folder: Absorb is open from it, so it was not refreshed. Close it and run: .\tool\dev.ps1 beta-sync" -ForegroundColor Yellow
+    Write-Host "beta folder: Absorb is open from it (maybe in the tray), so it was not refreshed. Run: .\tool\dev.ps1 beta-sync -CloseRunning" -ForegroundColor Yellow
     return
   }
   New-Item -ItemType Directory -Force -Path $dst | Out-Null
