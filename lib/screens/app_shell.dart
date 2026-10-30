@@ -12,7 +12,8 @@ import '../services/volume_key_service.dart';
 import '../services/chromecast_service.dart';
 import '../services/home_widget_service.dart';
 import '../services/sleep_timer_service.dart';
-import 'dart:io';
+import 'dart:io' hide Platform; // web-safe Platform below
+import '../utils/web_safe_platform.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:palette_generator/palette_generator.dart';
 import '../utils/cover_accent.dart';
@@ -836,16 +837,18 @@ class _AppShellState extends State<AppShell>
         // From any other tab, go to Absorbing
         _switchToAbsorbing();
       },
-      child: Focus(
-        autofocus: true,
-        child: Shortcuts(
+      // Focus sits inside Shortcuts/Actions: key events travel up from the
+      // focused widget, so a focus node above Shortcuts never reached them.
+      child: Shortcuts(
           shortcuts: {
             for (final shortcut in desktopShortcutDefinitions)
               shortcut.activator: _DesktopShortcutIntent(shortcut.action),
           },
           child: Actions(
             actions: <Type, Action<Intent>>{
-              _DesktopShortcutIntent: CallbackAction<Intent>(
+              _DesktopShortcutIntent: DesktopShortcutCallbackAction(
+                actionOf: (intent) =>
+                    intent is _DesktopShortcutIntent ? intent.action : null,
                 onInvoke: (intent) {
                   if (intent is _DesktopShortcutIntent) {
                     _handleDesktopShortcut(intent.action);
@@ -854,7 +857,10 @@ class _AppShellState extends State<AppShell>
                 },
               ),
             },
-            child: Scaffold(
+            child: Focus(
+        focusNode: desktopShellFocusNode,
+        autofocus: true,
+        child: Scaffold(
         body: FadeTransition(
           opacity: _fadeController,
           child: IndexedStack(

@@ -1,5 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/widgets.dart' show SingleActivator;
+import 'package:flutter/widgets.dart';
 
 /// Actions exposed by the desktop shell. Keeping these in one table means the
 /// actual bindings and the accessibility help UI cannot drift apart.
@@ -31,6 +32,9 @@ class DesktopShortcutDefinition {
     this.shift = false,
     this.alt = false,
   });
+
+  /// No modifier: a key that also types text (Space, arrows, brackets).
+  bool get isPlainKey => !control && !shift && !alt;
 
   SingleActivator get activator => SingleActivator(
         key,
@@ -93,4 +97,43 @@ const desktopShortcutDefinitions = <DesktopShortcutDefinition>[
 
 DesktopShortcutDefinition desktopShortcutFor(DesktopShortcutAction action) {
   return desktopShortcutDefinitions.firstWhere((shortcut) => shortcut.action == action);
+}
+
+/// Whether keyboard focus is in a text field (search box, settings field).
+bool isTypingInTextField() {
+  final context = FocusManager.instance.primaryFocus?.context;
+  if (context == null) return false;
+  return context.widget is EditableText ||
+      context.findAncestorWidgetOfExactType<EditableText>() != null;
+}
+
+/// The app shell's own focus node (one shell for the app's lifetime). Plain-key
+/// shortcuts only fire while it holds focus, i.e. nothing more specific does.
+final FocusNode desktopShellFocusNode =
+    FocusNode(debugLabel: 'Desktop shortcuts shell');
+
+/// Runs desktop shortcuts. Plain-key ones (Space, arrows, brackets) only run
+/// on desktop while the shell itself has focus: a focused button keeps Space,
+/// a text field keeps typing, and D-pad arrows keep moving focus. A disabled
+/// action lets the key through. Ctrl shortcuts always work.
+class DesktopShortcutCallbackAction extends CallbackAction<Intent> {
+  DesktopShortcutCallbackAction({
+    required this.actionOf,
+    required super.onInvoke,
+  });
+
+  final DesktopShortcutAction? Function(Intent intent) actionOf;
+
+  @override
+  bool isEnabled(Intent intent) {
+    final action = actionOf(intent);
+    if (action == null) return true;
+    if (!desktopShortcutFor(action).isPlainKey) return true;
+    final desktop = defaultTargetPlatform == TargetPlatform.windows ||
+        defaultTargetPlatform == TargetPlatform.linux ||
+        defaultTargetPlatform == TargetPlatform.macOS;
+    return desktop &&
+        !isTypingInTextField() &&
+        FocusManager.instance.primaryFocus == desktopShellFocusNode;
+  }
 }
