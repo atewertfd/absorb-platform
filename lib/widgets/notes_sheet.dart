@@ -162,6 +162,7 @@ class _NotesSheetState extends State<NotesSheet> {
     final safe = widget.itemTitle.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
     final file = File('${dir.path}/${safe}_notes.$format');
     await file.writeAsString(buffer.toString());
+    if (!mounted) return;
     await Share.shareXFiles(
       [XFile(file.path)],
       sharePositionOrigin: shareOriginFor(context),

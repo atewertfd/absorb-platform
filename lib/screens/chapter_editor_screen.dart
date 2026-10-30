@@ -492,6 +492,7 @@ class _ChapterEditBodyState extends State<ChapterEditBody>
   Future<void> _playChapter(_Ch c, {bool autoplay = true}) async {
     final l = AppLocalizations.of(context)!;
     await _stopPreview();
+    if (!mounted) return;
 
     final track = _trackForTime(c.start);
     final contentUrl = track?['contentUrl'] as String?;

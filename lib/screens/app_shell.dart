@@ -1486,10 +1486,12 @@ class _AppShellState extends State<AppShell>
         screen = AdminLibrariesScreen(libraries: await api.getLibraries());
       case 'upload':
         if (!mounted) return;
+        // Read auth before awaiting the libraries (logout may happen meanwhile).
+        final uploadAuth = context.read<AuthProvider>();
         screen = AdminUploadScreen(
           libraries: await api.getLibraries(),
-          initialLibraryId: context.read<AuthProvider>().defaultLibraryId,
-          canUpload: context.read<AuthProvider>().canUpload,
+          initialLibraryId: uploadAuth.defaultLibraryId,
+          canUpload: uploadAuth.canUpload,
           apiService: api,
         );
       default:

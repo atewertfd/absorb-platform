@@ -3562,13 +3562,14 @@ class _BookDetailSheetContentState extends State<_BookDetailSheetContent> {
       if (!context.mounted) return;
       if (t != null) startTime = t;
     }
+    // Grab the root navigator before we pop the sheet (and before the await
+    // below, in case the sheet is closed meanwhile)
+    final rootNav = Navigator.of(context, rootNavigator: true);
+    final lib = context.read<LibraryProvider>();
     // Discard, not stop: we're about to start playback ourselves, so briefly
     // resuming the previous book would just be an audible blip.
     await _preview?.discard();
     final player = AudioPlayerService();
-    // Grab the root navigator before we pop the sheet
-    final rootNav = Navigator.of(context, rootNavigator: true);
-    final lib = context.read<LibraryProvider>();
 
     if (player.currentItemId == widget.itemId) {
       await _activateQueueSource();
@@ -3746,7 +3747,7 @@ class _BookDetailSheetContentState extends State<_BookDetailSheetContent> {
         await _loadItem();
         await lib.refresh();
         if (mounted) setState(() {});
-        showOverlayToast(context, l.markedAsNotFinishedBackAtIt, icon: Icons.replay_rounded);
+        if (context.mounted) showOverlayToast(context, l.markedAsNotFinishedBackAtIt, icon: Icons.replay_rounded);
       }
     } catch (_) {
       if (context.mounted) {
@@ -3795,9 +3796,11 @@ class _BookDetailSheetContentState extends State<_BookDetailSheetContent> {
     // Clear from library provider (mark as reset — forces 0 progress)
     if (context.mounted) context.read<LibraryProvider>().resetProgressFor(widget.itemId);
     if (context.mounted) {
+      // Read the provider before awaiting: the sheet may be closed meanwhile.
+      final lib = context.read<LibraryProvider>();
       await _loadItem();
-      await context.read<LibraryProvider>().refresh();
-      showOverlayToast(
+      await lib.refresh();
+      if (context.mounted) showOverlayToast(
         context,
         serverSuccess ? l.progressResetFreshStart : l.resetMayNotHaveSynced,
         icon: serverSuccess ? Icons.restart_alt_rounded : Icons.warning_amber_rounded,

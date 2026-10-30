@@ -795,14 +795,15 @@ class _EpisodeDetailSheetState extends State<EpisodeDetailSheet> {
     final api = auth.apiService;
     if (api == null) return;
     final player = AudioPlayerService();
+    // Read before awaiting: the sheet may be closed while playback stops.
+    final lib = context.read<LibraryProvider>();
 
     if (player.currentItemId == _itemId && player.currentEpisodeId == _episodeId) {
       await player.stopWithoutSaving();
     }
 
     final compoundKey = '$_itemId-$_episodeId';
-    final progressId = context
-        .read<LibraryProvider>()
+    final progressId = lib
         .getEpisodeProgressData(_itemId, _episodeId)?['id'] as String?;
     await ProgressSyncService().deleteLocal(compoundKey);
     // Deleting the record is what the web UI does. Fall back to zeroing it in

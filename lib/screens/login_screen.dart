@@ -321,6 +321,7 @@ class _LoginScreenState extends State<LoginScreen>
     // Validate server first if not yet checked
     if (!_serverValid) {
       await _checkServer();
+      if (!mounted) return;
       if (!_serverValid) {
         setState(() => _loginError = _serverError ?? AppLocalizations.of(context)!.loginCouldNotReachServer);
         return;

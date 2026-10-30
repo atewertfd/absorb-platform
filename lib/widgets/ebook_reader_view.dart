@@ -3028,6 +3028,7 @@ class EbookReaderViewState extends State<EbookReaderView> with WidgetsBindingObs
     final tt = Theme.of(context).textTheme;
     final svc = ReaderFontService();
     await svc.load();
+    if (!mounted) return;
     await showModalBottomSheet(
       context: context,
       backgroundColor: cs.surface,
@@ -3078,7 +3079,8 @@ class EbookReaderViewState extends State<EbookReaderView> with WidgetsBindingObs
                   final ok = await svc.download(f);
                   if (ok) {
                     _updateReaderFont(f.id);
-                    if (mounted) Navigator.of(ctx).pop();
+                    // ctx is the font sheet's, which may be closed by now.
+                    if (mounted && ctx.mounted) Navigator.of(ctx).pop();
                   } else if (mounted) {
                     showOverlayToast(context, AppLocalizations.of(context)!.readerFontDownloadFailed(f.label),
                         icon: Icons.error_outline_rounded);
