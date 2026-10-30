@@ -558,7 +558,9 @@ class SettingsSyncService {
     if (!await getEnabled()) return;
     try {
       await _setLastHash(_hash(await buildPayload()));
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[SettingsSync] fingerprint after restore failed: ${e.runtimeType}');
+    }
     start();
     final navigator = rootNavigatorKey.currentState;
     final context = navigator?.context;
@@ -627,7 +629,8 @@ class SettingsSyncService {
   Future<bool> _hasUnsentChanges() async {
     try {
       return _hash(await buildPayload()) != await _lastHash();
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[SettingsSync] unsent-changes check failed: ${e.runtimeType}');
       return false;
     }
   }
@@ -902,7 +905,9 @@ class SettingsSyncService {
       // back up.
       try {
         await _setLastHash(_hash(await buildPayload()));
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[SettingsSync] fingerprint after pull failed: ${e.runtimeType}');
+      }
       // Anything queued while the import was writing is the import's own echo,
       // not a user edit.
       _debounce?.cancel();

@@ -803,7 +803,9 @@ class ApiService {
         'refresh=${tokenFp(_refreshToken)}',
       );
       return true;
-    } catch (_) {
+    } catch (e) {
+      // Type only: the message can quote the reply, which carries tokens.
+      debugPrint('[API] Proactive token refresh error: ${e.runtimeType}');
       return false;
     }
   }
@@ -1139,6 +1141,8 @@ class ApiService {
       debugPrint('[API] login to $url got no answer in 20s');
       return (null, 0);
     } catch (e) {
+      // Type only: the message can quote the reply, which carries tokens.
+      debugPrint('[API] login failed: ${e.runtimeType}');
       return (null, 0);
     }
   }
@@ -1167,7 +1171,9 @@ class ApiService {
         return (jsonDecode(response.body) as Map<String, dynamic>, 200);
       }
       return (null, response.statusCode);
-    } catch (_) {
+    } catch (e) {
+      // Type only: the message can quote the reply, which carries tokens.
+      debugPrint('[API] API key sign-in failed: ${e.runtimeType}');
       return (null, 0);
     }
   }
@@ -2419,7 +2425,8 @@ class ApiService {
         }),
         timeout: const Duration(seconds: 10));
       return response.statusCode;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[API] syncPlaybackSession $sessionId error: ${e.runtimeType}: $e');
       return null;
     }
   }
@@ -2431,7 +2438,9 @@ class ApiService {
       await _authPost(
         Uri.parse('$_cleanBaseUrl/api/session/$sessionId/close'),
         timeout: const Duration(seconds: 10));
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[API] closePlaybackSession $sessionId error: ${e.runtimeType}: $e');
+    }
   }
 
   /// Upsert a client-owned local playback session (downloaded/offline plays).
@@ -2459,7 +2468,8 @@ class ApiService {
         ok: resp.statusCode == 200,
         serverTooOld: resp.statusCode == 404 || resp.statusCode == 501,
       );
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[API] syncLocalSession ${session['id']} error: ${e.runtimeType}: $e');
       return const LocalSessionResult(ok: false, serverTooOld: false);
     }
   }
@@ -2495,7 +2505,8 @@ class ApiService {
         ok: resp.statusCode == 200 && readingOk,
         serverTooOld: resp.statusCode == 404 || resp.statusCode == 501,
       );
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[API] syncLocalSessionsAll (${sessions.length}) error: ${e.runtimeType}: $e');
       return const LocalSessionResult(ok: false, serverTooOld: false);
     }
   }
@@ -2609,7 +2620,8 @@ class ApiService {
         body: jsonEncode(session),
         timeout: const Duration(seconds: 10));
       return resp.statusCode == 200;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[API] updateListeningSession ${session['id']} error: ${e.runtimeType}: $e');
       return false;
     }
   }
@@ -2658,7 +2670,8 @@ class ApiService {
         Uri.parse('$_cleanBaseUrl/api/sessions/$sessionId'),
         timeout: const Duration(seconds: 10));
       return resp.statusCode == 200;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[API] deleteListeningSession $sessionId error: ${e.runtimeType}: $e');
       return false;
     }
   }
@@ -2678,7 +2691,9 @@ class ApiService {
       if (resp.statusCode == 200) {
         return await _withPageReadElsewhere(itemId, jsonDecode(resp.body) as Map<String, dynamic>);
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[API] getItemProgress $itemId error: ${e.runtimeType}: $e');
+    }
     return null;
   }
 
@@ -2695,7 +2710,8 @@ class ApiService {
     try {
       final at = await place(itemId, progress);
       return at == null ? progress : {...progress, 'currentTime': at};
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[API] page read elsewhere for $itemId failed: $e');
       return progress;
     }
   }
@@ -3052,7 +3068,9 @@ class ApiService {
       if (resp.statusCode == 200) {
         return jsonDecode(resp.body) as Map<String, dynamic>;
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[API] getEpisodeProgress $itemId/$episodeId error: ${e.runtimeType}: $e');
+    }
     return null;
   }
 

@@ -519,7 +519,9 @@ class DownloadService extends ChangeNotifier {
           e.key.startsWith('$from|') ? '$to|${e.key.substring(from.length + 1)}' : e.key: e.value,
       };
       await prefs.setString(_otherAccountSpotsKey, jsonEncode(renamed));
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Download] moving other-account reading spots failed: $e');
+    }
     if (moved > 0) await _save();
     debugPrint('[Download] $moved download(s) moved with their account: $from -> $to');
   }
@@ -806,7 +808,9 @@ class DownloadService extends ChangeNotifier {
     Map<String, dynamic>? full;
     try {
       full = await api.getLibraryItem(itemId);
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Download] keepEbook: item details for $itemId failed: $e');
+    }
     final stored = full ?? item;
     if (stored == null) return;
     final media = stored['media'] as Map<String, dynamic>?;
@@ -995,7 +999,9 @@ class DownloadService extends ChangeNotifier {
     Map<String, dynamic>? fullItem;
     try {
       fullItem = await api.getLibraryItem(itemId);
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Download] item details for $itemId failed, using what we have: $e');
+    }
     final stored = fullItem ?? item ?? {'id': itemId};
     final media = stored['media'] as Map<String, dynamic>?;
     if (onlyIfNoAudio) {
@@ -1312,7 +1318,8 @@ class DownloadService extends ChangeNotifier {
     List<TaskRecord> records;
     try {
       records = await FileDownloader().database.allRecords();
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[Download] reconcile: reading the task database failed: $e');
       return;
     }
     final byItem = <String, Map<int, TaskStatus>>{};
@@ -1709,8 +1716,9 @@ class DownloadService extends ChangeNotifier {
               allExist = false;
               break;
             }
-          } catch (_) {
+          } catch (e) {
             // Timeout or permission error — treat as missing
+            debugPrint('[Download] ${entry.key}: file check failed, treating as missing: $e');
             allExist = false;
             break;
           }
@@ -3276,7 +3284,9 @@ class DownloadService extends ChangeNotifier {
       if (player.hasBook) {
         await player.switchToLocal(itemId);
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Download] switching $itemId to the downloaded copy failed: $e');
+    }
 
     debugPrint('[Download] Complete: ${p.title} (${localPaths.length} files)');
     unawaited(_processQueue());
@@ -3500,7 +3510,9 @@ class DownloadService extends ChangeNotifier {
         } else {
           await FileDownloader().cancelTasksWithIds(ids);
         }
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[Download] cancelling tasks for $itemId failed: $e');
+      }
     }
   }
 
@@ -3645,7 +3657,8 @@ class DownloadService extends ChangeNotifier {
     List<TaskRecord> records;
     try {
       records = await FileDownloader().database.allRecords();
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[Download] rehydrate: reading the task database failed: $e');
       records = const [];
     }
 
@@ -3744,7 +3757,9 @@ class DownloadService extends ChangeNotifier {
           final file = File(path);
           if (file.existsSync()) file.deleteSync();
         }
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[Download] deleting a file of $itemId failed: $e');
+      }
     }
 
     // Remove the download directory (new-style path from DownloadInfo, or legacy UUID path)

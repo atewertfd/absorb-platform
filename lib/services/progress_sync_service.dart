@@ -117,7 +117,8 @@ class ProgressSyncService {
     if (json == null) return null;
     try {
       return jsonDecode(json) as Map<String, dynamic>;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[Sync] Local progress for $itemId unreadable: ${e.runtimeType}');
       return null;
     }
   }
@@ -185,7 +186,9 @@ class ProgressSyncService {
         _serverDurationCache[itemId] = serverDur;
         return serverDur;
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[Sync] $itemId: server duration unavailable, using local: $e');
+    }
     return localDuration;
   }
 
@@ -509,7 +512,8 @@ class ProgressSyncService {
     try {
       final map = jsonDecode(raw) as Map<String, dynamic>;
       return map.map((k, v) => MapEntry(k, Map<String, dynamic>.from(v as Map)));
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[Sync] Queued ebook progress unreadable: ${e.runtimeType}');
       return {};
     }
   }

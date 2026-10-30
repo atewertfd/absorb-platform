@@ -69,7 +69,8 @@ class LocalSessionService {
     if (raw != null) {
       try {
         _active = jsonDecode(raw) as Map<String, dynamic>;
-      } catch (_) {
+      } catch (e) {
+        debugPrint('[LocalSession] active session unreadable, dropped: ${e.runtimeType}');
         _active = null;
       }
     }
@@ -347,7 +348,9 @@ class LocalSessionService {
       for (final raw in pendingRaw) {
         try {
           sessions.add(jsonDecode(raw) as Map<String, dynamic>);
-        } catch (_) {}
+        } catch (e) {
+          debugPrint('[LocalSession] queued session unreadable, skipped: ${e.runtimeType}');
+        }
       }
       // Include the active session so its accrued time isn't stranded until the
       // next finalize (e.g. reconnect while paused).
