@@ -22,6 +22,8 @@ services:
       # The suite logs in many times; with the default login rate limit a
       # second run within ~10 minutes fails with HTTP 429. Test server only.
       RATE_LIMIT_AUTH_MAX: "0"
+      # Lets the app's web build (served on another localhost port) call it.
+      ALLOW_CORS: "1"
     volumes:
       - ./data/config:/config
       - ./data/metadata:/metadata
