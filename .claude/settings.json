@@ -1,0 +1,94 @@
+{
+  "env": {
+    "FLUTTER": "C:\\Users\\pc\\develop\\flutter\\bin\\flutter.bat"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(git status *)",
+      "Bash(git log *)",
+      "Bash(git diff *)",
+      "Bash(git show *)",
+      "Bash(git branch *)",
+      "Bash(git rev-parse *)",
+      "Bash(git rev-list *)",
+      "Bash(git ls-files *)",
+      "Bash(git fetch *)",
+      "Bash(git push fork *)",
+      "Bash(gh run list *)",
+      "Bash(gh run view *)",
+      "Bash(gh run watch *)",
+      "Bash(gh release list *)",
+      "Bash(gh release view *)",
+      "Bash(python tool/*)",
+      "Bash(python -m unittest *)",
+      "PowerShell(.\\tool\\dev.ps1 *)",
+      "PowerShell(.\\tool\\measure-windows-usage.ps1 *)"
+    ],
+    "deny": [
+      "Bash(git push origin *)",
+      "PowerShell(git push origin *)",
+      "Read(**/AccountsSettings.json)",
+      "Read(**/LibationContext.db)",
+      "Read(//c/Users/pc/AppData/**/Libation/**)",
+      "Read(//c/Users/pc/Documents/Libation/*.json)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"${CLAUDE_PROJECT_DIR}/tool/claude_hooks.py\" session-start",
+            "timeout": 20
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"${CLAUDE_PROJECT_DIR}/tool/claude_hooks.py\" pre-shell",
+            "timeout": 20
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"${CLAUDE_PROJECT_DIR}/tool/claude_hooks.py\" pre-edit",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"${CLAUDE_PROJECT_DIR}/tool/claude_hooks.py\" post-edit",
+            "timeout": 150
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"${CLAUDE_PROJECT_DIR}/tool/claude_hooks.py\" stop",
+            "timeout": 20
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -46,7 +46,20 @@ How Absorb Plus is put together and where to look. The layout under `lib/` is up
 | Performance policies | `utils/memory_policy.dart`, `utils/performance_policy.dart`, `utils/app_motion.dart`, `widgets/library_item_snapshot.dart`, `widgets/cover_decode.dart` |
 | Desktop | `services/desktop_shortcuts.dart`, `services/desktop_audio*.dart`, `widgets/accessible_header_action.dart`, `windows/cmake/webview_shutdown.cmake` |
 | Server health | `services/server_health_service.dart`, `screens/server_health_screen.dart` |
-| Tooling | `tool/align_with_upstream.py`, `tool/measure-windows-usage.ps1`, `tool/verify-desktop-audio.ps1`, `.github/workflows/ci.yml` |
+| Tooling | see "Developer tooling" below |
+
+## Developer tooling (all fork-owned)
+
+| What | Where | Use |
+|---|---|---|
+| Everyday commands | `tool/dev.ps1` | `check`, `build`, `bump`, `footprint` |
+| Undo formatting churn | `tool/align_with_upstream.py` | `python tool/align_with_upstream.py [--apply] FILE...` |
+| RAM/CPU sampling | `tool/measure-windows-usage.ps1` | Read-only process counters for a running build |
+| Desktop audio smoke test | `tool/verify-desktop-audio.ps1`, `tool/desktop_audio_smoke.dart` | Checks the libmpv backend without a server |
+| Claude Code guards | `tool/claude_hooks.py` (tests in `tool/tests/`), wired in `.claude/settings.json` | Blocks upstream pushes, junction-following deletes, upstream reformatting and generated-file edits; asks before release/tag deletion |
+| Claude Code procedures | `.claude/skills/*/SKILL.md` | `/status`, `/build-verify`, `/release`, `/perf-measure`, `/fork-feature` |
+| Claude Code subagents | `.claude/agents/*.md` | `reviewer`, `upstream-merger`, `test-writer` |
+| CI | `.github/workflows/ci.yml` (analyze + tests on every push); `windows-release.yml` and `desktop-web-release.yml` on `v*` tags | |
 
 ## Strings
 
