@@ -25,16 +25,18 @@ class _ServerHealthScreenState extends State<ServerHealthScreen> {
     final url = auth.activeServerUrl;
     if (url == null || url.isEmpty) return;
     setState(() => _running = true);
-    final snapshot = await ServerHealthService().check(
-      serverUrl: url,
-      api: auth.apiService,
-      customHeaders: auth.customHeaders,
-    );
-    if (!mounted) return;
-    setState(() {
-      _snapshot = snapshot;
-      _running = false;
-    });
+    try {
+      final snapshot = await ServerHealthService().check(
+        serverUrl: url,
+        api: auth.apiService,
+        customHeaders: auth.customHeaders,
+      );
+      if (!mounted) return;
+      setState(() => _snapshot = snapshot);
+    } finally {
+      // Never leave the screen stuck on "Checking..." with the button off.
+      if (mounted) setState(() => _running = false);
+    }
   }
 
   @override

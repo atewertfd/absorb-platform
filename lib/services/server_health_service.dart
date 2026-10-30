@@ -73,8 +73,9 @@ class ServerHealthService {
           authenticated: false,
           serverVersion: version,
           latency: latency,
-          detail:
-              'The server is reachable, but the session was rejected or expired.',
+          // getMe() also returns null on timeouts and network errors.
+          detail: 'The server is reachable, but the session could not be '
+              'confirmed (rejected, expired, or the request failed).',
           checkedAt: DateTime.now(),
         );
       }
@@ -84,7 +85,11 @@ class ServerHealthService {
         authenticated: true,
         serverVersion: version,
         latency: latency,
-        detail: '${libraries.length} libraries visible to this account.',
+        // getLibraries() returns [] on failure too, so zero is not proof.
+        detail: libraries.isEmpty
+            ? 'Signed in, but no libraries came back (none shared with this '
+                'account, or the request failed).'
+            : '${libraries.length} libraries visible to this account.',
         checkedAt: DateTime.now(),
       );
     } catch (error) {
