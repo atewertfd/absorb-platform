@@ -53,6 +53,7 @@ class _CardEdgeProgressBarState extends State<CardEdgeProgressBar>
 
   // ── Expand/collapse animation ──
   late AnimationController _expandController;
+  late final CurvedAnimation _expandCurve;
   double? _dragValue;
   double _dragStartDy = 0;
   double _lastLongPressDx = 0;
@@ -70,6 +71,13 @@ class _CardEdgeProgressBarState extends State<CardEdgeProgressBar>
     _expandController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 250),
+    );
+    // Created once: a CurvedAnimation adds a listener to its parent, so
+    // building one per tick (10x/s while playing) leaked listeners.
+    _expandCurve = CurvedAnimation(
+      parent: _expandController,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
     );
     _expandController.addListener(() {
       widget.expandedNotifier?.value = _expandController.value > 0.1;
@@ -258,6 +266,7 @@ class _CardEdgeProgressBarState extends State<CardEdgeProgressBar>
     _posSub?.cancel();
     _smoothTicker?.cancel();
     _tickNotifier.dispose();
+    _expandCurve.dispose();
     _expandController.dispose();
     super.dispose();
   }
@@ -294,11 +303,7 @@ class _CardEdgeProgressBarState extends State<CardEdgeProgressBar>
         final bookElapsed = posS / speedDiv;
         final bookRemaining = (totalDur - posS) / speedDiv;
 
-        final expandT = CurvedAnimation(
-          parent: _expandController,
-          curve: Curves.easeOutCubic,
-          reverseCurve: Curves.easeInCubic,
-        ).value;
+        final expandT = _expandCurve.value;
 
         final totalHeight = lerpDouble(_hitTargetHeight, _expandedHeight, expandT)!;
         final barHeight = lerpDouble(_thinHeight, 8.0, expandT)!;

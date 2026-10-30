@@ -1305,10 +1305,12 @@ class _SeriesBooksSheetState extends State<SeriesBooksSheet> {
         final lib = context.read<LibraryProvider>();
         await lib.enableRollingDownload(seriesId,
             name: widget.seriesName, kind: 'series');
+        if (!mounted) return;
         setState(() => _autoDownloadEnabled = true);
       }
     }
 
+    if (!mounted) return;
     setState(() => _isDownloadingAll = true);
 
     final l2 = mounted ? AppLocalizations.of(context)! : null;

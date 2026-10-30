@@ -890,7 +890,12 @@ class _RequestListState extends State<_RequestList> with AutomaticKeepAliveClien
       limit: _pageSize,
       includeDismissed: _showHidden,
     );
-    if (!mounted || generation != _generation) return;
+    if (!mounted) return;
+    if (generation != _generation) {
+      // A refresh replaced the list meanwhile; just stop the spinner.
+      setState(() => _loadingMore = false);
+      return;
+    }
     setState(() {
       _loadingMore = false;
       if (page != null) {

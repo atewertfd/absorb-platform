@@ -303,6 +303,7 @@ class LibraryProvider extends ChangeNotifier
       _stopServerPingTimer();
       _stopHealthCheckTimer();
       _stopBookOrbitPoll();
+      _stopLocalProbeTimer();
       SocketService().disconnect();
       _personalizedInFlight = null;
       _networkOffline = false;
@@ -342,6 +343,10 @@ class LibraryProvider extends ChangeNotifier
       _progressRefreshDebounce?.cancel();
       _stopServerPingTimer();
       _stopHealthCheckTimer();
+      // Otherwise the old account's notification feed and local-server
+      // probe keep running after logout.
+      _stopBookOrbitPoll();
+      _stopLocalProbeTimer();
       SocketService().disconnect();
       _personalizedInFlight = null;
       _rssHydrationInFlight = false;

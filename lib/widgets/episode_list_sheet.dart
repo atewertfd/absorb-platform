@@ -583,6 +583,7 @@ class _EpisodeListSheetState extends State<EpisodeListSheet> {
         final lib = context.read<LibraryProvider>();
         await lib.enableRollingDownload(_itemId,
             name: _title, kind: 'podcast');
+        if (!mounted) return;
         setState(() => _autoDownloadEnabled = true);
       }
     }
@@ -668,6 +669,7 @@ class _EpisodeListSheetState extends State<EpisodeListSheet> {
                       final lib = context.read<LibraryProvider>();
                       await lib.toggleRollingDownload(_itemId,
                           name: _title, kind: 'podcast');
+                      if (!mounted) return;
                       setState(() => _autoDownloadEnabled = lib.isRollingDownloadEnabled(_itemId));
                     }),
                 if (_itemId.isNotEmpty)
@@ -696,6 +698,7 @@ class _EpisodeListSheetState extends State<EpisodeListSheet> {
                         if (confirm == true && mounted) {
                           final lib = context.read<LibraryProvider>();
                           await lib.subscribePodcast(_itemId);
+                          if (!mounted) return;
                           setState(() => _subscribed = true);
                           // Surface where new episodes will land right after
                           // subscribing; the position pill lets them change it
