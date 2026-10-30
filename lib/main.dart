@@ -49,6 +49,7 @@ import 'widgets/auth_loading_screen.dart';
 import 'widgets/beta_logging_notice.dart';
 import 'widgets/setup_link_login.dart';
 import 'utils/app_motion.dart';
+import 'utils/scroll_diagnostics.dart';
 import 'utils/smooth_wheel_scroll.dart';
 import 'utils/memory_policy.dart';
 
@@ -244,10 +245,10 @@ Future<void> applyOrientationLock() async {
 void main() async {
   HttpOverrides.global = _CertOverrides();
   final widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
-  installSmoothWheelScroll(
-    enabled: () =>
-        !einkModeNotifier.value && !snappyTransitionsNotifier.value,
-  );
+  bool smoothWheel() =>
+      !einkModeNotifier.value && !snappyTransitionsNotifier.value;
+  installSmoothWheelScroll(enabled: smoothWheel);
+  installScrollDiagnostics(smoothingEnabled: smoothWheel); // ABSORB_SCROLL_DIAG=1
   configureImageCache(PaintingBinding.instance.imageCache);
   ReadListenSync.instance.start();
   BookOrbitApiService.placeReadingSpot = NarrationService.readingSpotSeconds;
