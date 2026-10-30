@@ -16,7 +16,14 @@ import 'player_settings.dart';
 import 'scoped_prefs.dart';
 import 'user_account_service.dart';
 
-enum SyncStatus { ok, notConfigured, noRemote, authFailed, network, tooLarge }
+enum SyncStatus {
+  ok,
+  notConfigured,
+  noRemote,
+  authFailed,
+  network,
+  tooLarge,
+}
 
 class SyncResult {
   final SyncStatus status;
@@ -52,11 +59,7 @@ class SettingsSyncService {
   @visibleForTesting
   static http.Client? testClient;
 
-  Future<http.Response> _put(
-    Uri url,
-    Map<String, String> headers,
-    String body,
-  ) {
+  Future<http.Response> _put(Uri url, Map<String, String> headers, String body) {
     final c = testClient;
     return c != null
         ? c.put(url, headers: headers, body: body)
@@ -65,9 +68,7 @@ class SettingsSyncService {
 
   Future<http.Response> _getUrl(Uri url, Map<String, String> headers) {
     final c = testClient;
-    return c != null
-        ? c.get(url, headers: headers)
-        : http.get(url, headers: headers);
+    return c != null ? c.get(url, headers: headers) : http.get(url, headers: headers);
   }
 
   /// The ONLY top-level backup keys that ever leave the device. This is an
@@ -327,9 +328,10 @@ class SettingsSyncService {
   /// themselves, ABS rotates refresh tokens, so a stale one arriving from the
   /// file could overwrite a freshly rotated one and strand the session.
   Future<Set<String>> _activeKeys() async => {
-    ..._syncedKeys,
-    if (await getSyncRmab()) 'rmab',
-  };
+        ..._syncedKeys,
+        if (await getSyncRmab()) 'rmab',
+      };
+
 
   /// Epoch ms of the newest payload this device has either written or applied.
   /// Both directions compare against it, so a device never re-imports its own
@@ -451,9 +453,7 @@ class SettingsSyncService {
     // losing the change silently. Pushing first stamps our copy as the newest,
     // and the pull below then sees its own timestamp and skips.
     if (await _hasUnsentChanges()) {
-      debugPrint(
-        '[SettingsSync] unsent local changes - pushing before pulling',
-      );
+      debugPrint('[SettingsSync] unsent local changes - pushing before pulling');
       await pushIfChanged();
     }
     final result = await pull();
@@ -792,10 +792,11 @@ class SettingsSyncService {
         );
         return const SyncResult(SyncStatus.tooLarge);
       }
-      final resp = await _put(uri, {
-        ...headers,
-        'content-type': 'application/json',
-      }, body).timeout(const Duration(seconds: 20));
+      final resp = await _put(
+        uri,
+        {...headers, 'content-type': 'application/json'},
+        body,
+      ).timeout(const Duration(seconds: 20));
       if (resp.statusCode == 401 || resp.statusCode == 403) {
         return SyncResult(SyncStatus.authFailed, null, _http(resp, uri, 'PUT'));
       }
@@ -843,10 +844,8 @@ class SettingsSyncService {
 
     _busy = true;
     try {
-      final resp = await _getUrl(
-        uri,
-        headers,
-      ).timeout(const Duration(seconds: 20));
+      final resp =
+          await _getUrl(uri, headers).timeout(const Duration(seconds: 20));
       if (resp.statusCode == 401 || resp.statusCode == 403) {
         return SyncResult(SyncStatus.authFailed, null, _http(resp, uri, 'GET'));
       }
@@ -942,10 +941,8 @@ class SettingsSyncService {
       return const SyncResult(SyncStatus.notConfigured);
     }
     try {
-      final resp = await _getUrl(
-        uri,
-        headers,
-      ).timeout(const Duration(seconds: 15));
+      final resp =
+          await _getUrl(uri, headers).timeout(const Duration(seconds: 15));
       if (resp.statusCode == 401 || resp.statusCode == 403) {
         return SyncResult(SyncStatus.authFailed, null, _http(resp, uri, 'GET'));
       }

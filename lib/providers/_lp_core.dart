@@ -984,31 +984,31 @@ mixin _CoreMixin on ChangeNotifier, _StateMixin {
     do {
       _localProgressRefreshAgain = false;
       var changed = false;
-      final itemIds = <String>{..._progressMap.keys};
-      for (final dl in DownloadService().downloadedItems) {
-        itemIds.add(dl.itemId);
-      }
-      for (final itemId in itemIds) {
-        if (_locallyFinishedItems.contains(itemId)) continue;
-        if (_resetItems.contains(itemId)) continue;
-        final serverFinished = _progressMap[itemId]?['isFinished'] == true;
-        final data = await sync.getLocal(itemId);
-        if (data != null) {
-          final currentTime = (data['currentTime'] as num?)?.toDouble() ?? 0;
-          final duration = (data['duration'] as num?)?.toDouble() ?? 0;
-          if (duration > 0) {
-            final progress = (currentTime / duration).clamp(0.0, 1.0);
-            if (progress >= 0.99 && !serverFinished) continue;
-            if (serverFinished) continue;
-            if (_localProgressOverrides[itemId] != progress) {
+    final itemIds = <String>{..._progressMap.keys};
+    for (final dl in DownloadService().downloadedItems) {
+      itemIds.add(dl.itemId);
+    }
+    for (final itemId in itemIds) {
+      if (_locallyFinishedItems.contains(itemId)) continue;
+      if (_resetItems.contains(itemId)) continue;
+      final serverFinished = _progressMap[itemId]?['isFinished'] == true;
+      final data = await sync.getLocal(itemId);
+      if (data != null) {
+        final currentTime = (data['currentTime'] as num?)?.toDouble() ?? 0;
+        final duration = (data['duration'] as num?)?.toDouble() ?? 0;
+        if (duration > 0) {
+          final progress = (currentTime / duration).clamp(0.0, 1.0);
+          if (progress >= 0.99 && !serverFinished) continue;
+          if (serverFinished) continue;
+          if (_localProgressOverrides[itemId] != progress) {
               _localProgressOverrides[itemId] = progress;
-              changed = true;
+          changed = true;
             }
             if (currentTime > 0 && _resetItems.remove(itemId)) changed = true;
-          }
         }
       }
-      if (changed) notifyListeners();
+    }
+    if (changed) notifyListeners();
     } while (_localProgressRefreshAgain);
   }
 

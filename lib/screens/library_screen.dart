@@ -3622,8 +3622,7 @@ class LibraryScreenState extends State<LibraryScreen>
           ),
           withActiveSurfaceTickers(
             active: effectiveTab == 4,
-            child: _buildListsGrid(headerFor(4)),
-          ),
+            child: _buildListsGrid(headerFor(4))),
         ],
       ),
     );

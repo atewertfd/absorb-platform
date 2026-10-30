@@ -41,17 +41,15 @@ class OfflineStatusIcon extends StatelessWidget {
     }
     return AccessibleHeaderAction(
       label: offline ? l.offline : l.online,
-      onPressed: reconnecting || (!offline && onTapWhenOnline == null)
+      onPressed: reconnecting
+           || (!offline && onTapWhenOnline == null)
           ? null
           : () async {
               if (offline) {
                 final ok = await lib.tryReconnect();
                 if (!ok && context.mounted) {
-                  showOverlayToast(
-                    context,
-                    l.stillOffline,
-                    icon: Icons.cloud_off_rounded,
-                  );
+                  showOverlayToast(context, l.stillOffline,
+                      icon: Icons.cloud_off_rounded);
                 }
               } else {
                 onTapWhenOnline?.call();
@@ -76,8 +74,8 @@ class OfflineStatusIcon extends StatelessWidget {
                   color: offline
                       ? Colors.orange
                       : onLocal
-                      ? Colors.lightBlueAccent
-                      : Colors.green,
+                          ? Colors.lightBlueAccent
+                          : Colors.green,
                 ),
         ),
       ),

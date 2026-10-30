@@ -31,7 +31,7 @@ class UpdateInfo {
     this.isPreRelease = false,
     this.isDirectApk = true,
     this.isWindowsInstaller = false,
-    this.packageLabel,
+    this. packageLabel,
   });
 
   bool get hasUpdate =>
@@ -65,11 +65,8 @@ class UpdateCheckResult {
 
 /// Pulls N out of a "## Beta N" heading in GitHub release notes.
 int? betaNumberFromReleaseNotes(String notes) {
-  final m = RegExp(
-    r'^#+\s*Beta\s+(\d+)\b',
-    multiLine: true,
-    caseSensitive: false,
-  ).firstMatch(notes);
+  final m = RegExp(r'^#+\s*Beta\s+(\d+)\b', multiLine: true, caseSensitive: false)
+      .firstMatch(notes);
   return m == null ? null : int.tryParse(m.group(1)!);
 }
 
@@ -89,9 +86,8 @@ class UpdateCheckerService {
     int? baseBuildNumber;
     if (!kIsWeb && Platform.isAndroid) {
       try {
-        baseBuildNumber = await _updateChannel.invokeMethod<int>(
-          'getBaseBuildNumber',
-        );
+        baseBuildNumber =
+            await _updateChannel.invokeMethod<int>('getBaseBuildNumber');
       } catch (error) {
         debugPrint('[UpdateChecker] Base build lookup failed: $error');
       }
@@ -107,10 +103,7 @@ class UpdateCheckerService {
   /// date, or GitHub couldn't be reached. Respects a 12-hour cooldown and
   /// dismissed versions unless [force]. When [includePreReleases] is true,
   /// pre-release builds are also considered.
-  static Future<UpdateCheckResult> check({
-    bool force = false,
-    bool includePreReleases = false,
-  }) {
+  static Future<UpdateCheckResult> check({bool force = false, bool includePreReleases = false, }) {
     return _inFlightCheck.run(
       () =>
           _checkInternal(force: force, includePreReleases: includePreReleases),
@@ -164,7 +157,8 @@ class UpdateCheckerService {
         final effectiveCooldown = cooldown ?? _checkInterval;
         if (elapsed < effectiveCooldown.inMilliseconds) {
           return const UpdateCheckResult(UpdateCheckStatus.skipped);
-        }
+      }
+
       }
 
       Map<String, dynamic>? data;
@@ -172,14 +166,10 @@ class UpdateCheckerService {
       if (includePreReleases) {
         // Fetch recent releases and pick the highest version, which may be a
         // pre-release.
-        final response = await http
-            .get(
-              Uri.parse(
-                'https://api.github.com/repos/$_repo/releases?per_page=10',
-              ),
-              headers: {'Accept': 'application/vnd.github.v3+json'},
-            )
-            .timeout(const Duration(seconds: 10));
+        final response = await http.get(
+          Uri.parse('https://api.github.com/repos/$_repo/releases?per_page=10'),
+          headers: {'Accept': 'application/vnd.github.v3+json'},
+        ).timeout(const Duration(seconds: 10));
         if (response.statusCode != 200) {
           return const UpdateCheckResult(UpdateCheckStatus.failed);
         }
@@ -190,10 +180,9 @@ class UpdateCheckerService {
           _lastCheckKey,
           DateTime.now().millisecondsSinceEpoch,
         );
-        final releases = (jsonDecode(response.body) as List<dynamic>)
-            .whereType<Map<String, dynamic>>()
+        final releases = (jsonDecode(response.body) as List<dynamic>).whereType< Map<String, dynamic>>()
             .toList();
-        data = pickUpdateRelease(
+      data = pickUpdateRelease(
           releases,
           preferWindowsInstaller: !kIsWeb && Platform.isWindows,
         );
@@ -204,12 +193,10 @@ class UpdateCheckerService {
           );
         }
       } else {
-        final response = await http
-            .get(
-              Uri.parse('https://api.github.com/repos/$_repo/releases/latest'),
-              headers: {'Accept': 'application/vnd.github.v3+json'},
-            )
-            .timeout(const Duration(seconds: 10));
+        final response = await http.get(
+          Uri.parse('https://api.github.com/repos/$_repo/releases/latest'),
+          headers: {'Accept': 'application/vnd.github.v3+json'},
+        ).timeout(const Duration(seconds: 10));
         if (response.statusCode != 200) {
           return const UpdateCheckResult(UpdateCheckStatus.failed);
         }
@@ -226,12 +213,14 @@ class UpdateCheckerService {
       final tagName = data['tag_name'] as String? ?? '';
       final body = data['body'] as String? ?? '';
       final isPreRelease = data['prerelease'] as bool? ?? false;
+
       final releaseAssets = releaseAssetsOf(data);
 
       List<String> supportedAbis = const [];
       if (!kIsWeb && Platform.isAndroid) {
         try {
-          supportedAbis = (await DeviceInfoPlugin().androidInfo).supportedAbis;
+          supportedAbis =
+              (await DeviceInfoPlugin().androidInfo).supportedAbis;
         } catch (error) {
           debugPrint('[UpdateChecker] ABI detection failed: $error');
         }
@@ -245,8 +234,9 @@ class UpdateCheckerService {
           : null;
       final selectedDirectAsset = selectedWindowsAsset ?? selectedAsset;
       final currentVersion = await currentInstalledVersion();
-      final downloadUrl =
-          selectedDirectAsset?.downloadUrl ?? data['html_url'] as String? ?? '';
+      final downloadUrl = selectedDirectAsset?.downloadUrl ?? 
+          data['html_url'] as String? ??
+          '';
       if (selectedDirectAsset != null) {
         debugPrint(
           '[UpdateChecker] Selected ${selectedDirectAsset.name} for '
@@ -274,6 +264,7 @@ class UpdateCheckerService {
           UpdateCheckStatus.upToDate,
           currentVersion: currentVersion,
         );
+
       }
 
       // Check if user dismissed this version
@@ -281,7 +272,8 @@ class UpdateCheckerService {
         final dismissed = prefs.getString(_dismissedKey);
         if (dismissed == tagName) {
           return const UpdateCheckResult(UpdateCheckStatus.skipped);
-        }
+      }
+
       }
 
       return UpdateCheckResult(
@@ -330,10 +322,7 @@ class ApkUpdater {
     required void Function(int received, int total) onProgress,
   }) async {
     if (!Platform.isAndroid) {
-      return const ApkInstallResult(
-        ApkInstallStatus.launchFailed,
-        'Android only',
-      );
+      return const ApkInstallResult(ApkInstallStatus.launchFailed, 'Android only');
     }
 
     final perm = await Permission.requestInstallPackages.request();
@@ -351,14 +340,9 @@ class ApkUpdater {
       return ApkInstallResult(ApkInstallStatus.downloadFailed, e.toString());
     }
 
-    final result = await OpenFilex.open(
-      file.path,
-      type: 'application/vnd.android.package-archive',
-    );
+    final result = await OpenFilex.open(file.path, type: 'application/vnd.android.package-archive');
     if (result.type != ResultType.done) {
-      debugPrint(
-        '[ApkUpdater] OpenFilex failed: ${result.type} ${result.message}',
-      );
+      debugPrint('[ApkUpdater] OpenFilex failed: ${result.type} ${result.message}');
       return ApkInstallResult(ApkInstallStatus.launchFailed, result.message);
     }
     return const ApkInstallResult(ApkInstallStatus.ok);

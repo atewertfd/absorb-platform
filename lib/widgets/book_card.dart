@@ -511,47 +511,36 @@ class _CoverImage extends StatelessWidget {
           height: constraints.maxHeight,
           devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
         );
-        if (coverUrl!.startsWith('/')) {
-          final file = File(coverUrl!);
-          if (!file.existsSync()) return _placeholder();
-          return EinkCoverTone(
-            child: BlurPaddedCover(
-              enabled: isSquare,
-              blurChild: Image.file(
-                file,
-                fit: BoxFit.cover,
-                cacheWidth: 32,
-                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-              ),
-              child: Image.file(
-                file,
-                fit: effectiveFit,
-                cacheWidth: decodeWidth,
-                errorBuilder: (_, __, ___) => _placeholder(),
-              ),
-            ),
-          );
-        }
-        return EinkCoverTone(
-          child: BlurPaddedCover(
-            enabled: isSquare,
-            blurChild: CachedNetworkImage(
-              imageUrl: coverUrl!,
-              fit: BoxFit.cover,
-              httpHeaders: httpHeaders,
-              memCacheWidth: 32,
+    if (coverUrl!.startsWith('/')) {
+      final file = File(coverUrl!);
+      if (! file.existsSync()) return _placeholder();
+        return EinkCoverTone(child: BlurPaddedCover(
+          enabled: isSquare,
+          blurChild: Image.file(file, fit: BoxFit.cover, cacheWidth: 32,
+                errorBuilder: (_, __, ___) => const SizedBox.shrink()),
+          child: Image.file(file, fit: effectiveFit, cacheWidth: decodeWidth,
+                errorBuilder: (_, __, ___) => _placeholder()),
+        ));
+    }
+
+    return EinkCoverTone(child: BlurPaddedCover(
+      enabled: isSquare,
+      blurChild: CachedNetworkImage(
+        imageUrl: coverUrl!,
+        fit: BoxFit.cover,
+        httpHeaders: httpHeaders,
+        memCacheWidth: 32,
               errorWidget: (_, __, ___) => const SizedBox.shrink(),
-            ),
-            child: CachedNetworkImage(
-              imageUrl: coverUrl!,
-              fit: effectiveFit,
-              httpHeaders: httpHeaders,
-              memCacheWidth: decodeWidth,
+      ),
+      child: CachedNetworkImage(
+        imageUrl: coverUrl!,
+        fit: effectiveFit,
+        httpHeaders: httpHeaders,
+        memCacheWidth: decodeWidth,
               placeholder: (_, __) => _placeholder(),
-              errorWidget: (_, __, ___) => _placeholder(),
-            ),
-          ),
-        );
+        errorWidget: (_, __, ___) => _placeholder(),
+      ),
+    ),);
       },
     );
   }

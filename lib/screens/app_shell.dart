@@ -19,13 +19,7 @@ import '../utils/cover_accent.dart';
 import '../utils/memory_policy.dart';
 import '../utils/performance_policy.dart';
 import '../main.dart'
-    show
-        snappyTransitionsNotifier,
-        einkModeNotifier,
-        coverSchemeNotifier,
-        rootNavigatorKey,
-        applyOrientationLock,
-        applyEinkModeTheme;
+    show snappyTransitionsNotifier, einkModeNotifier, coverSchemeNotifier, rootNavigatorKey, applyOrientationLock, applyEinkModeTheme;
 import '../services/scoped_prefs.dart';
 import 'dart:convert';
 import 'admin_screen.dart';
@@ -33,11 +27,7 @@ import 'admin_api_keys_screen.dart';
 import 'admin_rmab_screen.dart';
 import 'book_requests_screen.dart';
 import '../widgets/rmab_config_sheet.dart'
-    show
-        showRmabConfigSheet,
-        kRmabBaseUrlKey,
-        kRmabApiTokenKey,
-        kRmabLegacyUrlKey;
+    show showRmabConfigSheet, kRmabBaseUrlKey, kRmabApiTokenKey, kRmabLegacyUrlKey;
 import '../widgets/rmab_search_results_sheet.dart';
 import 'admin_email_screen.dart';
 import 'admin_libraries_screen.dart';
@@ -81,6 +71,7 @@ import '../services/update_checker_service.dart';
 import '../services/desktop_shortcuts.dart';
 import '../widgets/update_dialog.dart';
 import '../widgets/overlay_toast.dart';
+
 import '../utils/app_motion.dart';
 
 class _DesktopShortcutIntent extends Intent {
@@ -272,11 +263,8 @@ class _AppShellState extends State<AppShell>
     }
     _ensurePageBuilt(index);
     _syncNavBarListener(index);
-    final motionMode = AppMotion.resolveMode(
-      eInk: einkModeNotifier.value,
-      snappy: snappyTransitionsNotifier.value,
-      reduceMotion: WidgetsBinding
-          .instance
+    final motionMode = AppMotion.resolveMode(eInk: einkModeNotifier.value,
+      snappy: snappyTransitionsNotifier.value, reduceMotion: WidgetsBinding.instance
           .platformDispatcher
           .accessibilityFeatures
           .disableAnimations,
@@ -296,7 +284,8 @@ class _AppShellState extends State<AppShell>
       _fadeController.stop(canceled: false);
       _fadeController.reverse().then((_) {
         if (!mounted || request != _navigationRequest) return;
-        setState(() => _currentIndex = index);
+        setState(() =>
+          _currentIndex = index);
         _syncPlayerOnScreen();
         _fadeController.forward();
       });
@@ -877,19 +866,19 @@ class _AppShellState extends State<AppShell>
               ),
             },
             child: Scaffold(
-              body: FadeTransition(
-                opacity: _pageOpacity,
-                child: IndexedStack(
-                  index: _currentIndex,
-                  children: List<Widget>.generate(
-                    _pages.length,
-                    (i) => withActiveSurfaceTickers(
+        body: FadeTransition(
+          opacity: _pageOpacity,
+          child: IndexedStack(
+            index: _currentIndex,
+            children: List<Widget>.generate(
+              _pages.length,
+              (i) => withActiveSurfaceTickers(
                       active: i == _currentIndex,
                       child: _pages[i] ?? const SizedBox.shrink(),
-                    ),
-                  ),
-                ),
-              ),
+            ),
+          ),
+        ),
+        ),
               bottomNavigationBar: _buildBottomNav(context),
             ),
           ),
@@ -1076,11 +1065,8 @@ class _AppShellState extends State<AppShell>
   /// The action grid. [forRun] is launcher mode - the sheet is the menu itself
   /// rather than a one-time setup, so the entries that only make sense as a
   /// saved choice are left out.
-  Future<String?> _showNavHoldPicker(
-    String tab,
-    bool isAdmin, {
-    bool forRun = false,
-  }) async {
+  Future<String?> _showNavHoldPicker(String tab, bool isAdmin,
+      {bool forRun = false}) async {
     final l = AppLocalizations.of(context)!;
     // Launcher mode shows the user's own arrangement, which they can edit in
     // place; setup mode always offers everything.
@@ -1115,33 +1101,27 @@ class _AppShellState extends State<AppShell>
                     ),
                     const SizedBox(height: 14),
                     if (forRun)
-                      ActionPillGrid(
-                        items: [
-                          for (final id in ids)
-                            ActionPillData(
-                              icon: _iconForId(id),
-                              label: navHoldLabel(
-                                id,
-                                l,
-                                libraryName: _libraryNameOf,
-                              ),
-                              onTap: () => Navigator.pop(ctx, id),
-                              onLongPress: () async {
-                                final next = await _editMenuItem(ids, id);
-                                if (next != null)
-                                  setSheetState(() => ids = next);
-                              },
-                            ),
+                      ActionPillGrid(items: [
+                        for (final id in ids)
                           ActionPillData(
-                            icon: Icons.add_rounded,
-                            label: l.navHoldAdd,
-                            onTap: () async {
-                              final next = await _addMenuItem(ids, isAdmin);
+                            icon: _iconForId(id),
+                            label: navHoldLabel(id, l,
+                                libraryName: _libraryNameOf),
+                            onTap: () => Navigator.pop(ctx, id),
+                            onLongPress: () async {
+                              final next = await _editMenuItem(ids, id);
                               if (next != null) setSheetState(() => ids = next);
                             },
                           ),
-                        ],
-                      )
+                        ActionPillData(
+                          icon: Icons.add_rounded,
+                          label: l.navHoldAdd,
+                          onTap: () async {
+                            final next = await _addMenuItem(ids, isAdmin);
+                            if (next != null) setSheetState(() => ids = next);
+                          },
+                        ),
+                      ])
                     else
                       ActionPillGrid(items: [
                         for (final o in navHoldOptions)
@@ -1182,8 +1162,7 @@ class _AppShellState extends State<AppShell>
         saved = (jsonDecode(raw) as List<dynamic>).cast<String>();
       } catch (_) {}
     }
-    final ids =
-        saved ??
+    final ids = saved ??
         navHoldDefaultMenu(
           isAdmin: isAdmin,
           rmabConfigured: _rmabConfigured,
@@ -1230,45 +1209,33 @@ class _AppShellState extends State<AppShell>
       context: context,
       showDragHandle: true,
       builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 10),
-              child: Text(
-                navHoldLabel(
-                  id,
-                  AppLocalizations.of(ctx)!,
-                  libraryName: _libraryNameOf,
-                ),
-              ),
-            ),
-            if (i > 0)
-              ListTile(
-                leading: const Icon(Icons.arrow_back_rounded),
-                title: Text(l.navHoldMoveLeft),
-                onTap: () => Navigator.pop(ctx, 'left'),
-              ),
-            if (i < ids.length - 1)
-              ListTile(
-                leading: const Icon(Icons.arrow_forward_rounded),
-                title: Text(l.navHoldMoveRight),
-                onTap: () => Navigator.pop(ctx, 'right'),
-              ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 10),
+            child: Text(navHoldLabel(id, AppLocalizations.of(ctx)!,
+                libraryName: _libraryNameOf)),
+          ),
+          if (i > 0)
             ListTile(
-              leading: Icon(
-                Icons.remove_circle_outline_rounded,
-                color: Theme.of(ctx).colorScheme.error,
-              ),
-              title: Text(
-                l.navHoldRemoveFromMenu,
-                style: TextStyle(color: Theme.of(ctx).colorScheme.error),
-              ),
-              onTap: () => Navigator.pop(ctx, 'remove'),
+              leading: const Icon(Icons.arrow_back_rounded),
+              title: Text(l.navHoldMoveLeft),
+              onTap: () => Navigator.pop(ctx, 'left'),
             ),
-            const SizedBox(height: 8),
-          ],
-        ),
+          if (i < ids.length - 1)
+            ListTile(
+              leading: const Icon(Icons.arrow_forward_rounded),
+              title: Text(l.navHoldMoveRight),
+              onTap: () => Navigator.pop(ctx, 'right'),
+            ),
+          ListTile(
+            leading: Icon(Icons.remove_circle_outline_rounded,
+                color: Theme.of(ctx).colorScheme.error),
+            title: Text(l.navHoldRemoveFromMenu,
+                style: TextStyle(color: Theme.of(ctx).colorScheme.error)),
+            onTap: () => Navigator.pop(ctx, 'remove'),
+          ),
+          const SizedBox(height: 8),
+        ]),
       ),
     );
     if (action == null) return null;
@@ -1346,16 +1313,14 @@ class _AppShellState extends State<AppShell>
         child: SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-            child: ActionPillGrid(
-              items: [
-                for (final (id, icon, label) in items)
-                  ActionPillData(
-                    icon: icon,
-                    label: label,
-                    onTap: () => Navigator.pop(ctx, id),
-                  ),
-              ],
-            ),
+            child: ActionPillGrid(items: [
+              for (final (id, icon, label) in items)
+                ActionPillData(
+                  icon: icon,
+                  label: label,
+                  onTap: () => Navigator.pop(ctx, id),
+                ),
+            ]),
           ),
         ),
       ),
@@ -1408,20 +1373,14 @@ class _AppShellState extends State<AppShell>
         if (lib.libraries.length < 2) return;
         showLibraryPickerSheet(context, lib);
       case 'bookmarks':
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const BookmarksScreen()),
-        );
+        Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const BookmarksScreen()));
       case 'downloads':
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const DownloadsScreen()),
-        );
+        Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const DownloadsScreen()));
       case 'admin':
         Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const AdminScreen()),
-        );
+            context, MaterialPageRoute(builder: (_) => const AdminScreen()));
       case 'sleep':
         showSleepTimerSheet(context, Theme.of(context).colorScheme.primary);
       case 'eink':
@@ -1473,28 +1432,23 @@ class _AppShellState extends State<AppShell>
             _player.currentItemId ?? _frontAbsorbingItem()?['id'] as String?;
         if (itemId == null) {
           showOverlayToast(
-            context,
-            AppLocalizations.of(context)!.navHoldNothingPlaying,
-            icon: Icons.info_outline_rounded,
-          );
+              context, AppLocalizations.of(context)!.navHoldNothingPlaying,
+              icon: Icons.info_outline_rounded);
           return;
         }
         showBookDetailSheet(context, itemId);
       case 'scanSeries':
         Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => const UpcomingReleasesScreen(openScanChooser: true),
-          ),
-        );
+            context,
+            MaterialPageRoute(
+                builder: (_) =>
+                    const UpcomingReleasesScreen(openScanChooser: true)));
       case 'rmabSearch':
         showRmabSearchResultsSheet(context, initialQuery: '');
       case 'rmabRequests':
         // The setup sheet opens on its My Requests tab.
-        showRmabConfigSheet(
-          context,
-          isAdminContext: context.read<AuthProvider>().isAdmin,
-        );
+        showRmabConfigSheet(context,
+            isAdminContext: context.read<AuthProvider>().isAdmin);
       case 'rmabWeb':
         unawaited(_openRmabSite());
       case 'bookRequests':
@@ -1521,16 +1475,10 @@ class _AppShellState extends State<AppShell>
       case 'stats':
         screen = const AdminStatsScreen();
       case 'users':
-        final r = await Future.wait([
-          api.getUsers(),
-          api.getOnlineUsers(),
-          api.getLibraries(),
-        ]);
+        final r = await Future.wait(
+            [api.getUsers(), api.getOnlineUsers(), api.getLibraries()]);
         screen = AdminUsersScreen(
-          users: r[0],
-          onlineUsers: r[1],
-          libraries: r[2],
-        );
+            users: r[0], onlineUsers: r[1], libraries: r[2]);
       case 'sessions':
         screen = AdminSessionsScreen(users: await api.getUsers());
       case 'email':
@@ -1551,7 +1499,8 @@ class _AppShellState extends State<AppShell>
         screen = const AdminScreen();
     }
     if (!mounted) return;
-    await Navigator.push(context, MaterialPageRoute(builder: (_) => screen!));
+    await Navigator.push(
+        context, MaterialPageRoute(builder: (_) => screen!));
   }
 
   /// Open the ReadMeABook site in the in-app browser: the legacy URL when one
@@ -1568,9 +1517,7 @@ class _AppShellState extends State<AppShell>
     }
     if (!mounted || target.isEmpty) return;
     await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => AdminRmabScreen(url: target)),
-    );
+        context, MaterialPageRoute(builder: (_) => AdminRmabScreen(url: target)));
   }
 
   /// Kick off a server-side scan of one library, or every library.
@@ -1582,8 +1529,7 @@ class _AppShellState extends State<AppShell>
     final ids = target == 'all'
         ? [
             for (final lib in libs)
-              if ((lib['id'] as String?)?.isNotEmpty == true)
-                lib['id'] as String,
+              if ((lib['id'] as String?)?.isNotEmpty == true) lib['id'] as String
           ]
         : [target];
     if (ids.isEmpty) return;
@@ -1618,11 +1564,8 @@ class _AppShellState extends State<AppShell>
     final api = context.read<AuthProvider>().apiService;
     final itemId = item?['id'] as String?;
     if (item == null || itemId == null || api == null) {
-      showOverlayToast(
-        context,
-        l.navHoldNothingPlaying,
-        icon: Icons.play_disabled_rounded,
-      );
+      showOverlayToast(context, l.navHoldNothingPlaying,
+          icon: Icons.play_disabled_rounded);
       return;
     }
     final lib = context.read<LibraryProvider>();
@@ -1644,8 +1587,7 @@ class _AppShellState extends State<AppShell>
         libraryId: item['libraryId'] as String?,
         fromUi: true,
       );
-      if (mounted && error != null)
-        showOverlayToast(context, error, icon: Icons.error_outline_rounded);
+      if (mounted && error != null) showOverlayToast(context, error, icon: Icons.error_outline_rounded);
       return;
     }
     final full = await api.getLibraryItem(itemId) ?? item;
@@ -1663,8 +1605,7 @@ class _AppShellState extends State<AppShell>
       libraryId: full['libraryId'] as String?,
       fromUi: true,
     );
-    if (mounted && error != null)
-      showOverlayToast(context, error, icon: Icons.error_outline_rounded);
+    if (mounted && error != null) showOverlayToast(context, error, icon: Icons.error_outline_rounded);
   }
 
   /// Open the playing (or last-played) book's ebook, falling back to the front
@@ -1676,17 +1617,13 @@ class _AppShellState extends State<AppShell>
     final itemId = _player.currentItemId ?? front?['id'] as String?;
     var title = _player.currentTitle ?? '';
     if (front != null) {
-      final metadata =
-          (front['media'] as Map<String, dynamic>?)?['metadata']
-              as Map<String, dynamic>?;
+      final metadata = (front['media'] as Map<String, dynamic>?)?['metadata']
+          as Map<String, dynamic>?;
       title = metadata?['title'] as String? ?? title;
     }
     if (itemId == null) {
-      showOverlayToast(
-        context,
-        l.noEbookFileFound,
-        icon: Icons.menu_book_outlined,
-      );
+      showOverlayToast(context, l.noEbookFileFound,
+          icon: Icons.menu_book_outlined);
       return;
     }
     var ebookFile = await cachedEbookFileFor(itemId);
@@ -1702,11 +1639,8 @@ class _AppShellState extends State<AppShell>
     }
     if (!mounted) return;
     if (ebookFile == null) {
-      showOverlayToast(
-        context,
-        l.noEbookFileFound,
-        icon: Icons.menu_book_outlined,
-      );
+      showOverlayToast(context, l.noEbookFileFound,
+          icon: Icons.menu_book_outlined);
       return;
     }
     await openEbookReader(
@@ -1833,9 +1767,8 @@ class _AnimatedWaveIconState extends State<_AnimatedWaveIcon>
     // That only matters in e-ink mode, where the selected pill is solid black
     // and the theme is what turns a selected icon white - without this the
     // wave paints black on black and the tab looks empty.
-    final einkColor = PlayerSettings.einkMode
-        ? IconTheme.of(context).color
-        : null;
+    final einkColor =
+        PlayerSettings.einkMode ? IconTheme.of(context).color : null;
 
     return AnimatedBuilder(
       animation: _ctrl,
@@ -1843,8 +1776,8 @@ class _AnimatedWaveIconState extends State<_AnimatedWaveIcon>
         size: Size(widget.size, widget.size),
         painter: _NavWavePainter(
           phase: _ctrl.value,
-          color:
-              einkColor ?? (widget.active ? cs.primary : cs.onSurfaceVariant),
+          color: einkColor ??
+              (widget.active ? cs.primary : cs.onSurfaceVariant),
           playing: playing,
         ),
       ),

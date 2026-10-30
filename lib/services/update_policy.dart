@@ -2,7 +2,10 @@ class UpdateReleaseAsset {
   final String name;
   final String downloadUrl;
 
-  const UpdateReleaseAsset({required this.name, required this.downloadUrl});
+  const UpdateReleaseAsset({
+    required this.name,
+    required this.downloadUrl,
+  });
 }
 
 const supportedAndroidUpdateAbis = <String>{
@@ -158,7 +161,9 @@ String androidUpdatePackageLabel(UpdateReleaseAsset asset) {
     r'-(\d+)-(?:universal|armeabi-v7a|arm64-v8a|x86_64)(?:-pre)?\.apk$',
     caseSensitive: false,
   ).firstMatch(asset.name)?.group(1);
-  return build == null ? '$packageKind APK' : '$packageKind APK • build $build';
+  return build == null
+      ? '$packageKind APK'
+      : '$packageKind APK • build $build';
 }
 
 bool _hasFilenameToken(String filename, String token) {
@@ -171,7 +176,9 @@ bool _hasFilenameToken(String filename, String token) {
 
 (List<int>, int?) _parseVersion(String version) {
   final sem = RegExp(r'(\d+)\.(\d+)\.(\d+)').firstMatch(version);
-  final parts = [for (var i = 1; i <= 3; i++) int.parse(sem?.group(i) ?? '0')];
+  final parts = [
+    for (var i = 1; i <= 3; i++) int.parse(sem?.group(i) ?? '0'),
+  ];
   final build = RegExp(r'[-+](\d+)$').firstMatch(version);
   return (parts, build == null ? null : int.parse(build.group(1)!));
 }
