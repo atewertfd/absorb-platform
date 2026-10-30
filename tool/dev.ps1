@@ -3,12 +3,14 @@
   One entry point for everyday Absorb Plus work on Windows.
 
 .DESCRIPTION
-  check      pub get, analyze, full test suite
+  check      pub get, analyze, full test suite, tool tests, removed-paths check
   build      Windows release into build\windows\x64\runner\Release, then
              verify the exe's version matches pubspec.yaml
   bump       next build number (+1) and next beta number, in pubspec.yaml
              and lib/build_info.dart (use -Beta N to set the beta number)
   footprint  how far the fork's lib/ code differs from upstream
+  merge      merge upstream origin/main with the fork's rules
+             (tool/upstream_merge.py); never commits
 
   Every command leaves the generated plugin registrant files as committed.
 
@@ -20,7 +22,7 @@
 #>
 param(
   [Parameter(Mandatory = $true, Position = 0)]
-  [ValidateSet('check', 'build', 'bump', 'footprint')]
+  [ValidateSet('check', 'build', 'bump', 'footprint', 'merge')]
   [string]$Command,
   [int]$Beta = 0,
   [switch]$CloseRunning
@@ -67,7 +69,16 @@ switch ($Command) {
       Invoke-Flutter analyze --no-pub --no-fatal-infos
       Invoke-Flutter test --no-pub
     } finally { Restore-Generated }
+    python -m unittest discover -s tool/tests
+    if ($LASTEXITCODE -ne 0) { throw 'tool tests failed' }
+    python tool/check_fork_removed.py
+    if ($LASTEXITCODE -ne 0) { throw 'removed paths are back' }
     Write-Host 'check passed' -ForegroundColor Green
+  }
+
+  'merge' {
+    python tool/upstream_merge.py
+    Write-Host 'Merge prepared (not committed). Resolve anything listed, then run check and build.' -ForegroundColor Yellow
   }
 
   'build' {
