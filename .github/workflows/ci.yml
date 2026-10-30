@@ -81,7 +81,12 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-          cache: gradle
+      # Keeps Gradle's dependency and build caches between runs, saved from
+      # this branch too (the default saves only on main), so unchanged plugin
+      # code isn't recompiled for every phone-test APK.
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
       # Gradle otherwise downloads two NDKs, CMake and an SDK platform on every
       # run (about 5 minutes). Same key as release.yml, so tag builds reuse it.
       - name: Cache Android NDK, CMake and SDK platform
@@ -129,6 +134,8 @@ jobs:
         env:
           CMAKE_C_COMPILER_LAUNCHER: ccache
           CMAKE_CXX_COMPILER_LAUNCHER: ccache
+          # Gradle's build cache: reuse task outputs whose inputs didn't change.
+          GRADLE_OPTS: -Dorg.gradle.caching=true
         run: flutter build apk --release --no-pub --flavor github --target-platform android-arm64 --dart-define=GITHUB_BUILD=true
       - name: Verify the APK carries the permanent signing key
         run: python3 tool/ci/verify_apk_signature.py build/app/outputs/flutter-apk/*github-release*.apk
