@@ -24,7 +24,10 @@ Never touch other releases: no deleting, renaming, or changing which one is Late
    - The worktree is clean, and the branch is pushed to `fork`.
    - CI is green on that commit: `gh run list --repo atewertfd/absorb-platform --branch <branch> --limit 3`.
    - `.\tool\dev.ps1 check` passes.
-2. **Version.** Run `.\tool\dev.ps1 bump` and commit it as `chore: bump build identifier to X.Y.Z+N (Beta K)`. Odd patch means beta; even patch means stable.
+0. **Is a release due?** Releases are batched; see CLAUDE.md. Publish only for something broken or unusable, or for a medium batch of changes, roughly at most every 1–2 weeks. Otherwise just push and rebuild the owner's test folder.
+2. **Version.** Run `.\tool\dev.ps1 bump` (build number only) and commit it as `chore: bump build identifier to X.Y.Z+N (Beta K)`. `K` is the current `kBetaNumber`, the beta being published. Odd patch means beta; even patch means stable.
+   - **After the release is published and verified,** run `.\tool\dev.ps1 bump -NextBeta` so local builds name the next beta.
+   - Commit that as `chore: start Beta K+1`.
 3. **Local build:** follow the `build-verify` skill. The owner should get the same build locally.
 4. **Release notes.** Write them in the scratchpad and start with `## Beta K`, because the in-app update dialog parses that heading. Then:
    - list the user-visible changes since the last release tag (`git log <last-tag>..HEAD --oneline`), in plain words;

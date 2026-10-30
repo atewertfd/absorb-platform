@@ -6,8 +6,10 @@
   check      pub get, analyze, full test suite, tool tests, removed-paths check
   build      Windows release into build\windows\x64\runner\Release, then
              verify the exe's version matches pubspec.yaml
-  bump       next build number (+1) and next beta number, in pubspec.yaml
-             and lib/build_info.dart (use -Beta N to set the beta number)
+  bump       next build number (+1) in pubspec.yaml, for every build the
+             owner gets. The beta number (lib/build_info.dart) names the
+             next beta to be published and stays put; after publishing one,
+             run bump -NextBeta (or -Beta N to set it).
   footprint  how far the fork's lib/ code differs from upstream
   merge      merge upstream origin/main with the fork's rules
              (tool/upstream_merge.py); never commits
@@ -26,6 +28,7 @@ param(
   [string]$Command,
   [int]$Beta = 0,
   [switch]$CloseRunning,
+  [switch]$NextBeta,
   [switch]$Full
 )
 $script:ShowFull = [bool]$Full
@@ -146,7 +149,10 @@ switch ($Command) {
     $next = "$($Matches[1])+$([int]$Matches[2] + 1)"
     $info = Get-Content lib/build_info.dart -Raw
     if ($info -notmatch 'const int kBetaNumber = (\d+);') { throw 'kBetaNumber not found' }
-    $beta = if ($Beta -gt 0) { $Beta } else { [int]$Matches[1] + 1 }
+    # Releases are batched: the beta number names the next beta to publish
+    # and only moves after one is published (-NextBeta) or is set (-Beta N).
+    $current = [int]$Matches[1]
+    $beta = if ($Beta -gt 0) { $Beta } elseif ($NextBeta) { $current + 1 } else { $current }
     (Get-Content pubspec.yaml -Raw) -replace "(?m)^version:\s*\S+", "version: $next" |
       Set-Content pubspec.yaml -NoNewline
     $info -replace 'const int kBetaNumber = \d+;', "const int kBetaNumber = $beta;" |

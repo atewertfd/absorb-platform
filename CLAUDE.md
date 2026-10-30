@@ -19,6 +19,11 @@ Claude is the main and only developer of Absorb Plus, a fork of [pounat/absorb](
 - **Upstream merges are never automatic.** Nothing merges, pushes or publishes on a schedule; reports only *report*. Claude decides when a merge is worth it and does it on its own branch (`claude/upstream-<date>`) with the `/upstream-merge` skill. Claude reviews every real conflict itself, then runs all checks and builds Windows. A merge that touches playback, downloads, sign-in or the installer reaches the owner's `main` and releases only after the owner has tried that Windows build and said OK.
 - **Apple: removed.** Paths in `tool/fork-removed-paths.txt` stay deleted. Merges drop them automatically, and the hooks block edits to them.
 - **Releases: hybrid.** Claude publishes routine **betas** once every check passes. **Stable releases**, and betas touching the playback engine, download storage, auth or tokens, the installer or updater, or data migrations, need the owner's OK first. See the `release` skill.
+- **Releases are batched (2026-10-30).** Don't publish for every small change.
+  - Publish a beta when something is broken or unusable, such as a crash, playback, downloads, sync or sign-in failing. Release those fixes quickly.
+  - Otherwise publish when a medium batch of features or fixes has built up: roughly at most every 1–2 weeks, never for one tiny tweak.
+  - Work still lands on GitHub, the owner's Windows test folder is still rebuilt after every change, and web still redeploys from `main`.
+  - Each release gets one set of notes covering everything since the last one.
 - Always ask before:
   - system-level installs or Windows features;
   - anything touching the owner's real Audiobookshelf server or NAS;
@@ -89,7 +94,9 @@ Claude is the main and only developer of Absorb Plus, a fork of [pounat/absorb](
 ## Owner preferences
 
 - **Installer:** a normal EXE installer plus a portable ZIP. Updates install in place and keep data; uninstalling never deletes user data unexpectedly.
-- **Builds:** every user-facing build gets a version bump (`dev.ps1 bump`), so the app shows which build is running.
+- **Builds:** every user-facing build gets a build-number bump (`dev.ps1 bump`), so the app shows which build is running.
+  - The **Beta number** (`kBetaNumber`) names the next beta to be published and stays put between releases.
+  - Raise it only after publishing: `dev.ps1 bump -NextBeta`.
 - **Updates:** never forced. Show "update available" and let the user choose.
 - **Release assets:** no SHA256SUMS files.
 - **NAS / local-server discovery work** (`codex-local/feature/local-server-discovery`): paused until the owner says go.
