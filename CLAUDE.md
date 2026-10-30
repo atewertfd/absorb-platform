@@ -22,9 +22,11 @@ flutter test --no-pub
 flutter build windows --release --no-pub --dart-define=GITHUB_BUILD=true
 ```
 
+- Requires the NuGet CLI on PATH (`winget install Microsoft.NuGet`, installed per user to `%LOCALAPPDATA%\Microsoft\WinGet\Links`). The upstream `flutter_inappwebview_windows` plugin downloads WebView2 headers through it. If a build once ran without NuGet, delete `build\windows` so CMake re-detects it.
 - Output must go to `build\windows\x64\runner\Release` (the owner runs `absorb.exe` from there). If that exact exe is running, close only that copy, gracefully.
 - Verify the exe's ProductVersion matches `pubspec.yaml`.
-- Flutter commands rewrite `linux/flutter/generated_plugin*` and `windows/flutter/generated_plugin*`. Restore them with `git restore --source=HEAD --` unless a plugin change is intended.
+- Flutter commands rewrite `linux/flutter/generated_plugin*` and `windows/flutter/generated_plugin*` (locally they drop `jni`). Restore them with `git restore --source=HEAD --` **after** building, unless a plugin change is intended. Restoring before a `--no-pub` build breaks CMake, because the committed list names `jni`. Run `flutter pub get` first if they were restored.
+- If the owner is running the Release build (for example, testing a beta), don't close it or overwrite the folder. Verify the build in a separate `git worktree` and rebuild the Release folder once they're done.
 - Don't run `dart format` on large existing files: it rewraps hundreds of unrelated lines. Format only new files or new code.
 
 ## Product rules
