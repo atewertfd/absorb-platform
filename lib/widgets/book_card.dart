@@ -14,6 +14,7 @@ import 'book_detail_sheet.dart';
 import 'episode_list_sheet.dart';
 import 'cover_decode.dart';
 import 'library_item_snapshot.dart';
+import '../ui_themes/ui_theme_hooks.dart';
 
 class BookCard extends StatelessWidget {
   final Map<String, dynamic> item;
@@ -506,17 +507,17 @@ class _CoverImage extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final decodeWidth = coverDecodeWidth(
+        final decodeWidth = themedCoverDecodeWidth(context, coverDecodeWidth(
           width: constraints.maxWidth,
           height: constraints.maxHeight,
           devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
-        );
+        ));
     if (coverUrl!.startsWith('/')) {
       final file = File(coverUrl!);
       if (! file.existsSync()) return _placeholder();
         return EinkCoverTone(child: BlurPaddedCover(
           enabled: isSquare,
-          blurChild: Image.file(file, fit: BoxFit.cover, cacheWidth: 32,
+          blurChild: Image.file(file, fit: BoxFit.cover, cacheWidth: themedCoverDecodeWidth(context, 32),
                 errorBuilder: (_, __, ___) => const SizedBox.shrink()),
           child: Image.file(file, fit: effectiveFit, cacheWidth: decodeWidth,
                 errorBuilder: (_, __, ___) => _placeholder()),
@@ -529,7 +530,7 @@ class _CoverImage extends StatelessWidget {
         imageUrl: coverUrl!,
         fit: BoxFit.cover,
         httpHeaders: httpHeaders,
-        memCacheWidth: 32,
+        memCacheWidth: themedCoverDecodeWidth(context, 32),
               errorWidget: (_, __, ___) => const SizedBox.shrink(),
       ),
       child: CachedNetworkImage(

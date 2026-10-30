@@ -52,6 +52,7 @@ import 'utils/app_motion.dart';
 import 'utils/scroll_diagnostics.dart';
 import 'utils/smooth_wheel_scroll.dart';
 import 'utils/memory_policy.dart';
+import 'ui_themes/ui_theme.dart';
 
 /// Global notifier so any widget (e.g. settings) can change the theme instantly.
 final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.dark);
@@ -296,6 +297,7 @@ void main() async {
     PlayerSettings.mp3IndexSeeking = await PlayerSettings.getMp3IndexSeeking();
     PlayerSettings.coverSize = await PlayerSettings.getCoverSize();
     PlayerSettings.cardButtonFill = await PlayerSettings.getCardButtonFill();
+    await UiThemeStore.load(); // device-wide look (Absorb Plus / Classic)
     // Restore last cover seed color so the theme doesn't flash on startup
     {
       final seedInt = await PlayerSettings.getCoverSeedColor();
@@ -341,7 +343,7 @@ void main() async {
           update: (_, auth, lib) => lib!..updateAuth(auth),
         ),
       ],
-      child: AbsorbApp(setupLinkStream: appLinks.uriLinkStream),
+      child: UiThemeScope(child: AbsorbApp(setupLinkStream: appLinks.uriLinkStream)),
     ),
   );
 }

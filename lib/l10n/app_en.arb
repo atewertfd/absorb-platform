@@ -7060,5 +7060,13 @@
         "type": "String"
       }
     }
-  }
+  },
+  "uiThemeLabel": "UI theme",
+  "uiThemePickerTitle": "Choose a look",
+  "uiThemePickerIntro": "You can change this any time in Settings > Appearance > UI theme.",
+  "uiThemePlusName": "Absorb Plus",
+  "uiThemePlusDescription": "Today's look, with ebook and saved badges and memory-saving covers.",
+  "uiThemeClassicName": "Classic",
+  "uiThemeClassicDescription": "The first Windows version's look: full-quality covers, fewer badges, compact buttons.",
+  "uiThemeContinue": "Continue"
 }

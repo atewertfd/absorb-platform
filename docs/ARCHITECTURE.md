@@ -46,6 +46,7 @@ How Absorb Plus is put together and where to look. The layout under `lib/` is up
 | Performance policies | `utils/memory_policy.dart`, `utils/performance_policy.dart`, `utils/app_motion.dart`, `widgets/library_item_snapshot.dart`, `widgets/cover_decode.dart` |
 | Desktop | `services/desktop_shortcuts.dart`, `services/desktop_audio*.dart`, `widgets/accessible_header_action.dart`, `windows/cmake/webview_shutdown.cmake` |
 | Server health | `services/server_health_service.dart`, `screens/server_health_screen.dart` |
+| UI themes (Absorb Plus / Classic look) | `ui_themes/ui_theme.dart` (enum, `UiThemeSpec` presets, device-wide pref `fork_ui_theme`, `UiThemeScope`), `ui_themes/ui_theme_hooks.dart` (the one-line checks upstream files call), `ui_themes/ui_theme_picker.dart` (first-launch picker, Settings tile). Hooks: `main.dart` (load + scope), `app_shell.dart` (launch prompt), `settings_screen.dart` + `settings_search_index.dart`, `book_card.dart`, `cover_badges.dart`, `home_section.dart`, `home_screen.dart`; `memory_policy.dart` and `accessible_header_action.dart` read the spec directly. New look = enum value + preset + two strings. |
 | Tooling | see "Developer tooling" below |
 
 ## Developer tooling (all fork-owned)

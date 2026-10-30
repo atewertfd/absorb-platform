@@ -10,6 +10,7 @@ import 'author_card.dart';
 import 'series_card.dart';
 import 'episode_list_sheet.dart';
 import 'books_sheet_shared.dart' show coverSizeScale;
+import '../ui_themes/ui_theme_hooks.dart';
 
 class HomeSection extends StatelessWidget {
   final String title;
@@ -100,7 +101,7 @@ class HomeSection extends StatelessWidget {
             ? 200
             : isAuthorSection
                 ? 170
-                : cardWidth / coverAspectRatio + textBlock;
+                : classicShelfCardHeight(context, isRectCover, cardWidth, coverAspectRatio, subtitleLine) ?? cardWidth / coverAspectRatio + textBlock;
 
     return Padding(
       padding: const EdgeInsets.only(top: 24),

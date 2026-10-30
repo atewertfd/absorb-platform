@@ -21848,6 +21848,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'\"{title}\" is already in this library. Uploading it again creates a duplicate.'**
   String libationImportAlreadyInLibrary(String title);
+
+  /// No description provided for @uiThemeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'UI theme'**
+  String get uiThemeLabel;
+
+  /// No description provided for @uiThemePickerTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a look'**
+  String get uiThemePickerTitle;
+
+  /// No description provided for @uiThemePickerIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'You can change this any time in Settings > Appearance > UI theme.'**
+  String get uiThemePickerIntro;
+
+  /// No description provided for @uiThemePlusName.
+  ///
+  /// In en, this message translates to:
+  /// **'Absorb Plus'**
+  String get uiThemePlusName;
+
+  /// No description provided for @uiThemePlusDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s look, with ebook and saved badges and memory-saving covers.'**
+  String get uiThemePlusDescription;
+
+  /// No description provided for @uiThemeClassicName.
+  ///
+  /// In en, this message translates to:
+  /// **'Classic'**
+  String get uiThemeClassicName;
+
+  /// No description provided for @uiThemeClassicDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'The first Windows version\'s look: full-quality covers, fewer badges, compact buttons.'**
+  String get uiThemeClassicDescription;
+
+  /// No description provided for @uiThemeContinue.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get uiThemeContinue;
 }
 
 class _AppLocalizationsDelegate

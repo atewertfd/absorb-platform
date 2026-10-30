@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
+import '../ui_themes/ui_theme_hooks.dart';
 
 /// State banner across the bottom of cover art: a finished check + "Finished"
 /// (green, or "Skimmed" in amber for a BookOrbit book marked skimmed) and a
@@ -116,6 +117,7 @@ class EbookCoverBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (!showsExtraCoverBadges(context)) return const SizedBox.shrink();
     if (readAlong) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),

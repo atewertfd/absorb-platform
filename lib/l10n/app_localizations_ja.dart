@@ -12870,4 +12870,31 @@ class AppLocalizationsJa extends AppLocalizations {
   String libationImportAlreadyInLibrary(String title) {
     return '\"$title\" is already in this library. Uploading it again creates a duplicate.';
   }
+
+  @override
+  String get uiThemeLabel => 'UI theme';
+
+  @override
+  String get uiThemePickerTitle => 'Choose a look';
+
+  @override
+  String get uiThemePickerIntro =>
+      'You can change this any time in Settings > Appearance > UI theme.';
+
+  @override
+  String get uiThemePlusName => 'Absorb Plus';
+
+  @override
+  String get uiThemePlusDescription =>
+      'Today\'s look, with ebook and saved badges and memory-saving covers.';
+
+  @override
+  String get uiThemeClassicName => 'Classic';
+
+  @override
+  String get uiThemeClassicDescription =>
+      'The first Windows version\'s look: full-quality covers, fewer badges, compact buttons.';
+
+  @override
+  String get uiThemeContinue => 'Continue';
 }

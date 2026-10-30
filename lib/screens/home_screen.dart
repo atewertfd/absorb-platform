@@ -38,6 +38,7 @@ import '../widgets/section_labels.dart';
 import 'app_shell.dart';
 import '../l10n/app_localizations.dart';
 import '../utils/duration_format.dart';
+import '../ui_themes/ui_theme_hooks.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -763,7 +764,7 @@ class HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMi
                         selectionAvailable: selectionAvailable,
                       );
                     }
-                    if (id == 'continue-reading') {
+                    if (id == 'continue-reading' && !usesClassicHomeShelves(context)) {
                       return _heroShelf(
                         lib: lib,
                         title: sectionLabel(id, section['label'] as String?, l),
@@ -1162,7 +1163,7 @@ class _ContinueListeningCardState extends State<_ContinueListeningCard> {
                   Positioned.fill(
                     child: _buildCoverImage(coverUrl, cs, lib.mediaHeaders),
                   ),
-                  if (DownloadService().isDownloaded(playbackDownloadKey(itemId, episodeId)))
+                  if (showsExtraCoverBadges(context) && DownloadService().isDownloaded(playbackDownloadKey(itemId, episodeId)))
                     const Positioned(
                       left: 0,
                       right: 0,

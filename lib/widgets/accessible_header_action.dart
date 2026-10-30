@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../ui_themes/ui_theme_hooks.dart';
+
 /// Keyboard and screen-reader behavior for the compact, custom page actions.
 /// The supplied child keeps the page's existing visual design.
 class AccessibleHeaderAction extends StatefulWidget {
@@ -61,7 +63,8 @@ class _AccessibleHeaderActionState extends State<AccessibleHeaderAction> {
             excludeFromSemantics: true,
             onTap: widget.onPressed,
             child: Container(
-              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+              // 44x44 tap area, except in looks that keep the drawn size.
+              constraints: headerActionConstraints(context),
               foregroundDecoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(22),
                 border: _showFocus && enabled
