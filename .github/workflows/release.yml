@@ -228,6 +228,17 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+          cache: gradle
+      # Same cache as ci.yml (NDKs, CMake, SDK platform; about 5 minutes saved).
+      - name: Cache Android NDK, CMake and SDK platform
+        uses: actions/cache@v4
+        with:
+          path: |
+            /usr/local/lib/android/sdk/ndk/27.0.12077973
+            /usr/local/lib/android/sdk/ndk/28.*
+            /usr/local/lib/android/sdk/cmake/3.22.1
+            /usr/local/lib/android/sdk/platforms/android-33
+          key: android-sdk-${{ hashFiles('.flutter-version', 'android/app/build.gradle.kts', 'packages/whisper_ggml_plus/android/build.gradle') }}
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
