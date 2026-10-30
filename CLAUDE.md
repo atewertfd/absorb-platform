@@ -2,10 +2,16 @@
 
 Absorb Plus is a fork of [pounat/absorb](https://github.com/pounat/absorb) (Flutter Audiobookshelf client), published at [atewertfd/absorb-platform](https://github.com/atewertfd/absorb-platform). Windows desktop is the primary target, then Android, then Linux and web. Apple and ARM builds are low priority.
 
+## Location
+
+- The main checkout is **`C:\Users\pc\Desktop\claude\Absorb`** (since 2026-10-29). The owner runs builds from `C:\Users\pc\Desktop\claude\Absorb\build\windows\x64\runner\Release\absorb.exe`.
+- Older Codex checkouts under `C:\Users\pc\Documents\Codex\2026-09-29\` still exist: the original `absorb-windows-port`, its `absorb-memory-optimization` worktree, and the paused NAS `local-server-discovery` worktree. Don't build or commit there. Their branches are reachable read-only through the `codex-local` remote, whose push URL is disabled on purpose.
+
 ## Remotes and publishing
 
 - `origin` = upstream `pounat/absorb`. **Never push to it.** Fetch and merge from it to keep up with upstream fixes.
-- `fork` / `windows` = `atewertfd/absorb-platform`. Push branches here.
+- `fork` = `atewertfd/absorb-platform`. Push branches here.
+- `codex-local` = the old Codex checkout, read-only.
 - Pushing a `v*` tag to the fork runs `windows-release.yml` (installer and portable ZIP) and `desktop-web-release.yml` (Linux, web, Android) and publishes a **pre-release**. Pushing `main` redeploys the web build to GitHub Pages.
 - Publishing a release, changing which release is Latest, or deleting releases, tags or assets needs the owner's explicit OK. Inspect existing releases first.
 
