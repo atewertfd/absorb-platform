@@ -79,7 +79,16 @@ ThemeData frostedThemeData(ThemeData base) {
   if (look.frostedNavBar && sheetAlpha != null) {
     final navBase =
         base.navigationBarTheme.backgroundColor ?? base.scaffoldBackgroundColor;
-    final tinted = navBase.withValues(alpha: sheetAlpha);
+    // The bar sits outside the page, over the plain scaffold, so give it the
+    // accent tint the screens get instead of a see-through it can't have.
+    final accentTint = look.backdropTint;
+    final tinted = (accentTint > 0
+            ? Color.alphaBlend(
+                base.colorScheme.primary.withValues(alpha: accentTint),
+                navBase,
+              )
+            : navBase)
+        .withValues(alpha: sheetAlpha);
     data = data.copyWith(
       navigationBarTheme: base.navigationBarTheme.copyWith(
         backgroundColor: panel == null ? tinted : Color.alphaBlend(panel, tinted),

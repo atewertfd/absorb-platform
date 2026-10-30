@@ -455,12 +455,12 @@ class _StatsScreenState extends State<StatsScreen>
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             stops: const [0.0, 0.22, 0.72, 1.0],
-            colors: [
+            colors: lookBackdrop(context, [
               cs.primary.withValues(alpha: lookGlow(context, gradientIntensityNotifier.value)),
               cs.surface,
               Color.lerp(cs.surface, Theme.of(context).scaffoldBackgroundColor, 0.55) ?? Theme.of(context).scaffoldBackgroundColor,
               Theme.of(context).scaffoldBackgroundColor,
-            ],
+            ]),
           ),
         ),
         child: SafeArea(

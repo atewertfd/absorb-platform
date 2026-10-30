@@ -1879,11 +1879,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             stops: const [0.0, 0.35, 1.0],
-            colors: [
+            colors: lookBackdrop(context, [
               cs.primary.withValues(alpha: lookGlow(context, gradientIntensityNotifier.value)),
               Theme.of(context).scaffoldBackgroundColor,
               Theme.of(context).scaffoldBackgroundColor,
-            ],
+            ]),
           ),
         ),
         child: SafeArea(

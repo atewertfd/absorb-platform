@@ -110,16 +110,18 @@ void main() {
 
     test('Frosted: subtle glass tokens, Absorb Plus behavior flags', () {
       final dark = AppUiTheme.frosted.lookFor(Brightness.dark);
-      expect(dark.glowStrength, inInclusiveRange(0.22, 0.30));
-      expect(dark.panelFillAlpha, 0.07);
-      expect(dark.panelBorderAlpha, 0.12);
+      expect(dark.glowStrength, inInclusiveRange(0.22, 0.32));
+      expect(dark.panelFillAlpha, 0.10);
+      expect(dark.panelBorderAlpha, 0.16);
+      // Color carried down the screen, so the glass shows something.
+      expect(dark.backdropTint, greaterThan(0));
       expect(dark.panelBlurSigma, inInclusiveRange(18, 20));
       expect(dark.cornerRadiusBoost, 4);
       expect(dark.sheetFillAlpha, greaterThanOrEqualTo(0.85));
       expect(dark.frostedNavBar, isTrue);
       expect(dark.frostedSheets, isTrue);
       expect(dark.frostedPlayerCard, isTrue);
-      expect(dark.panelEdge(Brightness.dark), Colors.white.withValues(alpha: 0.12));
+      expect(dark.panelEdge(Brightness.dark), Colors.white.withValues(alpha: 0.16));
 
       final light = AppUiTheme.frosted.lookFor(Brightness.light);
       expect(light.frostedPanels, isTrue);
@@ -145,7 +147,7 @@ void main() {
       const a = AbsorbLook.frostedDark;
       const b = AbsorbLook.frostedLight;
       final mid = a.lerp(b, 0.5);
-      expect(mid.panelFillAlpha, closeTo((0.07 + 0.50) / 2, 1e-9));
+      expect(mid.panelFillAlpha, closeTo((0.10 + 0.50) / 2, 1e-9));
       expect(a.lerp(AbsorbLook.plus, 0.25).frostedNavBar, isTrue);
       expect(a.lerp(AbsorbLook.plus, 0.75).frostedNavBar, isFalse);
       expect(a.lerp(AbsorbLook.plus, 0.75).panelFillAlpha, isNull);

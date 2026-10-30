@@ -217,11 +217,11 @@ void main() {
     ) async {
       final context = await _pumpThemedApp(tester, AppUiTheme.frosted);
       final t = Theme.of(context);
-      expect(t.cardTheme.color, Colors.white.withValues(alpha: 0.07));
+      expect(t.cardTheme.color, Colors.white.withValues(alpha: 0.10));
       expect(t.cardTheme.elevation, 0);
       final card = t.cardTheme.shape! as RoundedRectangleBorder;
       expect(card.borderRadius, BorderRadius.circular(20));
-      expect(card.side.color, Colors.white.withValues(alpha: 0.12));
+      expect(card.side.color, Colors.white.withValues(alpha: 0.16));
       expect(t.bottomSheetTheme.backgroundColor!.a, closeTo(0.90, 0.01));
       expect(t.dialogTheme.backgroundColor!.a, closeTo(0.90, 0.01));
       expect(t.navigationBarTheme.backgroundColor!.a, lessThan(1));
@@ -385,5 +385,36 @@ void main() {
         expect(_contrast(cs.onSurface, sheet), greaterThanOrEqualTo(4.5));
       }
     });
+  });
+
+  testWidgets('Frosted carries color down the screen and makes cards see-through',
+      (tester) async {
+    final look = ValueNotifier<AppUiTheme?>(AppUiTheme.plus);
+    addTearDown(look.dispose);
+    late BuildContext ctx;
+    await _pump(tester, look, Builder(builder: (c) {
+      ctx = c;
+      return const SizedBox();
+    }));
+    const stops = [Color(0x33FF0000), Color(0xFF111111), Color(0xFF0E0E0E)];
+    const card = [Color(0xFF303040), Color(0xFF202030)];
+
+    // Absorb Plus and Classic: exactly what upstream paints.
+    expect(lookBackdrop(ctx, stops), stops);
+    expect(lookCardColors(ctx, card), card);
+    look.value = AppUiTheme.classic;
+    await tester.pump();
+    expect(lookBackdrop(ctx, stops), stops);
+    expect(lookCardColors(ctx, card), card);
+
+    // Frosted: the glow stays, the solid stops pick up the accent, and cards
+    // keep their tint but let the background through.
+    look.value = AppUiTheme.frosted;
+    await tester.pump();
+    final tinted = lookBackdrop(ctx, stops);
+    expect(tinted.first, stops.first);
+    expect(tinted.skip(1), everyElement(isNot(anyOf(stops))));
+    final glass = lookCardColors(ctx, card);
+    expect(glass.every((c) => c.a < 1), isTrue);
   });
 }

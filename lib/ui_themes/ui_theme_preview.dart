@@ -104,7 +104,11 @@ class UiThemePreview extends StatelessWidget {
                       cs.primary.withValues(alpha: glowAlpha),
                       bg,
                     ),
-                    bg,
+                    // Frosted carries the accent down the whole screen.
+                    Color.alphaBlend(
+                      cs.primary.withValues(alpha: look.backdropTint),
+                      bg,
+                    ),
                   ],
                 ),
         ),

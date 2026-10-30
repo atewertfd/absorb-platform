@@ -77,6 +77,7 @@ class AbsorbLook extends ThemeExtension<AbsorbLook> {
     this.classicHomeShelves = false,
     this.compactHeaderActions = false,
     this.glowStrength,
+    this.backdropTint = 0,
     this.panelFillAlpha,
     this.panelBorderAlpha = 0,
     this.panelBlurSigma = 0,
@@ -116,6 +117,11 @@ class AbsorbLook extends ThemeExtension<AbsorbLook> {
   /// gradient intensity setting. "Flat background" always wins: the screens
   /// skip the glow entirely when it is on.
   final double? glowStrength;
+
+  /// How much of the accent color tints the rest of a screen's background
+  /// below the glow (0 = upstream's solid surfaces). Frosted needs color
+  /// behind its translucent panels, or the glass shows plain dark.
+  final double backdropTint;
 
   /// Alpha of the white glass fill on cards and panels. Null keeps the
   /// opaque upstream fills (the panels are not frosted).
@@ -166,9 +172,10 @@ class AbsorbLook extends ThemeExtension<AbsorbLook> {
   /// Frosted in dark mode: the owner-approved demo's values (white 7% glass,
   /// 12% light edge, blur 18, radius +4) over a ~0.24 glow.
   static const AbsorbLook frostedDark = AbsorbLook(
-    glowStrength: 0.24,
-    panelFillAlpha: 0.07,
-    panelBorderAlpha: 0.12,
+    glowStrength: 0.30,
+    backdropTint: 0.16,
+    panelFillAlpha: 0.10,
+    panelBorderAlpha: 0.16,
     panelBlurSigma: 18,
     cornerRadiusBoost: 4,
     sheetFillAlpha: 0.90,
@@ -180,7 +187,8 @@ class AbsorbLook extends ThemeExtension<AbsorbLook> {
   /// Frosted in light mode: milky glass (white 50%) with a faint dark edge,
   /// and a softer glow since the light accent tone is darker.
   static const AbsorbLook frostedLight = AbsorbLook(
-    glowStrength: 0.18,
+    glowStrength: 0.22,
+    backdropTint: 0.10,
     panelFillAlpha: 0.50,
     panelBorderAlpha: 0.08,
     panelBlurSigma: 18,
@@ -228,6 +236,7 @@ class AbsorbLook extends ThemeExtension<AbsorbLook> {
     bool? classicHomeShelves,
     bool? compactHeaderActions,
     double? glowStrength,
+    double? backdropTint,
     double? panelFillAlpha,
     double? panelBorderAlpha,
     double? panelBlurSigma,
@@ -243,6 +252,7 @@ class AbsorbLook extends ThemeExtension<AbsorbLook> {
     classicHomeShelves: classicHomeShelves ?? this.classicHomeShelves,
     compactHeaderActions: compactHeaderActions ?? this.compactHeaderActions,
     glowStrength: glowStrength ?? this.glowStrength,
+    backdropTint: backdropTint ?? this.backdropTint,
     panelFillAlpha: panelFillAlpha ?? this.panelFillAlpha,
     panelBorderAlpha: panelBorderAlpha ?? this.panelBorderAlpha,
     panelBlurSigma: panelBlurSigma ?? this.panelBlurSigma,
@@ -268,6 +278,7 @@ class AbsorbLook extends ThemeExtension<AbsorbLook> {
       classicHomeShelves: near.classicHomeShelves,
       compactHeaderActions: near.compactHeaderActions,
       glowStrength: nullable(glowStrength, other.glowStrength),
+      backdropTint: lerpDouble(backdropTint, other.backdropTint, t)!,
       panelFillAlpha: nullable(panelFillAlpha, other.panelFillAlpha),
       panelBorderAlpha: lerpDouble(panelBorderAlpha, other.panelBorderAlpha, t)!,
       panelBlurSigma: lerpDouble(panelBlurSigma, other.panelBlurSigma, t)!,
@@ -289,6 +300,7 @@ class AbsorbLook extends ThemeExtension<AbsorbLook> {
       other.classicHomeShelves == classicHomeShelves &&
       other.compactHeaderActions == compactHeaderActions &&
       other.glowStrength == glowStrength &&
+      other.backdropTint == backdropTint &&
       other.panelFillAlpha == panelFillAlpha &&
       other.panelBorderAlpha == panelBorderAlpha &&
       other.panelBlurSigma == panelBlurSigma &&
@@ -306,6 +318,7 @@ class AbsorbLook extends ThemeExtension<AbsorbLook> {
     classicHomeShelves,
     compactHeaderActions,
     glowStrength,
+    backdropTint,
     panelFillAlpha,
     panelBorderAlpha,
     panelBlurSigma,

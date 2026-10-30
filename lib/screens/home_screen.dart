@@ -541,12 +541,12 @@ class HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMi
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             stops: const [0.0, 0.22, 0.72, 1.0],
-            colors: [
+            colors: lookBackdrop(context, [
               cs.primary.withValues(alpha: lookGlow(context, gradientIntensityNotifier.value)),
               cs.surface,
               lowerFade,
               scaffoldBg,
-            ],
+            ]),
           ),
         ),
         child: SafeArea(
@@ -1124,7 +1124,7 @@ class _ContinueListeningCardState extends State<_ContinueListeningCard> {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [cardBgTop, cardBgBottom],
+            colors: lookCardColors(context, [cardBgTop, cardBgBottom]),
           ),
         ),
         child: InkWell(

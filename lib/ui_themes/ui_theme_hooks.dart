@@ -65,6 +65,33 @@ BoxConstraints? headerActionConstraints(BuildContext context) =>
 double lookGlow(BuildContext context, double userIntensity) =>
     AbsorbLook.of(context).glowStrength ?? userIntensity;
 
+/// A screen background's gradient [colors] (glow first, then the solid
+/// surface stops). In Frosted the accent color tints the stops below the
+/// glow too, fading a little toward the bottom, so the translucent panels
+/// have color behind them. Other looks get [colors] back unchanged.
+List<Color> lookBackdrop(BuildContext context, List<Color> colors) {
+  final tint = AbsorbLook.of(context).backdropTint;
+  if (tint <= 0 || colors.length < 2) return colors;
+  final accent = Theme.of(context).colorScheme.primary;
+  final last = colors.length - 1;
+  return [
+    colors.first,
+    for (var i = 1; i <= last; i++)
+      Color.alphaBlend(
+        accent.withValues(alpha: tint * (1 - 0.4 * (i - 1) / last)),
+        colors[i],
+      ),
+  ];
+}
+
+/// A card's own fill [colors] (e.g. tinted from its cover): in Frosted they
+/// turn partly translucent so the screen's color shows through like glass,
+/// keeping their tint; other looks get them back unchanged.
+List<Color> lookCardColors(BuildContext context, List<Color> colors) {
+  if (!AbsorbLook.of(context).frostedPanels) return colors;
+  return [for (final c in colors) c.withValues(alpha: c.a * 0.62)];
+}
+
 /// A panel's fill: frosted glass when the look frosts panels, else [opaque].
 Color lookPanelColor(BuildContext context, Color opaque) =>
     AbsorbLook.of(context).panelFill() ?? opaque;
