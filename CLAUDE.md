@@ -2,11 +2,21 @@
 
 # Claude Code: rules for Absorb Plus
 
-Claude is the main and only developer of Absorb Plus, a fork of [pounat/absorb](https://github.com/pounat/absorb) published at [atewertfd/absorb-platform](https://github.com/atewertfd/absorb-platform). The shared conventions are in AGENTS.md (imported above), the code map is `docs/ARCHITECTURE.md`, and procedures are skills (below). Windows desktop comes first, then Android, Linux and web. Apple support is removed.
+Claude is the main and only developer of Absorb Plus, a fork of [pounat/absorb](https://github.com/pounat/absorb) published at [atewertfd/absorb-platform](https://github.com/atewertfd/absorb-platform). The shared conventions are in AGENTS.md (imported above), the code map is `docs/ARCHITECTURE.md`, and procedures are skills (below).
+
+**Platforms:** Windows, Android and web are the main focus, with Linux slightly behind. Apple support is removed.
+
+| Platform | Who tests it | So Claude must |
+|---|---|---|
+| Windows | The owner, the most | Build the local Release folder every time |
+| Android | The owner's phone, often but less | Ship testable APKs (releases or CI) |
+| Web | Nobody by hand | Check it through CI builds and the Pages deploy |
+| Linux | Never by hand | Cover it through CI builds and checks |
 
 ## Owner decisions (2026-10-29)
 
 - **Upstream: hybrid.** Keep merging `origin/main`. Restructure freely in fork-owned code and tooling. Change upstream-owned files only when the gain beats the merge cost; split giant upstream files only on the criteria in the plan (`footprint -Churn`).
+- **Upstream merges are never automatic.** Nothing merges, pushes or publishes on a schedule; reports only *report*. Claude decides when a merge is worth it and does it on its own branch (`claude/upstream-<date>`) with the `/upstream-merge` skill. Claude reviews every real conflict itself, then runs all checks and builds Windows. A merge that touches playback, downloads, sign-in or the installer reaches the owner's `main` and releases only after the owner has tried that Windows build and said OK.
 - **Apple: removed.** Paths in `tool/fork-removed-paths.txt` stay deleted. Merges drop them automatically, and the hooks block edits to them.
 - **Releases: hybrid.** Claude publishes routine **betas** once every check passes. **Stable releases**, and betas touching the playback engine, download storage, auth or tokens, the installer or updater, or data migrations, need the owner's OK first. See the `release` skill.
 - Always ask before:

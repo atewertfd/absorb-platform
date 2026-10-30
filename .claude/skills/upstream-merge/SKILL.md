@@ -27,6 +27,8 @@ description: Merge new upstream Absorb (pounat/absorb, origin/main) changes into
    - `python tool/align_with_upstream.py <fork-touched upstream files>`, adding `--apply` when it shrinks the diff;
    - `/build-verify`.
 6. **Commit** as `merge: bring in upstream Absorb (<N> commits, <upstream version>)`. In the body, list the notable upstream features or fixes, each conflict choice made, and the footprint before and after (from the tool's first line and `.\tool\dev.ps1 footprint`).
-7. **Push** the branch to `fork`. CI runs. Then fold it into the working branch.
-
-   If the upstream changes are user-visible, consider a beta with `/release`. A merge that touched playback, downloads or auth falls under the risky list, so the owner's OK is needed before publishing it.
+7. **Push** the merge branch to `fork` and let CI run, including manual dispatch for the web and Linux builds.
+8. **Gate.** This step is never automatic; the owner wants merges deliberate, not automatic.
+   - **Risky merge** (it touched playback, downloads, sign-in or tokens, or the installer): tell the owner in plain words what upstream brought in, and give them that Windows build to try. Only after their OK does it go into the working branch and `main`, and get released.
+   - **Small, safe merge** (UI text, isolated fixes, new screens): fold it into the working branch after green checks. Publish it as a normal beta with `/release` if it's user-visible.
+   - **Keep it reversible:** never fast-forward `main` past an untested merge. A merge commit can always be reverted with `git revert -m 1 <merge>`.
