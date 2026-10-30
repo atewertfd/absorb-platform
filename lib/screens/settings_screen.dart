@@ -1901,8 +1901,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Container(
                 height: 44,
                 decoration: BoxDecoration(
-                  color: cs.surfaceContainerHigh,
+                  color: lookPanelColor(context, cs.surfaceContainerHigh),
                   borderRadius: BorderRadius.circular(22),
+                  border: Border.fromBorderSide(lookPanelSide(context, BorderSide.none)),
                 ),
                 child: Row(children: [
                   const SizedBox(width: 14),
@@ -2087,8 +2088,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                     child: Material(
-                      color: cs.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(14),
+                      color: lookPanelColor(context, cs.surfaceContainerHigh),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14),
+                          side: lookPanelSide(context, BorderSide.none)),
                       child: InkWell(
                         borderRadius: BorderRadius.circular(14),
                         onTap: () async {
@@ -2134,8 +2136,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                     child: Material(
-                      color: cs.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(14),
+                      color: lookPanelColor(context, cs.surfaceContainerHigh),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14),
+                          side: lookPanelSide(context, BorderSide.none)),
                       child: InkWell(
                         borderRadius: BorderRadius.circular(14),
                         onTap: () => Navigator.push(context, MaterialPageRoute(

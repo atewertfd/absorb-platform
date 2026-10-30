@@ -49,6 +49,12 @@ ThemeData frostedThemeData(ThemeData base) {
           side: edge,
         ),
       ),
+      // Search bars (Library) are glass panels too, keeping their own shape.
+      searchBarTheme: base.searchBarTheme.copyWith(
+        backgroundColor: WidgetStatePropertyAll(panel),
+        elevation: const WidgetStatePropertyAll(0),
+        shadowColor: const WidgetStatePropertyAll(Colors.transparent),
+      ),
     );
   }
 

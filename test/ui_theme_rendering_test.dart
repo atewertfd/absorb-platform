@@ -225,6 +225,10 @@ void main() {
       expect(t.bottomSheetTheme.backgroundColor!.a, closeTo(0.90, 0.01));
       expect(t.dialogTheme.backgroundColor!.a, closeTo(0.90, 0.01));
       expect(t.navigationBarTheme.backgroundColor!.a, lessThan(1));
+      expect(
+        t.searchBarTheme.backgroundColor!.resolve({}),
+        Colors.white.withValues(alpha: 0.10),
+      );
       // Menus, popups and other scheme surfaces stay opaque.
       expect(t.colorScheme.surfaceContainer.a, 1);
       expect(t.colorScheme.surfaceContainerHigh.a, 1);
