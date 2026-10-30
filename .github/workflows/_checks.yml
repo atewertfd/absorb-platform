@@ -1,0 +1,39 @@
+name: Checks
+
+# The one place that defines "the code is OK": analyze, Flutter tests, the
+# tooling tests and the removed-paths check. Called by ci.yml and release.yml.
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Git ref to check (empty = the triggering ref)
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Analyze and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version-file: .flutter-version
+          cache: true
+      - run: flutter pub get
+      - name: Analyze
+        run: flutter analyze --no-pub --no-fatal-infos
+      - name: Flutter tests
+        run: flutter test --no-pub
+      - name: Tooling tests (hooks, merge tool)
+        run: python3 -m unittest discover -s tool/tests
+      - name: Removed paths stay removed
+        run: python3 tool/check_fork_removed.py

@@ -8,11 +8,11 @@ downloads working when optional platform features are unavailable.
 
 | Surface | Status | Notes |
 | --- | --- | --- |
-| Android | Primary | Audio focus, notifications, downloads, and background playback are supported. |
-| Windows | Supported | Native audio output, resizable desktop window, keyboard shortcuts, and installer build. |
+| Windows | Primary | Native audio output, resizable desktop window, keyboard shortcuts, and installer build. |
+| Android | Supported | Audio focus, notifications, downloads, and background playback are supported. |
 | Linux | Supported build | Desktop audio and MPRIS depend on the desktop environment. |
 | Web/PWA | Supported build | Installable in Chromium-based browsers; background download behavior is browser-controlled. |
-| iOS/macOS | Supported by upstream Flutter project | Some OS media and background behaviors are platform-controlled. |
+| iOS/macOS | Not built | Apple platforms were removed from Absorb Plus; use upstream Absorb. |
 
 ## Graceful fallbacks
 

@@ -59,7 +59,8 @@ How Absorb Plus is put together and where to look. The layout under `lib/` is up
 | Claude Code guards | `tool/claude_hooks.py` (tests in `tool/tests/`), wired in `.claude/settings.json` | Blocks upstream pushes, junction-following deletes, upstream reformatting and generated-file edits; asks before release/tag deletion |
 | Claude Code procedures | `.claude/skills/*/SKILL.md` | `/status`, `/build-verify`, `/release`, `/perf-measure`, `/fork-feature` |
 | Claude Code subagents | `.claude/agents/*.md` | `reviewer`, `upstream-merger`, `test-writer` |
-| CI | `.github/workflows/ci.yml` (analyze + tests on every push); `windows-release.yml` and `desktop-web-release.yml` on `v*` tags | |
+| CI | `.github/workflows/_checks.yml` (analyze, tests, tool tests, removed-paths check; reused), `ci.yml` (every push; web + Linux builds and Pages deploy on `main`), `release.yml` (`v*` tags: one release with Windows, Linux, web, Android) | |
+| Upstream merges | `tool/upstream_merge.py` (`dev.ps1 merge`), `tool/fork-removed-paths.txt`, `tool/fork-overrides.txt`, `tool/check_fork_removed.py` | `/upstream-merge` skill |
 
 ## Strings
 

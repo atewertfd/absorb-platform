@@ -7,9 +7,11 @@ assignees: ''
 ---
 
 **Platform**
+- [ ] Windows
 - [ ] Android
-- [ ] iOS
-- [ ] Both
+- [ ] Linux
+- [ ] Web
+- [ ] All
 
 **Describe the Feature**
 A clear description of what you'd like added or changed.

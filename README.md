@@ -21,17 +21,17 @@ An unofficial enhanced cross-platform edition of [Absorb](https://github.com/pou
 
 ## Plus features
 
-Absorb Plus builds on the upstream client with desktop-first controls and cross-platform improvements. Existing upstream features remain the foundation; platform-specific features are enabled where the target supports them. Windows and Linux playback use libmpv through `just_audio_media_kit`; Android, iOS, and web retain their existing playback implementations. Windows system media controls use SMTC and Linux uses MPRIS. Physical media-key behavior still needs verification on each desktop environment; this is not a claim of complete platform parity. Optional Whisper transcription is unavailable on the web, and its desktop audio-extraction path still needs implementation/verification.
+Absorb Plus builds on the upstream client with desktop-first controls and cross-platform improvements. Existing upstream features remain the foundation; platform-specific features are enabled where the target supports them. Windows and Linux playback use libmpv through `just_audio_media_kit`; Android and web retain their existing playback implementations. Windows system media controls use SMTC and Linux uses MPRIS. Physical media-key behavior still needs verification on each desktop environment; this is not a claim of complete platform parity. Optional Whisper transcription is unavailable on the web, and its desktop audio-extraction path still needs implementation/verification.
 
 ## Audible and Libation workflow
 
-Absorb Plus connects to Audiobookshelf; it does not currently sign in to Audible, store Audible credentials, remove DRM, or bypass Audible protections. If you already have compatible exported files from [Libation](https://github.com/rmcrackan/Libation), open **Manage → Upload → Import Libation exports**. Select audio files for one book and its cover, review the title and server destination, then explicitly select **Upload**. After upload, the app briefly checks whether Audiobookshelf has indexed the destination and tells you when indexing is still in progress. This preserves Audiobookshelf as the source of truth for metadata, playback position, statistics, and downloads.
+Absorb Plus connects to Audiobookshelf; it does not currently sign in to Audible, store Audible credentials, remove DRM, or bypass Audible protections. If you already have compatible exported files from [Libation](https://github.com/rmcrackan/Libation), open **Settings → Advanced → Import Libation exports** (also under **Manage → Upload**). Choose a book's exported folder, scan your Libation output folder (newest downloads first, with a search box and New/Imported tags), or pick the audio files and cover directly. Review the title and server destination, then explicitly select **Upload**. The app tells you when new Libation downloads are waiting and warns when the book is already in your library. After upload, the app briefly checks whether Audiobookshelf has indexed the destination and tells you when indexing is still in progress. This preserves Audiobookshelf as the source of truth for metadata, playback position, statistics, and downloads.
 
 The exporter handoff is distinct from the requested future **Connect Audible** feature, which would work without a separate Libation installation. That integration is not implemented; its authentication, licensing, platform and content-access constraints are documented in the [feasibility record](docs/AUDIBLE-INTEGRATION.md). Other software integrations are deferred.
 
 The exact formats and export options depend on the titles and rights available in your Audible/Libation setup. Absorb Plus does not attempt to automate protected Audible downloads.
 
-See [import verification](docs/IMPORT-VERIFICATION.md) for tests, visual checks, and remaining limits. File imports currently handle one book at a time, require server upload permissions, and do not provide folder scanning, a batch queue, or resumable uploads. The app performs a short post-upload indexing check but does not track a long-running server scan.
+See [import verification](docs/IMPORT-VERIFICATION.md) for tests, visual checks, and remaining limits. File imports currently handle one book at a time, require server upload permissions, and do not provide a batch queue or resumable uploads. The app performs a short post-upload indexing check but does not track a long-running server scan.
 
 ## Downloads
 
@@ -40,7 +40,7 @@ optional pre-release channel. Running a newer installer with the same Inno
 Setup application ID upgrades the existing installation in place and preserves
 user data; portable copies remain manual-update.
 
-Download Android, desktop, and web builds from the [Releases](../../releases) page. The combined [Desktop and Web Release workflow](../../actions/workflows/desktop-web-release.yml) publishes Android APKs, a Play Store AAB when signing secrets are configured, Windows x64 installer/portable files, Linux x64 packages, and the web ZIP. APKs marked `-ci` use a temporary CI signing key and are for testing only; use the signed Android release workflow for update-safe distribution. Windows and Linux desktop releases target x64. The Windows installer creates desktop and Start-menu shortcuts, contains the complete Flutter bundle, and can be removed from Windows Apps. Extract the **entire** portable archive if you use that option, and keep its libraries and data alongside it. Windows bundles its native audio decoder. Linux requires a system libmpv runtime (`libmpv1` on Ubuntu 22.04, `libmpv2` on Ubuntu 24.04) and a desktop session bus for MPRIS controls. The hosted web build is available at the project’s [GitHub Pages site](https://atewertfd.github.io/absorb-platform/).
+Download Android, desktop, and web builds from the [Releases](../../releases) page. The [Release workflow](../../actions/workflows/release.yml) publishes Android APKs, a Play Store AAB when signing secrets are configured, Windows x64 installer/portable files, Linux x64 packages, and the web ZIP. APKs marked `-ci` use a temporary CI signing key and are for testing only; update-safe APKs need the Android signing secrets configured for the Release workflow. Windows and Linux desktop releases target x64. The Windows installer creates desktop and Start-menu shortcuts, contains the complete Flutter bundle, and can be removed from Windows Apps. Extract the **entire** portable archive if you use that option, and keep its libraries and data alongside it. Windows bundles its native audio decoder. Linux requires a system libmpv runtime (`libmpv1` on Ubuntu 22.04, `libmpv2` on Ubuntu 24.04) and a desktop session bus for MPRIS controls. The hosted web build is available at the project’s [GitHub Pages site](https://atewertfd.github.io/absorb-platform/).
 
 ## Build requirements
 
@@ -59,7 +59,7 @@ flutter build linux --release
 flutter build web --release
 ```
 
-Outputs are produced under `build/windows/x64/runner/Release/`, `build/linux/x64/release/bundle/`, and `build/web/`. Every push to `main` rebuilds the web site through GitHub Actions and deploys it to GitHub Pages.
+Outputs are produced under `build/windows/x64/runner/Release/`, `build/linux/x64/release/bundle/`, and `build/web/`. Every push to `main` rebuilds the web site through GitHub Actions (the CI workflow) and deploys it to GitHub Pages.
 
 Run the local regression tests with:
 
@@ -97,7 +97,7 @@ Windows builds also apply a scoped WebView shutdown fix for [upstream issue #273
 
 ## Attribution
 
-This project is derived from the upstream [pounat/absorb](https://github.com/pounat/absorb) repository. iOS development remains upstream. Please report desktop/web/Android port issues here and direct upstream iOS issues to the original project.
+This project is derived from the upstream [pounat/absorb](https://github.com/pounat/absorb) repository. Absorb Plus does not build for Apple platforms (iOS, macOS, CarPlay); use upstream Absorb there. Please report Windows, Linux, web and Android issues here.
 
 ## License
 

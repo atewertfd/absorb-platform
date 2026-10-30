@@ -7,12 +7,14 @@ assignees: ''
 ---
 
 **Platform**
+- [ ] Windows
 - [ ] Android
-- [ ] iOS
+- [ ] Linux
+- [ ] Web
 
 **Device Info**
-- Device: (e.g. Pixel 8, iPhone 15)
-- OS Version: (e.g. Android 15, iOS 18.1)
+- Device: (e.g. Windows 11 PC, Pixel 8)
+- OS Version: (e.g. Windows 11 24H2, Android 15)
 - Absorb Version: 
 - ABS Server Version: 
 
