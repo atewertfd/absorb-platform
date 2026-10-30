@@ -15,6 +15,7 @@ import '../main.dart' show rootNavigatorKey;
 import '../widgets/overlay_toast.dart';
 import 'api_service.dart';
 import 'audio_player_service.dart';
+import 'download_track_names.dart';
 import 'ebook_cache.dart';
 import 'narrated_books.dart';
 import 'narration_service.dart';
@@ -2821,7 +2822,8 @@ class DownloadService extends ChangeNotifier {
       }
       out.add((url: api.buildDownloadFileUrl(apiItemId, ino), filename: _trackFileName(track, i)));
     }
-    return out;
+    final names = uniqueTrackFileNames([for (final f in out) f.filename]);
+    return [for (var i = 0; i < out.length; i++) (url: out[i].url, filename: names[i])];
   }
 
   /// Derive the on-disk filename for a track, preferring its original name so
