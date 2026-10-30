@@ -216,7 +216,7 @@ jobs:
           gh release upload "$TAG" "build/$NAME-web.zip" --clobber
 
   android:
-    name: Android APKs (and Play Store bundle when signing is configured)
+    name: Android APKs (signed with the permanent key)
     needs: [prepare, checks]
     runs-on: ubuntu-latest
     timeout-minutes: 90
@@ -242,21 +242,15 @@ jobs:
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         shell: bash
         run: |
+          # Releases must be signed with the permanent key, or phones can't
+          # update over the previous version. Never fall back to a temp key.
           set -euo pipefail
-          KEYSTORE="$RUNNER_TEMP/absorb-upload-key.jks"
-          if [ -n "${KEYSTORE_B64:-}" ] && [ -n "${STORE_PASSWORD:-}" ] && [ -n "${KEY_PASSWORD:-}" ] && [ -n "${KEY_ALIAS:-}" ]; then
-            echo "$KEYSTORE_B64" | base64 -d > "$KEYSTORE"
-            echo "playstore_signing=true" >> "$GITHUB_ENV"
-          else
-            echo "Android signing secrets are not configured; using a temporary CI key for installable APKs."
-            keytool -genkeypair -v -keystore "$KEYSTORE" -storepass android -keypass android \
-              -alias upload -keyalg RSA -keysize 2048 -validity 10000 \
-              -dname "CN=Absorb CI, OU=Build, O=Absorb, C=US"
-            STORE_PASSWORD=android
-            KEY_PASSWORD=android
-            KEY_ALIAS=upload
-            echo "playstore_signing=false" >> "$GITHUB_ENV"
+          if [ -z "${KEYSTORE_B64:-}" ] || [ -z "${STORE_PASSWORD:-}" ] || [ -z "${KEY_PASSWORD:-}" ] || [ -z "${KEY_ALIAS:-}" ]; then
+            echo "Android signing secrets (ANDROID_KEYSTORE_*) are missing; refusing to release unsigned-for-updates APKs."
+            exit 1
           fi
+          KEYSTORE="$RUNNER_TEMP/absorb-upload-key.jks"
+          echo "$KEYSTORE_B64" | base64 -d > "$KEYSTORE"
           cat > android/key.properties <<EOF
           storePassword=$STORE_PASSWORD
           keyPassword=$KEY_PASSWORD
@@ -265,9 +259,8 @@ jobs:
           EOF
       - name: Build Android APKs
         run: bash scripts/build-github-apks
-      - name: Build Play Store AAB when signing is configured
-        if: env.playstore_signing == 'true'
-        run: flutter build appbundle --release --flavor playstore --dart-define=PLAYSTORE_BUILD=true
+      - name: Verify APKs carry the permanent signing key
+        run: python3 tool/ci/verify_apk_signature.py build/app/outputs/apk/github/release/*.apk
       - name: Package and upload Android files
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -280,15 +273,8 @@ jobs:
           shopt -s nullglob
           apks=(build/app/outputs/apk/github/release/*.apk)
           [ "${#apks[@]}" -gt 0 ] || { echo 'No Android APKs were produced'; exit 1; }
-          suffix=""
-          [ "${playstore_signing:-false}" = true ] || suffix="-ci"
           for apk in "${apks[@]}"; do
             kind=$(basename "$apk" | sed -E 's/.*-((universal|armeabi-v7a|arm64-v8a|x86_64))\.apk$/\1/')
-            cp "$apk" "build/android/release/$NAME-android-$kind$suffix.apk"
+            cp "$apk" "build/android/release/$NAME-android-$kind.apk"
           done
-          if [ "${playstore_signing:-false}" = true ]; then
-            aab=(build/app/outputs/bundle/playstoreRelease/*.aab)
-            [ "${#aab[@]}" -eq 1 ] || { echo 'Play Store AAB was not produced'; exit 1; }
-            cp "${aab[0]}" "build/android/release/$NAME-android-playstore.aab"
-          fi
           gh release upload "$TAG" build/android/release/* --clobber
