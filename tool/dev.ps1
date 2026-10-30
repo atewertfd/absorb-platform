@@ -25,8 +25,10 @@ param(
   [ValidateSet('check', 'build', 'bump', 'footprint', 'merge')]
   [string]$Command,
   [int]$Beta = 0,
-  [switch]$CloseRunning
+  [switch]$CloseRunning,
+  [switch]$Full
 )
+$script:ShowFull = [bool]$Full
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
@@ -53,9 +55,36 @@ function Restore-Generated {
   # Only after building: a --no-pub build needs the locally regenerated list.
   git restore --source=HEAD -- @generated 2>$null
 }
+# Full tool output goes to build\dev-logs\; the console gets one line per step
+# (and the tail of the log only when a step fails). Keeps Claude's context
+# small. Pass -Full to stream everything.
+$logDir = Join-Path $root 'build\dev-logs'
+New-Item -ItemType Directory -Force -Path $logDir | Out-Null
+function Invoke-Step {
+  param([string]$Name, [scriptblock]$Run, [string]$SummaryPattern = '')
+  $log = Join-Path $logDir "$Name.log"
+  if ($script:ShowFull) {
+    & $Run 2>&1 | Tee-Object -FilePath $log
+  } else {
+    & $Run *> $log
+  }
+  $code = $LASTEXITCODE
+  if ($code -ne 0) {
+    Write-Host "FAILED: $Name (exit $code). Last lines of $log :" -ForegroundColor Red
+    Get-Content $log -Tail 40 | ForEach-Object { Write-Host "  $_" }
+    throw "$Name failed"
+  }
+  $summary = if ($SummaryPattern) {
+    (Select-String -Path $log -Pattern $SummaryPattern | Select-Object -Last 1).Line
+  }
+  Write-Host ("ok: $Name" + $(if ($summary) { " - $($summary.Trim())" } else { '' }))
+}
 function Invoke-Flutter {
-  & $flutter @args
-  if ($LASTEXITCODE -ne 0) { throw "flutter $($args -join ' ') failed ($LASTEXITCODE)" }
+  $words = @($args | Where-Object { $_ -notlike '-*' } | Select-Object -First 2)
+  $name = 'flutter-' + ($words -join '-')
+  $flutterArgs = $args
+  Invoke-Step -Name $name -Run { & $flutter @flutterArgs } `
+    -SummaryPattern 'No issues found|issues found|All tests passed|tests? passed|Built '
 }
 function Get-PubspecVersion {
   $line = Select-String -Path pubspec.yaml -Pattern '^version:\s*(\S+)' | Select-Object -First 1
@@ -67,12 +96,11 @@ switch ($Command) {
     try {
       Invoke-Flutter pub get
       Invoke-Flutter analyze --no-pub --no-fatal-infos
-      Invoke-Flutter test --no-pub
+      Invoke-Flutter test --no-pub --reporter expanded
     } finally { Restore-Generated }
-    python -m unittest discover -s tool/tests
-    if ($LASTEXITCODE -ne 0) { throw 'tool tests failed' }
-    python tool/check_fork_removed.py
-    if ($LASTEXITCODE -ne 0) { throw 'removed paths are back' }
+    Invoke-Step -Name 'tool-tests' -Run { python -m unittest discover -s tool/tests } `
+      -SummaryPattern '^Ran \d+ tests'
+    Invoke-Step -Name 'removed-paths' -Run { python tool/check_fork_removed.py } -SummaryPattern '^OK'
     Write-Host 'check passed' -ForegroundColor Green
   }
 

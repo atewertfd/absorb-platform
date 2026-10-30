@@ -45,10 +45,25 @@ Claude is the main and only developer of Absorb Plus, a fork of [pounat/absorb](
   - `upstream-merger`: conflict resolution during upstream merges;
   - `test-writer`: tests using the project's fakes.
 - **Hooks** (`tool/claude_hooks.py`, wired in `.claude/settings.json`). They block pushes to upstream, `git reset --hard`, recursive deletes through junctions, `dart format` on upstream files, edits to generated or removed files, and they ask before deleting releases or tags and before stable tags. They regenerate localizations after `.arb` edits and print the repo state at session start. Their tests: `python -m unittest discover -s tool/tests`.
+- **Where things are built:**
+  - Windows: locally, into the owner's Release folder.
+  - Android, Linux and web: GitHub Actions. It's free (public repo) and runs in the background, and Android gets the permanent signing key there.
+  - A signed phone-test APK: run `gh workflow run ci.yml --ref <branch>` and download the `absorb-android-apk` artifact.
+  - There is no Android SDK on this PC; installing one needs the owner's OK.
 - **Scripts:**
-  - `tool/dev.ps1` (check, build, bump, footprint);
+  - `tool/dev.ps1` (check, build, bump, footprint, merge);
   - `tool/align_with_upstream.py` (undo formatting churn);
   - `tool/measure-windows-usage.ps1`.
+
+## Keeping context small
+
+- **`dev.ps1` prints one line per step.** Full logs are in `build\dev-logs\<step>.log`; read them only when a step fails (the failing tail is printed anyway). Use `-Full` to stream everything.
+- **Never dump raw tool output.**
+  - Filter with `tail`, `grep`, `Select-String` or `--json ... --jq`.
+  - Run builds, CI watches (`gh run watch`) and long tests in the background, and read only the summary.
+- **Don't read giant files whole.** `audio_player_service.dart`, `ebook_reader_view.dart`, `settings_screen.dart`, `api_service.dart` and `_lp_core.dart` run 4,000–8,000 lines. Grep for the symbol, then read a window around it.
+- **Delegate broad searches and audits** to `Explore` or `general-purpose` subagents, and big reviews to `reviewer`. Keep only their conclusions.
+- **One session per task.** `CLAUDE.md`, memory and the SessionStart hook bring a new session up to speed. Before a long session ends, update `docs/ARCHITECTURE.md` and memory so nothing lives only in the conversation.
 
 ## Hazards learned the hard way
 
