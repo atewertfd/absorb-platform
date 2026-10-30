@@ -80,6 +80,26 @@ class UpdateCheckerService {
   static const _updateChannel = MethodChannel('com.absorb.update');
   static final InFlightUpdateCheck<UpdateCheckResult> _inFlightCheck =
       InFlightUpdateCheck<UpdateCheckResult>();
+  // A manual "Check for update" must not be handed a running automatic
+  // check's result, which can be `skipped` (cooldown or dismissed version).
+  static final InFlightUpdateCheck<UpdateCheckResult> _inFlightForcedCheck =
+      InFlightUpdateCheck<UpdateCheckResult>();
+
+  /// The check itself; tests swap it to observe how calls are shared.
+  @visibleForTesting
+  static Future<UpdateCheckResult> Function({
+    required bool force,
+    required bool includePreReleases,
+    Duration? cooldown,
+  }) runCheck = _checkInternal;
+
+  /// Whether this Windows copy was installed by the Inno Setup installer;
+  /// a portable copy updates from the release page instead.
+  @visibleForTesting
+  static bool Function() isInstalledWindowsCopy = () => isInnoSetupInstall(
+        Platform.resolvedExecutable,
+        (path) => File(path).existsSync(),
+      );
 
   static Future<String> currentInstalledVersion() async {
     final packageInfo = await PackageInfo.fromPlatform();
@@ -104,9 +124,9 @@ class UpdateCheckerService {
   /// dismissed versions unless [force]. When [includePreReleases] is true,
   /// pre-release builds are also considered.
   static Future<UpdateCheckResult> check({bool force = false, bool includePreReleases = false, }) {
-    return _inFlightCheck.run(
+    return (force ? _inFlightForcedCheck : _inFlightCheck).run(
       () =>
-          _checkInternal(force: force, includePreReleases: includePreReleases),
+          runCheck(force: force, includePreReleases: includePreReleases),
     );
   }
 
@@ -133,7 +153,7 @@ class UpdateCheckerService {
     }
 
     final result = await _inFlightCheck.run(
-      () => _checkInternal(
+      () => runCheck(
         force: false,
         includePreReleases: includePreReleases,
         cooldown: interval,
@@ -161,6 +181,31 @@ class UpdateCheckerService {
 
       }
 
+      final target = kIsWeb
+          ? UpdateTarget.other
+          : Platform.isAndroid
+          ? UpdateTarget.android
+          : Platform.isWindows
+          ? (isInstalledWindowsCopy()
+              ? UpdateTarget.windowsInstalled
+              : UpdateTarget.windowsPortable)
+          : UpdateTarget.other;
+      List<String> supportedAbis = const [];
+      if (target == UpdateTarget.android) {
+        try {
+          supportedAbis =
+              (await DeviceInfoPlugin().androidInfo).supportedAbis;
+        } catch (error) {
+          debugPrint('[UpdateChecker] ABI detection failed: $error');
+        }
+      }
+      bool hasPlatformAsset(List<UpdateReleaseAsset> assets) =>
+          releaseHasUpdateAsset(
+            target: target,
+            assets: assets,
+            supportedAbis: supportedAbis,
+          );
+
       Map<String, dynamic>? data;
 
       if (includePreReleases) {
@@ -184,7 +229,7 @@ class UpdateCheckerService {
             .toList();
       data = pickUpdateRelease(
           releases,
-          preferWindowsInstaller: !kIsWeb && Platform.isWindows,
+          hasPlatformAsset: hasPlatformAsset,
         );
         if (data == null) {
           return UpdateCheckResult(
@@ -208,6 +253,14 @@ class UpdateCheckerService {
           DateTime.now().millisecondsSinceEpoch,
         );
         data = jsonDecode(response.body) as Map<String, dynamic>;
+        // CI creates the release before it uploads the files; offer it on
+        // the next check, once this platform's file is there.
+        if (!hasPlatformAsset(releaseAssetsOf(data))) {
+          return UpdateCheckResult(
+            UpdateCheckStatus.upToDate,
+            currentVersion: await currentInstalledVersion(),
+          );
+        }
       }
 
       final tagName = data['tag_name'] as String? ?? '';
@@ -216,22 +269,17 @@ class UpdateCheckerService {
 
       final releaseAssets = releaseAssetsOf(data);
 
-      List<String> supportedAbis = const [];
-      if (!kIsWeb && Platform.isAndroid) {
-        try {
-          supportedAbis =
-              (await DeviceInfoPlugin().androidInfo).supportedAbis;
-        } catch (error) {
-          debugPrint('[UpdateChecker] ABI detection failed: $error');
-        }
-      }
-      final selectedAsset = selectAndroidUpdateAsset(
+      // Only Android gets an APK and only an installed Windows copy gets the
+      // installer; everything else opens the release page.
+      final platformAsset = selectUpdateAsset(
+        target: target,
         assets: releaseAssets,
         supportedAbis: supportedAbis,
       );
-      final selectedWindowsAsset = !kIsWeb && Platform.isWindows
-          ? selectWindowsUpdateAsset(assets: releaseAssets)
-          : null;
+      final selectedAsset =
+          target == UpdateTarget.android ? platformAsset : null;
+      final selectedWindowsAsset =
+          target == UpdateTarget.windowsInstalled ? platformAsset : null;
       final selectedDirectAsset = selectedWindowsAsset ?? selectedAsset;
       final currentVersion = await currentInstalledVersion();
       final downloadUrl = selectedDirectAsset?.downloadUrl ??
@@ -315,7 +363,7 @@ class ApkInstallResult {
 /// finalises. Pulling the bytes ourselves and opening the file with
 /// open_filex bypasses the browser entirely.
 class ApkUpdater {
-  static http.Client? _activeClient;
+  static UpdateDownload? _active;
 
   static Future<ApkInstallResult> downloadAndInstall(
     UpdateInfo info, {
@@ -325,14 +373,19 @@ class ApkUpdater {
       return const ApkInstallResult(ApkInstallStatus.launchFailed, 'Android only');
     }
 
+    // Registered before the first await so Cancel always reaches it.
+    final download = UpdateDownload(http.Client());
+    _active = download;
     final perm = await Permission.requestInstallPackages.request();
     if (!perm.isGranted) {
+      if (identical(_active, download)) _active = null;
+      download.cancel();
       return const ApkInstallResult(ApkInstallStatus.permissionDenied);
     }
 
     final File file;
     try {
-      file = await _download(info, onProgress);
+      file = await _download(download, info, onProgress);
     } on _CancelledException {
       return const ApkInstallResult(ApkInstallStatus.cancelled);
     } catch (e) {
@@ -350,48 +403,23 @@ class ApkUpdater {
 
   /// Cancel an in-flight download started by [downloadAndInstall].
   static void cancel() {
-    _activeClient?.close();
-    _activeClient = null;
+    _active?.cancel();
+    _active = null;
   }
 
   static Future<File> _download(
+    UpdateDownload download,
     UpdateInfo info,
     void Function(int, int) onProgress,
   ) async {
+    try {
     final dir = await getTemporaryDirectory();
     final filename = Uri.parse(info.downloadUrl).pathSegments.last;
     final file = File('${dir.path}/$filename');
-    if (await file.exists()) await file.delete();
-
-    final client = http.Client();
-    _activeClient = client;
-    try {
-      final request = http.Request('GET', Uri.parse(info.downloadUrl));
-      final response = await client.send(request);
-      if (response.statusCode != 200) {
-        throw HttpException('HTTP ${response.statusCode}');
-      }
-      final total = response.contentLength ?? 0;
-      var received = 0;
-      final sink = file.openWrite();
-      try {
-        await for (final chunk in response.stream) {
-          if (_activeClient != client) {
-            await sink.close();
-            throw const _CancelledException();
-          }
-          sink.add(chunk);
-          received += chunk.length;
-          onProgress(received, total);
-        }
-        await sink.flush();
-      } finally {
-        await sink.close();
-      }
-      return file;
+      return await download.run(Uri.parse(info.downloadUrl), file, onProgress);
     } finally {
-      if (_activeClient == client) _activeClient = null;
-      client.close();
+      if (identical(_active, download)) _active = null;
+      download.close();
     }
   }
 }
@@ -411,7 +439,7 @@ class WindowsInstallResult {
 /// replace the running executable. Inno Setup reuses the existing AppId and
 /// install directory, preserving the application registration and user data.
 class WindowsUpdater {
-  static http.Client? _activeClient;
+  static UpdateDownload? _active;
 
   static Future<WindowsInstallResult> downloadAndLaunch(
     UpdateInfo info, {
@@ -424,9 +452,11 @@ class WindowsUpdater {
       );
     }
 
+    final download = UpdateDownload(http.Client());
+    _active = download;
     final File file;
     try {
-      file = await _download(info, onProgress);
+      file = await _download(download, info, onProgress);
     } on _CancelledException {
       return const WindowsInstallResult(WindowsInstallStatus.cancelled);
     } catch (error) {
@@ -458,25 +488,64 @@ class WindowsUpdater {
   }
 
   static void cancel() {
-    _activeClient?.close();
-    _activeClient = null;
+    _active?.cancel();
+    _active = null;
   }
 
   static Future<File> _download(
+    UpdateDownload download,
     UpdateInfo info,
     void Function(int, int) onProgress,
   ) async {
-    final dir = await getTemporaryDirectory();
-    final rawName = Uri.parse(info.downloadUrl).pathSegments.last;
-    final filename = rawName.isEmpty ? 'Absorb-Update-Setup.exe' : rawName;
-    final file = File('${dir.path}/$filename');
-    if (await file.exists()) await file.delete();
-
-    final client = http.Client();
-    _activeClient = client;
     try {
-      final request = http.Request('GET', Uri.parse(info.downloadUrl));
-      final response = await client.send(request);
+      final dir = await getTemporaryDirectory();
+      final rawName = Uri.parse(info.downloadUrl).pathSegments.last;
+      final filename = rawName.isEmpty ? 'Absorb-Update-Setup.exe' : rawName;
+      final file = File('${dir.path}/$filename');
+      return await download.run(Uri.parse(info.downloadUrl), file, onProgress);
+    } finally {
+      if (identical(_active, download)) _active = null;
+      download.close();
+    }
+  }
+}
+
+/// One cancellable download of an update file.
+///
+/// [cancel] closes the HTTP client, which makes the response stream fail with
+/// a `ClientException` rather than stopping cleanly. The cancelled flag turns
+/// any such failure back into a cancellation, so the dialog doesn't treat it
+/// as a failed download and open the browser. A partial file is deleted on
+/// failure or cancel.
+class UpdateDownload {
+  UpdateDownload(this._client);
+
+  final http.Client _client;
+  bool _cancelled = false;
+
+  bool get isCancelled => _cancelled;
+
+  /// Whether [error], thrown by [run], means the user cancelled.
+  @visibleForTesting
+  static bool isCancellation(Object error) => error is _CancelledException;
+
+  void cancel() {
+    _cancelled = true;
+    _client.close();
+  }
+
+  void close() => _client.close();
+
+  Future<File> run(
+    Uri url,
+    File file,
+    void Function(int received, int total) onProgress,
+  ) async {
+    try {
+      if (_cancelled) throw const _CancelledException();
+      if (await file.exists()) await file.delete();
+
+    final response = await _client.send(http.Request('GET', url));
       if (response.statusCode != 200) {
         throw HttpException('HTTP ${response.statusCode}');
       }
@@ -485,10 +554,8 @@ class WindowsUpdater {
       final sink = file.openWrite();
       try {
         await for (final chunk in response.stream) {
-          if (_activeClient != client) {
-            await sink.close();
+          if (_cancelled)
             throw const _CancelledException();
-          }
           sink.add(chunk);
           received += chunk.length;
           onProgress(received, total);
@@ -497,10 +564,20 @@ class WindowsUpdater {
       } finally {
         await sink.close();
       }
+      // Cancel pressed as the last bytes arrived: still a cancel, so the
+      // installer isn't launched behind the closed dialog.
+      if (_cancelled) throw const _CancelledException();
       return file;
+    } catch (_) {
+      try {
+      if (await file.exists()) await file.delete();
+      } catch (error) {
+        debugPrint('[UpdateDownload] Could not delete partial file: $error');
+      }
+      if (_cancelled) throw const _CancelledException();
+      rethrow;
     } finally {
-      if (_activeClient == client) _activeClient = null;
-      client.close();
+      _client.close();
     }
   }
 }

@@ -10,6 +10,25 @@ import 'overlay_toast.dart';
 import 'wavy_progress_indicator.dart';
 
 class UpdateDialog {
+  /// Install and browser hooks; tests swap them for fakes.
+  @visibleForTesting
+  static Future<ApkInstallResult> Function(
+    UpdateInfo info, {
+    required void Function(int received, int total) onProgress,
+  }) installApk = ApkUpdater.downloadAndInstall;
+  @visibleForTesting
+  static Future<WindowsInstallResult> Function(
+    UpdateInfo info, {
+    required void Function(int received, int total) onProgress,
+  }) launchWindowsInstaller = WindowsUpdater.downloadAndLaunch;
+  @visibleForTesting
+  static void Function() cancelApk = ApkUpdater.cancel;
+  @visibleForTesting
+  static void Function() cancelWindows = WindowsUpdater.cancel;
+  @visibleForTesting
+  static Future<bool> Function(Uri url) openExternal =
+      (url) => launchUrl(url, mode: LaunchMode.externalApplication);
+
   /// Show the "Update available" prompt. Tapping Download performs an in-app
   /// download with a progress dialog, then launches the system installer.
   /// On any failure, falls back to launching the URL in the browser.
@@ -63,18 +82,41 @@ class UpdateDialog {
   static Future<void> _runInstall(BuildContext context, UpdateInfo info) async {
     final l = AppLocalizations.of(context)!;
     if (!info.isDirectApk && !info.isWindowsInstaller) {
-      await launchUrl(
-        Uri.parse(info.downloadUrl),
-        mode: LaunchMode.externalApplication,
+      await openExternal(
+        Uri.parse(info.downloadUrl)
       );
       return;
     }
     final progress = ValueNotifier<double?>(null);
+    // Only ever close the progress dialog's own route: after Cancel has
+    // closed it, popping the caller's navigator would close Settings.
+    var userCancelled = false;
+    var progressOpen = true;
+    Route<dynamic>? progressRoute;
+    void closeProgress() {
+      if (!progressOpen) return;
+      final route = progressRoute;
+      if (route == null) {
+        // Finished before the dialog's first frame; close it once built.
+        WidgetsBinding.instance.addPostFrameCallback((_) => closeProgress());
+        return;
+      }
+      progressOpen = false;
+      final navigator = route.navigator;
+      if (navigator == null) return;
+      if (route.isCurrent) {
+        navigator.pop();
+      } else if (route.isActive) {
+        navigator.removeRoute(route);
+      }
+    }
 
     unawaited(showDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) {
+        progressRoute ??= ModalRoute.of(ctx);
+        return AlertDialog(
         title: Text(l.updateDownloading),
         content: ValueListenableBuilder<double?>(
           valueListenable: progress,
@@ -98,30 +140,34 @@ class UpdateDialog {
         actions: [
           TextButton(
             onPressed: () {
+              userCancelled = true;
+              progressOpen = false;
               if (info.isWindowsInstaller) {
-                WindowsUpdater.cancel();
+                cancelWindows();
               } else {
-                ApkUpdater.cancel();
+                cancelApk();
               }
               Navigator.pop(ctx);
             },
             child: Text(l.cancel),
           ),
         ],
-      ),
-    ));
+      )
+    ;
+      },
+    ).whenComplete(() => progressOpen = false));
 
     if (info.isWindowsInstaller) {
-      final result = await WindowsUpdater.downloadAndLaunch(
-        info,
-        onProgress: (received, total) {
-          progress.value = total > 0 ? received / total : null;
-        },
-      );
+      final result = await launchWindowsInstaller(
+      info,
+      onProgress: (received, total) {
+        progress.value = total > 0 ? received / total : null;
+      },
+    );
 
-      if (context.mounted && Navigator.canPop(context)) Navigator.pop(context);
-      progress.dispose();
-      if (!context.mounted) return;
+      closeProgress();
+    progress.dispose();
+    if (!context.mounted || userCancelled) return;
 
       switch (result.status) {
         case WindowsInstallStatus.ok:
@@ -131,22 +177,21 @@ class UpdateDialog {
         case WindowsInstallStatus.launchFailed:
           showOverlayToast(context, l.updateOpeningInBrowser,
               icon: Icons.open_in_browser_rounded);
-          await launchUrl(Uri.parse(info.downloadUrl),
-              mode: LaunchMode.externalApplication);
+          await openExternal(Uri.parse(info.downloadUrl));
           return;
       }
     }
 
-    final result = await ApkUpdater.downloadAndInstall(
+    final result = await installApk(
       info,
       onProgress: (received, total) {
         progress.value = total > 0 ? received / total : null;
       },
     );
 
-    if (context.mounted && Navigator.canPop(context)) Navigator.pop(context);
+    closeProgress();
     progress.dispose();
-    if (!context.mounted) return;
+    if (!context.mounted || userCancelled) return;
 
     switch (result.status) {
       case ApkInstallStatus.ok:
@@ -158,7 +203,7 @@ class UpdateDialog {
       case ApkInstallStatus.downloadFailed:
       case ApkInstallStatus.launchFailed:
         showOverlayToast(context, l.updateOpeningInBrowser, icon: Icons.open_in_browser_rounded);
-        await launchUrl(Uri.parse(info.downloadUrl), mode: LaunchMode.externalApplication);
+        await openExternal(Uri.parse(info.downloadUrl));
     }
   }
 }

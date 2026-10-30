@@ -60,6 +60,15 @@ void main() {
     expect(pickUpdateRelease([release('', prerelease: false)]), isNull);
   });
 
+  bool Function(List<UpdateReleaseAsset>) hasAssetFor(
+    UpdateTarget target, {
+    List<String> supportedAbis = const [],
+  }) => (assets) => releaseHasUpdateAsset(
+    target: target,
+    assets: assets,
+    supportedAbis: supportedAbis,
+  );
+
   test('Windows waits for a release that already has its installer', () {
     final releases = [
       release('v1.11.1-300', assets: ['absorb-1.11.1-300-web.zip']),
@@ -71,16 +80,163 @@ void main() {
         ],
       ),
     ];
+    final windows = hasAssetFor(UpdateTarget.windowsInstalled);
     expect(
-      pickUpdateRelease(releases, preferWindowsInstaller: true)?['tag_name'],
+      pickUpdateRelease(releases, hasPlatformAsset: windows)?['tag_name'],
       'v1.11.1-297',
     );
     expect(pickUpdateRelease(releases)?['tag_name'], 'v1.11.1-300');
+    // No release has the installer yet: offer nothing rather than a tag
+    // that "Later" would then dismiss for good.
     expect(
-      pickUpdateRelease([
-        release('v1.11.1-300'),
-      ], preferWindowsInstaller: true)?['tag_name'],
-      'v1.11.1-300',
+      pickUpdateRelease([release('v1.11.1-300')], hasPlatformAsset: windows),
+      isNull,
+    );
+  });
+
+  test('Android waits for a release that already has an APK it can use', () {
+    final releases = [
+      release('v1.12.1-311', assets: ['Absorb-1.12.1-Setup.exe']),
+      release(
+        'v1.12.1-309',
+        assets: ['absorb-1.12.1-309-android-arm64-v8a.apk'],
+      ),
+    ];
+    final android = hasAssetFor(
+      UpdateTarget.android,
+      supportedAbis: ['arm64-v8a'],
+    );
+    expect(
+      pickUpdateRelease(releases, hasPlatformAsset: android)?['tag_name'],
+      'v1.12.1-309',
+    );
+    expect(
+      pickUpdateRelease([releases.first], hasPlatformAsset: android),
+      isNull,
+    );
+    // An x86_64 device can't use the arm64 build and there's no universal.
+    expect(
+      pickUpdateRelease(
+        releases,
+        hasPlatformAsset: hasAssetFor(
+          UpdateTarget.android,
+          supportedAbis: ['x86_64'],
+        ),
+      ),
+      isNull,
+    );
+  });
+
+  test('a portable Windows copy waits for the portable ZIP', () {
+    final portable = hasAssetFor(UpdateTarget.windowsPortable);
+    expect(portable([]), isFalse);
+    expect(
+      portable(const [
+        UpdateReleaseAsset(
+          name: 'absorb-1.12.1-311-windows-portable.zip',
+          downloadUrl: 'https://example.invalid/portable.zip',
+        ),
+      ]),
+      isTrue,
+    );
+    expect(hasAssetFor(UpdateTarget.other)([]), isTrue);
+  });
+
+  const fullRelease = [
+    UpdateReleaseAsset(
+      name: 'Absorb-1.12.1-Setup.exe',
+      downloadUrl: 'https://example.invalid/setup.exe',
+    ),
+    UpdateReleaseAsset(
+      name: 'absorb-1.12.1-311-windows-portable.zip',
+      downloadUrl: 'https://example.invalid/portable.zip',
+    ),
+    UpdateReleaseAsset(
+      name: 'absorb-1.12.1-311-android-universal.apk',
+      downloadUrl: 'https://example.invalid/universal.apk',
+    ),
+    UpdateReleaseAsset(
+      name: 'absorb-1.12.1-311-android-arm64-v8a.apk',
+      downloadUrl: 'https://example.invalid/arm64.apk',
+    ),
+  ];
+
+  test('only Android is ever handed an APK', () {
+    expect(
+      selectUpdateAsset(
+        target: UpdateTarget.android,
+        assets: fullRelease,
+        supportedAbis: ['arm64-v8a'],
+      )?.name,
+      'absorb-1.12.1-311-android-arm64-v8a.apk',
+    );
+    expect(
+      selectUpdateAsset(
+        target: UpdateTarget.windowsInstalled,
+        assets: fullRelease,
+      )?.name,
+      'Absorb-1.12.1-Setup.exe',
+    );
+    // A release still missing its installer must not fall back to an APK.
+    expect(
+      selectUpdateAsset(
+        target: UpdateTarget.windowsInstalled,
+        assets: fullRelease.where((a) => !a.name.endsWith('.exe')).toList(),
+      ),
+      isNull,
+    );
+    expect(
+      selectUpdateAsset(target: UpdateTarget.other, assets: fullRelease),
+      isNull,
+    );
+  });
+
+  test('a portable Windows copy opens the release page, not the installer', () {
+    expect(
+      selectUpdateAsset(
+        target: UpdateTarget.windowsPortable,
+        assets: fullRelease,
+      ),
+      isNull,
+    );
+  });
+
+  test('a Windows copy counts as installed only with unins000.exe beside it',
+      () {
+    final files = <String>{};
+    bool exists(String path) => files.contains(path);
+    const exe = r'C:\Program Files\Absorb Plus\absorb.exe';
+
+    expect(isInnoSetupInstall(exe, exists), isFalse);
+    files.add(r'C:\Program Files\Absorb Plus\unins000.exe');
+    expect(isInnoSetupInstall(exe, exists), isTrue);
+    expect(
+      isInnoSetupInstall(r'D:\Portable\Absorb\absorb.exe', exists),
+      isFalse,
+    );
+    expect(isInnoSetupInstall('absorb.exe', exists), isFalse);
+  });
+
+  test('labels the APK names release CI actually publishes', () {
+    UpdateReleaseAsset apk(String name) => UpdateReleaseAsset(
+      name: name,
+      downloadUrl: 'https://example.invalid/$name',
+    );
+    expect(
+      androidUpdatePackageLabel(apk('absorb-1.12.1-311-android-arm64-v8a.apk')),
+      'arm64-v8a APK \u2022 build 311',
+    );
+    expect(
+      androidUpdatePackageLabel(apk('absorb-1.12.1-311-android-universal.apk')),
+      'Universal APK \u2022 build 311',
+    );
+    expect(
+      androidUpdatePackageLabel(apk('absorb-1.12.1-311-arm64-v8a.apk')),
+      'arm64-v8a APK \u2022 build 311',
+    );
+    expect(
+      androidUpdatePackageLabel(apk('absorb-1.12.1-311-all-universal.apk')),
+      'Universal APK \u2022 build 311',
     );
   });
 

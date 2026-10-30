@@ -8,6 +8,11 @@ import '../build_info.dart';
 import '../l10n/app_localizations.dart';
 import 'welcome_sheet.dart';
 
+/// The release tag of a build. Fork releases, stable ones included, are
+/// always tagged `vX.Y.Z-N` (see .github/workflows/release.yml).
+@visibleForTesting
+String whatsNewReleaseTag(String version, int build) => 'v$version-$build';
+
 /// After an update, offers the GitHub release notes for the new build.
 class WhatsNewPrompt {
   static const _lastBuildKey = 'whats_new_last_build';
@@ -37,7 +42,7 @@ class WhatsNewPrompt {
     if (prefs.getBool(_enabledKey) == false) return;
 
     final beta = betaNumberFor(info.version);
-    final tag = beta == null ? 'v${info.version}' : 'v${info.version}-$build';
+    final tag = whatsNewReleaseTag(info.version, build);
     final url = Uri.parse('https://github.com/atewertfd/absorb-platform/releases/tag/$tag');
 
     // Let launch settle so this doesn't land on top of the first frames.
