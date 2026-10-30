@@ -53,6 +53,15 @@ flutter build windows --release --no-pub --dart-define=GITHUB_BUILD=true
 
 Keep fork-only features in their own files where possible, so upstream merges stay easy.
 
+## Standing owner preferences
+
+- **Installer:** a normal EXE installer plus a separate portable ZIP. Updates install in place and keep settings and data, and uninstalling must not unexpectedly delete user data.
+- **Release assets:** the owner previously asked for SHA256SUMS assets to be removed. CI still attaches them for Android, Linux and web. Inspect a release before changing assets, and don't add new checksum files.
+- **Git:** never `git reset --hard` or check out over uncommitted work. Inspect `git status` before editing, make small logical commits, and run `git diff --check`.
+- **NAS / Docker:** the Audiobookshelf/ReadMeABook server-discovery work for the owner's NAS (remembered address, no rescans on every start) is paused and separate from the Windows app. Don't touch the NAS unless asked.
+- **Libation references:** [getting started](https://github.com/rmcrackan/Libation/blob/master/docs/getting-started.md), [CLI](https://github.com/rmcrackan/Libation/blob/master/docs/advanced/command-line-interface.md). Absorb never bundles or reimplements Audible downloading. Authentication stays in Libation.
+- **Updates:** never force them. Show "update available" and let the user choose.
+
 ## Tests
 
 - Focused: `test/admin_upload_screen_test.dart`, `test/media_upload_api_test.dart`, `test/update_policy_test.dart`, `test/update_check_policy_test.dart`, `test/memory_policy_test.dart`, `test/transition_policy_test.dart`, `test/nav_hold_options_test.dart`.
