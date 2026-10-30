@@ -1,7 +1,8 @@
 name: Checks
 
 # The one place that defines "the code is OK": analyze, Flutter tests, the
-# tooling tests and the removed-paths check. Called by ci.yml and release.yml.
+# tooling tests, the removed-paths check and the fork-only lints. Called by
+# ci.yml and release.yml.
 
 on:
   workflow_call:
@@ -37,3 +38,5 @@ jobs:
         run: python3 -m unittest discover -s tool/tests
       - name: Removed paths stay removed
         run: python3 tool/check_fork_removed.py
+      - name: Fork-only lints (use_build_context_synchronously in fork-added files)
+        run: python3 tool/fork_lints.py

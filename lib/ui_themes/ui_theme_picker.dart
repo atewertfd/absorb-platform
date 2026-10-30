@@ -86,7 +86,8 @@ abstract final class UiThemePicker {
       final host = context.mounted
           ? context
           : (navigator.mounted ? navigator.context : null);
-      if (host == null) return null;
+      // `host.mounted` also lets the lint see the guard after the await.
+      if (host == null || !host.mounted) return null;
       final picked = await showDialog<UiThemePickerResult>(
         context: host,
         builder: (_) => UiThemePickerDialog(

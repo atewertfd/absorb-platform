@@ -3,7 +3,8 @@
   One entry point for everyday Absorb Plus work on Windows.
 
 .DESCRIPTION
-  check      pub get, analyze, full test suite, tool tests, removed-paths check
+  check      pub get, analyze, full test suite, tool tests, removed-paths check,
+             fork-only lints (tool/fork_lints.py)
   build      Windows release into build\windows\x64\runner\Release, then
              verify the exe's version matches pubspec.yaml and refresh the
              owner's test copy in Desktop\Absorb Plus Beta
@@ -185,6 +186,9 @@ switch ($Command) {
     Invoke-Step -Name 'tool-tests' -Run { python -m unittest discover -s tool/tests } `
       -SummaryPattern '^Ran \d+ tests'
     Invoke-Step -Name 'removed-paths' -Run { python tool/check_fork_removed.py } -SummaryPattern '^OK'
+    # Lints only fork-added files must pass (one extra analyzer run).
+    $env:FLUTTER = $flutter
+    Invoke-Step -Name 'fork-lints' -Run { python tool/fork_lints.py } -SummaryPattern '^(OK|FAIL)'
     Write-Host 'check passed' -ForegroundColor Green
   }
 

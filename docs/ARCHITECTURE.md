@@ -64,7 +64,8 @@ How Absorb Plus is put together and where to look. The layout under `lib/` is up
 | Claude Code guards | `tool/claude_hooks.py` (tests in `tool/tests/`), wired in `.claude/settings.json` | Blocks upstream pushes, junction-following deletes, upstream reformatting and generated-file edits; asks before release/tag deletion |
 | Claude Code procedures | `.claude/skills/*/SKILL.md` | `/status`, `/build-verify`, `/release`, `/perf-measure`, `/fork-feature` |
 | Claude Code subagents | `.claude/agents/*.md` | `reviewer`, `upstream-merger`, `test-writer` |
-| CI | `.github/workflows/_checks.yml` (analyze, tests, tool tests, removed-paths check; reused), `ci.yml` (every push; web + Linux builds and Pages deploy on `main`), `release.yml` (`v*` tags: one release with Windows, Linux, web, Android) | |
+| Fork-only lints | `tool/fork_lints.py` (tests in `tool/tests/`) | `use_build_context_synchronously` stays off in `analysis_options.yaml` (75 upstream hits); this runs one extra `dart analyze` on a lint-on mirror in `build/fork_lints/` and fails only for hits in files missing from upstream's tree. `--all` also lists upstream hits. Part of `dev.ps1 check` and CI |
+| CI | `.github/workflows/_checks.yml` (analyze, tests, tool tests, removed-paths check, fork lints; reused), `ci.yml` (every push; web + Linux builds and Pages deploy on `main`), `release.yml` (`v*` tags: one release with Windows, Linux, web, Android) | |
 | Upstream merges | `tool/upstream_merge.py` (`dev.ps1 merge`), `tool/fork-removed-paths.txt`, `tool/fork-overrides.txt`, `tool/check_fork_removed.py` | `/upstream-merge` skill |
 
 ## Strings
