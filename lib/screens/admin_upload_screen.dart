@@ -150,7 +150,7 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
   final _author = TextEditingController();
   final _series = TextEditingController();
 
-  List<Map<String, dynamic>> _libraries = [];
+   List<Map<String, dynamic>> _libraries = [];
   bool _loadingLibraries = false;
   String? _selectedLibraryId;
   String? _selectedFolderId;
@@ -316,7 +316,7 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
       initialLibrary,
     ).firstOrNull?['id']?.toString();
     _metadataProvider = _providerFor(initialLibrary);
-    _metadataProviders = {_metadataProvider, ..._metadataProviders}.toList();
+    _metadataProviders = {_metadataProvider,..._metadataProviders}.toList();
   }
 
   Future<void> _loadLibrariesFromApi() async {
@@ -579,8 +579,7 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
       type: FileType.custom,
       allowedExtensions:
           (exportedOnly ? _libationExportExtensions : _supportedExtensions)
-              .toList()
-            ..sort(),
+              .toList()..sort(),
       withReadStream: true,
     );
     if (result == null) return null;
@@ -601,17 +600,14 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
     if (_busy) return;
     final l = AppLocalizations.of(context)!;
     try {
-      final picked =
-          await (widget.filePicker ??
+      final picked = await (widget.filePicker ??
               () => _pickWithFilePicker(exportedOnly: exportedOnly))();
       if (picked == null || picked.isEmpty || !mounted) return;
-      final supported = picked
-          .where(
+      final supported = picked.where(
             (file) => exportedOnly
                 ? _libationExportExtensions.contains(_extension(file.name))
                 : _isSupported(file),
-          )
-          .toList();
+          ).toList();
       if (supported.length != picked.length) {
         showOverlayToast(
           context,
@@ -637,7 +633,7 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
           _activeCandidate = null;
           _libraryDuplicateTitle = null;
         }
-        _files = [..._files, ...newFiles];
+        _files = [..._files,...newFiles];
         final primaryFiles = _files.where(_isPrimaryFile).toList();
         if (_title.text.trim().isEmpty) {
           final inferred = inferTitleFromSelectedFiles(primaryFiles);
@@ -1121,90 +1117,90 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
     var uploadAttempted = false;
     try {
       if (_autoFetchMetadata &&
-          !_isPodcast &&
-          _lastMetadataQuery != _metadataQuery) {
-        await _fetchMetadata();
-        if (!mounted) return;
-      }
-
-      final request = MediaUploadRequest(
-        libraryId: _selectedLibraryId!,
-        folderId: _selectedFolderId!,
-        mediaType: _mediaType,
-        title: _title.text.trim(),
-        author: _author.text.trim(),
-        series: _series.text.trim(),
-        files: _files,
-      );
-
-      ApiService? api;
-      if (widget.pathChecker == null || widget.uploader == null) {
-        api = widget.apiService;
-        if (api == null) {
-          _showError(l.adminUploadFailed);
-          return;
-        }
-      }
-
-      final pathResult = widget.pathChecker != null
-          ? await widget.pathChecker!(request.directory, _folderPath)
-          : await api!.checkUploadPathExists(
-              directory: request.directory,
-              folderPath: _folderPath,
-            );
+        !_isPodcast &&
+        _lastMetadataQuery != _metadataQuery) {
+      await _fetchMetadata();
       if (!mounted) return;
-      if (!pathResult.success) {
-        _showError(
+    }
+
+    final request = MediaUploadRequest(
+      libraryId: _selectedLibraryId!,
+      folderId: _selectedFolderId!,
+      mediaType: _mediaType,
+      title: _title.text.trim(),
+      author: _author.text.trim(),
+      series: _series.text.trim(),
+      files: _files,
+    );
+
+    ApiService? api;
+    if (widget.pathChecker == null || widget.uploader == null) {
+      api = widget.apiService;
+      if (api == null) {
+        _showError(l.adminUploadFailed);
+        return;
+      }
+    }
+
+
+    final pathResult = widget.pathChecker != null
+        ? await widget.pathChecker!(request.directory, _folderPath)
+        : await api!.checkUploadPathExists(
+            directory: request.directory,
+            folderPath: _folderPath,
+          );
+    if (!mounted) return;
+    if (!pathResult.success) {
+      _showError(
           pathResult.isPermissionDenied
               ? l.adminUploadPermissionDenied
-              : l.adminUploadPathCheckFailed,
-        );
-        return;
-      }
-      final target = _existingTarget;
-      if (target != null && !pathResult.exists) {
-        // The folder the server would build does not match the book's real
-        // one, usually a character it strips from names. Better a clear stop
-        // than a second copy of the book.
-        _showError(
-          l.adminUploadTargetFolderMismatch(request.directory, target.relPath),
-        );
-        return;
-      }
-      if (pathResult.exists && target == null) {
-        // The server happily writes into an existing folder, which is how an
-        // ebook joins an audiobook that is already there. Ask instead of
-        // refusing, since a slip here would merge two different books.
-        final existingTitle = pathResult.libraryItemTitle;
-        final addAnyway = await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: Text(l.adminUploadAddToExistingTitle),
-            content: Text(
-              existingTitle == null || existingTitle.isEmpty
-                  ? l.adminUploadAddToExistingNoItem
-                  : l.adminUploadAddToExisting(existingTitle),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: Text(l.cancel),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: Text(l.adminUploadAddFiles),
-              ),
-            ],
+              : l.adminUploadPathCheckFailed);
+      return;
+    }
+    final target = _existingTarget;
+    if (target != null && !pathResult.exists) {
+      // The folder the server would build does not match the book's real
+      // one, usually a character it strips from names. Better a clear stop
+      // than a second copy of the book.
+      _showError(l.adminUploadTargetFolderMismatch(request.directory, target.relPath));
+      return;
+    }
+    if (pathResult.exists && target == null) {
+      // The server happily writes into an existing folder, which is how an
+      // ebook joins an audiobook that is already there. Ask instead of
+      // refusing, since a slip here would merge two different books.
+      final existingTitle = pathResult.libraryItemTitle;
+      final addAnyway = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(l.adminUploadAddToExistingTitle),
+          content: Text(
+            existingTitle == null || existingTitle.isEmpty
+                ? l.adminUploadAddToExistingNoItem
+                : l.adminUploadAddToExisting(existingTitle),
           ),
-        );
-        if (!mounted || addAnyway != true) return;
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text(l.cancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: Text(l.adminUploadAddFiles),
+            ),
+          ],
+        ),
+      );
+      if (!mounted || addAnyway != true)
+        return;
       }
 
       uploadAttempted = true;
-      final result = widget.uploader != null
-          ? await widget.uploader!(request, onProgress: _updateProgress)
-          : await api!.uploadMedia(request, onProgress: _updateProgress);
-      if (!mounted) return;
+
+    final result = widget.uploader != null
+        ? await widget.uploader!(request, onProgress: _updateProgress)
+        : await api!.uploadMedia(request, onProgress: _updateProgress);
+    if (!mounted) return;
 
       var indexed = true;
       // The upload endpoint can return before the library scanner exposes the
@@ -1224,26 +1220,26 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
       }
 
       final uploadedTitle = target?.title ?? request.title;
-      final mustReselectFiles =
-          !result.success &&
-          _files.any(
-            (file) =>
-                file.path == null &&
-                file.bytes == null &&
-                file.readStream != null,
-          );
+    final mustReselectFiles =
+        !result.success &&
+        _files.any(
+          (file) =>
+              file.path == null &&
+              file.bytes == null &&
+              file.readStream != null,
+        );
       final importedCandidate = result.success ? _activeCandidate : null;
       setState(() {
-        if (result.success) {
-          _title.clear();
-          _author.clear();
-          _series.clear();
-          _files = [];
+      if (result.success) {
+        _title.clear();
+        _author.clear();
+        _series.clear();
+        _files = [];
           _candidateAuthor = '';
           _lastMetadataQuery = null;
           _activeCandidate = null;
           _libraryDuplicateTitle = null;
-          _existingTarget = null;
+        _existingTarget = null;
           if (importedCandidate != null) {
             _history = LibationImportHistory(
               importedFolders: {
@@ -1254,9 +1250,9 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
             );
           }
         } else if (mustReselectFiles) {
-          _files = [];
-        }
-      });
+        _files = [];
+      }
+    });
       if (importedCandidate != null) {
         // Only after Audiobookshelf accepted the upload.
         await LibationImportHistory.recordImported(
@@ -1267,30 +1263,28 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
       if (result.success) {
         widget.onUploadComplete?.call();
         showOverlayToast(
-          context,
-          target != null
-              ? l.adminUploadAddedTo(uploadedTitle)
-              : indexed
+        context,
+        target != null
+            ? l.adminUploadAddedTo(uploadedTitle)
+            : indexed
               ? l.adminUploadComplete(uploadedTitle)
               : l.adminUploadCompletePendingIndex(uploadedTitle),
-          icon: Icons.check_circle_outline_rounded,
-        );
+        icon: Icons.check_circle_outline_rounded,
+      );
       } else {
         final String message;
         if (result.isPermissionDenied) {
           message = l.adminUploadPermissionDenied;
-        } else {
-          final error = result.error?.trim();
-          message = error == null || error.isEmpty
-              ? l.adminUploadFailed
-              : l.adminUploadFailedReason(error);
+    } else {
+      final error = result.error?.trim();
+       message = error == null || error.isEmpty
+          ? l.adminUploadFailed
+          : l.adminUploadFailedReason(error);
         }
         _showError(
-          mustReselectFiles
-              ? '$message ${l.adminUploadReselectFiles}'
-              : message,
-        );
-      }
+        mustReselectFiles ? '$message ${l.adminUploadReselectFiles}' : message,
+      );
+    }
     } catch (_) {
       if (!mounted) return;
       final mustReselect =
@@ -1381,129 +1375,121 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
       child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: SafeArea(
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 8, 0),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: AbsorbPageHeader(
-                        title: l.adminUploadTitle,
-                        padding: EdgeInsets.zero,
-                      ),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 8, 0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: AbsorbPageHeader(
+                      title: l.adminUploadTitle,
+                      padding: EdgeInsets.zero,
                     ),
-                    IconButton(
+                  ),
+                  IconButton(
                       tooltip: MaterialLocalizations.of(
                         context,
                       ).closeButtonTooltip,
-                      icon: Icon(
-                        Icons.close_rounded,
-                        color: cs.onSurfaceVariant,
-                      ),
-                      onPressed: _uploading
-                          ? null
-                          : () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
+                      icon: Icon(Icons.close_rounded, color: cs.onSurfaceVariant),
+                    onPressed: _uploading ? null : () => Navigator.pop(context),
+                  ),
+                ],
               ),
-              const SizedBox(height: 8),
-              Expanded(
-                child: _loadingLibraries
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: _loadingLibraries
                     ? const Center(child: CircularProgressIndicator())
                     : _libraries.isEmpty
-                    ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(32),
-                          child: Text(
-                            l.adminUploadNoLibraries,
-                            textAlign: TextAlign.center,
-                            style: tt.bodyMedium?.copyWith(
-                              color: cs.onSurfaceVariant,
-                            ),
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: Text(
+                          l.adminUploadNoLibraries,
+                          textAlign: TextAlign.center,
+                          style: tt.bodyMedium?.copyWith(
+                            color: cs.onSurfaceVariant,
                           ),
                         ),
-                      )
-                    : Form(
-                        key: _formKey,
-                        child: ListView(
-                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
-                          children: [
-                            Center(
-                              child: ConstrainedBox(
-                                constraints: const BoxConstraints(
-                                  maxWidth: 760,
-                                ),
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  children: [
-                                    if (!widget.canUpload) ...[
+                      ),
+                    )
+                  : Form(
+                      key: _formKey,
+                      child: ListView(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
+                        children: [
+                          Center(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 760),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                    if (!widget.canUpload)...[
                                       _permissionBanner(cs, tt, l),
                                       const SizedBox(height: 12),
                                     ],
                                     _destinationCard(cs, tt, l),
-                                    const SizedBox(height: 12),
-                                    _detailsCard(cs, tt, l),
-                                    const SizedBox(height: 12),
-                                    if (!_isPodcast) ...[
+                                  const SizedBox(height: 12),
+                                  _detailsCard(cs, tt, l),
+                                  const SizedBox(height: 12),
+                                    if (!_isPodcast)...[
                                       _libationCard(cs, tt, l),
                                       const SizedBox(height: 12),
                                     ],
                                     _filesCard(cs, tt, l),
-                                    const SizedBox(height: 16),
-                                    if (_uploading) ...[
-                                      LinearProgressIndicator(value: _progress),
-                                      const SizedBox(height: 8),
-                                      Text(
+                                  const SizedBox(height: 16),
+                                  if (_uploading) ...[
+                                    LinearProgressIndicator(value: _progress),
+                                    const SizedBox(height: 8),
+                                    Text(
                                         _indexing
                                             ? l.adminUploadIndexing
                                             : _progress == null
-                                            ? l.adminUploadUploading
-                                            : l.adminUploadProgress(
-                                                (_progress! * 100).round(),
-                                              ),
-                                        textAlign: TextAlign.center,
-                                        style: tt.bodySmall?.copyWith(
-                                          color: cs.onSurfaceVariant,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 12),
-                                    ],
-                                    FilledButton.icon(
-                                      key: AdminUploadScreen.submitKey,
-                                      onPressed: _busy || _metadataSearching
-                                          ? null
-                                          : _submit,
-                                      icon: _uploading
-                                          ? SizedBox(
-                                              width: 18,
-                                              height: 18,
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 2,
-                                                color: cs.onPrimary,
-                                              ),
-                                            )
-                                          : const Icon(
-                                              Icons.cloud_upload_rounded,
+                                          ? l.adminUploadUploading
+                                          : l.adminUploadProgress(
+                                              (_progress! * 100).round(),
                                             ),
-                                      label: Text(
-                                        _uploading
-                                            ? l.adminUploadUploading
-                                            : l.adminUploadButton,
+                                      textAlign: TextAlign.center,
+                                      style: tt.bodySmall?.copyWith(
+                                        color: cs.onSurfaceVariant,
                                       ),
                                     ),
+                                    const SizedBox(height: 12),
                                   ],
-                                ),
+                                  FilledButton.icon(
+                                    key: AdminUploadScreen.submitKey,
+                                    onPressed: _busy || _metadataSearching
+                                        ? null
+                                        : _submit,
+                                    icon: _uploading
+                                        ? SizedBox(
+                                            width: 18,
+                                            height: 18,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: cs.onPrimary,
+                                            ),
+                                          )
+                                        : const Icon(
+                                            Icons.cloud_upload_rounded,
+                                          ),
+                                    label: Text(
+                                      _uploading
+                                          ? l.adminUploadUploading
+                                          : l.adminUploadButton,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-              ),
-            ],
-          ),
+                    ),
+            ),
+          ],
+        ),
         ),
       ),
     );
@@ -1985,22 +1971,29 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           LayoutBuilder(
-            builder: (context, constraints) {
+            builder: (
+                context, constraints) {
               final heading = Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l.adminUploadFiles,
-                    style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-                  ),
-                  if (_files.isNotEmpty)
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      '${l.adminUploadSelectedFiles(_files.length)} · ${_formatBytes(totalBytes)}',
-                      style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                      l.adminUploadFiles,
+                      style: tt.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                ],
-              );
-              final chooseButton = OutlinedButton.icon(
+                    if (_files.isNotEmpty)
+                      Text(
+                        '${l.adminUploadSelectedFiles(_files.length)} · ${_formatBytes(totalBytes)}',
+                        style: tt.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                  ],
+                )
+              ;
+              final chooseButton =
+              OutlinedButton.icon(
                 key: AdminUploadScreen.chooseFilesKey,
                 onPressed: _busy ? null : _pickFiles,
                 icon: Icon(
@@ -2014,7 +2007,8 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
                       ? l.adminUploadChooseFiles
                       : l.adminUploadAddFiles,
                 ),
-              );
+              )
+            ;
               final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
               if (constraints.maxWidth < 480 * scale) {
                 return Column(

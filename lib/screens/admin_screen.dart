@@ -243,6 +243,7 @@ class _AdminScreenState extends State<AdminScreen> with WidgetsBindingObserver {
     await _loadLibraryCounts(api);
   }
 
+
   bool get _hasPodcastLibrary => _libraries.any((l) => l['mediaType'] == 'podcast');
 
   List<dynamic> get _activeSessions => _sessions.where((s) {
@@ -954,6 +955,7 @@ class _AdminScreenState extends State<AdminScreen> with WidgetsBindingObserver {
         ])),
         Icon(Icons.chevron_right_rounded, color: cs.onSurface.withValues(alpha: 0.15)),
       ])));
+
 
   // ─── Library Card ───────────────────────────────────────────
 

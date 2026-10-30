@@ -21,16 +21,22 @@ import re
 import subprocess
 import sys
 
-# Identifiers, numbers, single-line string literals, line comments and any
-# other non-space character except commas (commas move when code is
-# reformatted, so alignment ignores them).
+# Multi-character operators are single tokens, so a splice can never split
+# one (e.g. "=>" into "= >") without the identity check noticing.
+OPERATORS = (
+    r"\.\.\.\?|\.\.\.|\?\?=|>>>=|>>>|<<=|>>=|\?\.|\?\?|=>|==|!=|<=|>=|&&"
+    r"|\|\||\+\+|--|<<|>>|[-+*/%&|^~]=|\.\.|~/"
+)
+# Identifiers, numbers, single-line string literals, line comments,
+# operators and any other non-space character except commas (commas move
+# when code is reformatted, so alignment ignores them).
 TOKEN = re.compile(
     r"[A-Za-z_$][\w$]*|\d[\w.]*|'(?:[^'\\\n]|\\.)*'|\"(?:[^\"\\\n]|\\.)*\""
-    r"|//[^\n]*|[^\s\w,]"
+    r"|//[^\n]*|" + OPERATORS + r"|[^\s\w,]"
 )
 STRICT = re.compile(
     r"[A-Za-z_$][\w$]*|\d[\w.]*|'(?:[^'\\\n]|\\.)*'|\"(?:[^\"\\\n]|\\.)*\""
-    r"|//[^\n]*|[^\s\w]"
+    r"|//[^\n]*|" + OPERATORS + r"|[^\s\w]"
 )
 
 
@@ -50,38 +56,77 @@ def realign(upstream, ours):
     mine = spans(ours)
     matcher = difflib.SequenceMatcher(
         None, [t for t, _, _ in up], [t for t, _, _ in mine], autojunk=False)
-    out = []
-    seams = []  # output offsets where fork text meets upstream text
+    def gap_mine(j):
+        """The fork's whitespace/comma gap in front of its token j."""
+        start = mine[j - 1][2] if j > 0 else 0
+        end = mine[j][1] if j < len(mine) else len(ours)
+        return ours[start:end]
+
+    text = ""            # output built so far
+    seams = []           # output offsets where fork text meets upstream text
+    pending = None       # fork gap the next upstream segment should start with
+
+    def bridge(segment, want, fork_text):
+        """Append `segment` so the gap in front of it matches the fork's gap
+        `want`: same commas, and the fork's own spacing in front of fork text.
+        Upstream text keeps upstream's spacing unless that would join lines
+        the fork keeps apart."""
+        nonlocal text
+        ws = " \t\r\n"
+        body = text.rstrip(ws)
+        have_ws = text[len(body):]
+        rest = segment.lstrip(ws)
+        have_ws += segment[:len(segment) - len(rest)]
+        # Commas: exactly as many as the fork has here (zero or one).
+        want_comma = "," in want
+        while body.endswith(",") and (not want_comma or rest.startswith(",")):
+            body = body[:-1].rstrip(ws)
+        if rest.startswith(","):
+            if want_comma and not body.endswith(","):
+                body += ","
+            rest = rest[1:]
+            have_ws = rest[:len(rest) - len(rest.lstrip(ws))] or have_ws
+            rest = rest.lstrip(ws)
+        if want_comma and not body.endswith(","):
+            body += ","
+        want_ws = want.split(",")[-1]
+        if fork_text and want_ws:
+            gap = want_ws
+        elif not have_ws.strip(" \t") and "\n" in want_ws:
+            gap = want_ws                 # keep separate lines separate
+        elif not have_ws and want_ws:
+            gap = want_ws
+        else:
+            gap = have_ws if have_ws or want_ws else ""
+        text = body + gap + rest
+
     pos = 0
     for op, i1, i2, j1, j2 in matcher.get_opcodes():
         if op == "equal":
             continue
-        # Upstream text before the change keeps upstream's formatting.
+        # Upstream text up to the change keeps upstream's formatting.
         anchor = up[i1][1] if i1 < len(up) else len(upstream)
-        out.append(upstream[pos:anchor])
-        seams.append(sum(len(s) for s in out))
+        segment = upstream[pos:anchor]
+        if pending is not None:
+            bridge(segment, pending, fork_text=False)
+            pending = None
+        else:
+            text += segment
+        seams.append(len(text))
         if j1 < j2:
-            # Carry the fork's own separator in front of the change when it
-            # holds a comma upstream lacks (e.g. a new trailing argument).
-            lead_mine = ours[mine[j1 - 1][2]:mine[j1][1]] if j1 > 0 else ""
-            lead_up = upstream[up[i1 - 1][2]:anchor] if i1 > 0 else ""
-            if "," in lead_mine and "," not in lead_up:
-                out.append(", ")
-            chunk_end = mine[j2 - 1][2]
-            out.append(ours[mine[j1][1]:chunk_end])
-            if i1 == i2:
-                # Pure insertion: keep the fork's separator after it.
-                tail = ours[chunk_end:mine[j2][1]] if j2 < len(mine) else ""
-                out.append(tail if tail else " ")
-        seams.append(sum(len(s) for s in out))
+            chunk = ours[mine[j1][1]:mine[j2 - 1][2]]
+            bridge(chunk, gap_mine(j1), fork_text=True)
+        # Whatever upstream text comes next must meet the fork's gap after
+        # this change (for a pure insertion that is the gap before up[i1]).
+        pending = gap_mine(j2)
+        seams.append(len(text))
         pos = up[i2 - 1][2] if i2 > i1 else anchor
-        if i2 > i1 and j1 == j2:
-            # Pure deletion: drop a comma that only separated deleted code.
-            nxt = upstream[pos:pos + 2]
-            if nxt.startswith(","):
-                pos += 1
-    out.append(upstream[pos:])
-    return tidy_seams("".join(out), seams)
+    tail = upstream[pos:]
+    if pending is not None:
+        bridge(tail, pending, fork_text=False)
+    else:
+        text += tail
+    return tidy_seams(text, seams)
 
 
 # Words that keep a space before "(" (Dart keywords and common forms).
@@ -99,6 +144,19 @@ def tidy_line(line):
     indent = stripped[:len(stripped) - len(body)]
     if not body or body.startswith("//"):
         return stripped
+    # Only touch code: hide string literals and a trailing comment first.
+    hidden = []
+
+    def hide(match):
+        hidden.append(match.group())
+        return f"\x00{len(hidden) - 1}\x00"
+
+    body = re.sub(r"'(?:[^'\\]|\\.)*'|\"(?:[^\"\\]|\\.)*\"|//.*$", hide, body)
+    body = tidy_code(body)
+    return indent + re.sub(r"\x00(\d+)\x00", lambda m: hidden[int(m.group(1))], body)
+
+
+def tidy_code(body):
     body = re.sub(r"(?<=\S)  +", " ", body)           # doubled spaces
     body = re.sub(r"(?<=\S) +([;,)\].])", r"\1", body)  # space before ; , ) ] .
     body = re.sub(r"\( +", "(", body)                  # space after (
@@ -108,7 +166,7 @@ def tidy_line(line):
         r"\b([A-Za-z_]\w*) +\(",
         lambda m: m.group(0) if m.group(1) in KEEP_SPACE_BEFORE_PAREN
         else m.group(1) + "(", body)
-    return indent + body
+    return body
 
 
 def tidy_seams(text, seams):
@@ -139,6 +197,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--ref", default="origin/main")
     parser.add_argument("--apply", action="store_true")
+    parser.add_argument("--explain", action="store_true",
+                        help="show where a refused file would differ")
     parser.add_argument("files", nargs="+")
     args = parser.parse_args()
     failed = 0
@@ -159,6 +219,13 @@ def main():
         if strict_tokens(result) != strict_tokens(ours):
             failed += 1
             print(f"FAIL  {path}: realigned code would differ; left unchanged")
+            if args.explain:
+                a, b = strict_tokens(ours), strict_tokens(result)
+                sm = difflib.SequenceMatcher(None, a, b, autojunk=False)
+                for op, i1, i2, j1, j2 in sm.get_opcodes()[:200]:
+                    if op != "equal":
+                        print(f"      fork:   {' '.join(a[max(0, i1 - 6):i2 + 3])}")
+                        print(f"      result: {' '.join(b[max(0, j1 - 6):j2 + 3])}")
             continue
         before = sum(1 for _ in difflib.unified_diff(
             upstream.splitlines(), ours.splitlines(), lineterm="", n=0))

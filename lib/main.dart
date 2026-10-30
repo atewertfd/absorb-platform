@@ -494,7 +494,7 @@ class AbsorbApp extends StatelessWidget {
             // timing token without editing every individual button callsite.
             final buttonMotion = ButtonStyle(
               animationDuration: interactionDuration,
-            );
+                  );
 
             return MaterialApp(
               navigatorKey: rootNavigatorKey,
@@ -885,44 +885,44 @@ class _AuthGateState extends State<AuthGate> {
     // account/audio/download path is ready.
     StartupTaskCoordinator.startBackground(
       [
-        if (Platform.isAndroid)
+    if (Platform.isAndroid)
           () async {
-            await ChromecastService().init();
-          },
+        await ChromecastService().init();
+      },
         () async {
-          debugPrint('[Init] remaining services... (${sw.elapsedMilliseconds}ms)');
-          await ProgressSyncService().init();
+    debugPrint('[Init] remaining services... (${sw.elapsedMilliseconds}ms)');
+      await ProgressSyncService().init();
           // A killed stream can leave unsynced listening in the streaming
           // buffer; fold it into the offline ledger so the normal flush ships
           // it.
-          await ProgressSyncService().migrateOrphanStreamingTime();
-          await LocalSessionService().init();
-          await EqualizerService().init();
-          await SleepTimerService().loadAutoSleepSettings();
-          // Watch for settings changes and pull the synced copy on the way in.
-          await SettingsSyncService().startIfEnabled();
-          unawaited(SettingsSyncService().onAppForegrounded());
-          if (Platform.isAndroid) {
-            Future.microtask(() => AndroidAutoService().refresh());
-          }
-          if (Platform.isIOS) {
-            CarPlayService().init();
-          }
-          if (Platform.isAndroid || Platform.isIOS) {
-            await HomeWidgetService().init();
-          }
-          if (Platform.isIOS) {
-            // Siri requests wait on this; a Siri launch reaches it headless.
-            await SiriService().init();
-          }
-          // Depends on AudioPlayerService + HomeWidgetService so they're ready
-          // when the shortcut handler fires.
-          await QuickActionsService().init();
-        },
+      await ProgressSyncService().migrateOrphanStreamingTime();
+      await LocalSessionService().init();
+      await EqualizerService().init();
+      await SleepTimerService().loadAutoSleepSettings();
+      // Watch for settings changes and pull the synced copy on the way in.
+      await SettingsSyncService().startIfEnabled();
+      unawaited(SettingsSyncService().onAppForegrounded());
+      if (Platform.isAndroid) {
+        Future.microtask(() => AndroidAutoService().refresh());
+      }
+      if (Platform.isIOS) {
+        CarPlayService().init();
+      }
+      if (Platform.isAndroid || Platform.isIOS) {
+        await HomeWidgetService().init();
+      }
+      if (Platform.isIOS) {
+        // Siri requests wait on this; a Siri launch reaches it headless.
+        await SiriService().init();
+      }
+      // Depends on AudioPlayerService + HomeWidgetService so they're ready
+      // when the shortcut handler fires.
+      await QuickActionsService().init();
+    },
       ],
       onError: (error, stackTrace) {
-        debugPrint('[Init] Optional service failed: $error\n$stackTrace');
-      },
+      debugPrint('[Init] Optional service failed: $error\n$stackTrace');
+    },
     );
     debugPrint('[Init] _initServices complete (${sw.elapsedMilliseconds}ms)');
     _servicesReady = true;

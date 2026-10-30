@@ -1234,8 +1234,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       PlayerSettings.getMediaControlsSpeedBookmark(),                         // 52
       PlayerSettings.getLockSeekBar(),                                        // 53
       PlayerSettings.getCardBackground(),                                     // card background
-      PlayerSettings.getProgressTextScale(),                                  // 54
-      PlayerSettings.getUpdateCheckFrequency(),                               // 55
+      PlayerSettings.getProgressTextScale(), // 54
+      PlayerSettings.getUpdateCheckFrequency(), // 55
     ]);
     final s = results[0] as AutoRewindSettings;
     final progressScale = results[52] as double;
@@ -4783,7 +4783,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         } : null,
                       ),
                     ],
-                    if (_updatesEnabled) ...[
+                    if (_updatesEnabled)...[
                       const Divider(height: 1, indent: 16, endIndent: 16),
                       SwitchListTile(
                         title: Row(children: [
@@ -4984,7 +4984,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ],
                 )),
 
-                if (_updatesEnabled) ...[
+                if (_updatesEnabled)...[
                   const SizedBox(height: 4),
                   Center(child: TextButton.icon(
                     onPressed: _checkingForUpdate
@@ -4992,11 +4992,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         : () async {
                             setState(() => _checkingForUpdate = true);
                             try {
-                              final result = await UpdateCheckerService.check(
-                                force: true,
-                                includePreReleases: _includePreReleases,
-                              );
-                              if (!mounted) return;
+                              final result = await UpdateCheckerService.check(force: true, includePreReleases: _includePreReleases);
+                      if (!mounted) return;
                               final info = result.info;
                               if (result.status == UpdateCheckStatus.failed) {
                                 showOverlayToast(
@@ -5011,8 +5008,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 final beta = version == null
                                     ? null
                                     : betaNumberFor(version);
-                                showOverlayToast(
-                                  context,
+                                showOverlayToast(context,
                                   version == null
                                       ? l.onLatestVersion
                                       : l.onLatestVersionDetail(
@@ -5020,12 +5016,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                               ? version
                                               : '$version, ${l.betaLabel(beta)}',
                                         ),
-                                  icon: Icons.check_circle_outline_rounded,
-                                );
-                                return;
-                              }
-                              await UpdateDialog.show(context, info);
-                            } finally {
+                                  icon: Icons.check_circle_outline_rounded);
+                        return;
+                      }
+                      await UpdateDialog.show(context, info);
+                    } finally {
                               if (mounted) {
                                 setState(() => _checkingForUpdate = false);
                               }
@@ -5246,7 +5241,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ],
                 ),
               ),
-                if (Platform.isWindows) ...[
+                if (Platform.isWindows)...[
                   const SizedBox(height: 16),
                   CollapsibleSection(
                     key: _keyFor('Windows Settings'),

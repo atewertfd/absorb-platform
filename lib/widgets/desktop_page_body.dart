@@ -13,10 +13,11 @@ class DesktopPageBody extends StatelessWidget {
   Widget build(BuildContext context) {
     if (!isDesktopWorkspace(context)) return child;
     return Center(
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: maxWidth),
-        child: child,
-      ),
-    );
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: maxWidth),
+          child: child,
+        ),
+      )
+    ;
   }
 }
