@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../l10n/app_localizations.dart';
+import 'absorb_plus_logo.dart';
 
 /// Shows a one-time welcome dialog explaining the Absorb terminology and a
 /// couple of essential gestures. Kept short on purpose - the previous version
@@ -37,7 +38,7 @@ class _WelcomeDialog extends StatelessWidget {
       titlePadding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
       contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
       title: Row(children: [
-        Icon(Icons.waves_rounded, color: cs.primary, size: 26),
+        AbsorbPlusMark(color: cs.primary, size: 26),
         const SizedBox(width: 10),
         Expanded(
           child: Text(l.welcomeToAbsorb,

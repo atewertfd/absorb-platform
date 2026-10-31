@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -47,6 +46,7 @@ import '../services/bookorbit_notification_socket.dart';
 import '../services/server_notifications.dart';
 import '../services/ebook_cache.dart';
 import '../widgets/action_pill.dart';
+import '../widgets/absorbing_nav_icon.dart';
 import '../widgets/book_detail_sheet.dart' show showBookDetailSheet;
 import '../widgets/ebook_router.dart';
 import '../widgets/nav_hold_options.dart';
@@ -1694,8 +1694,8 @@ class _AppShellState extends State<AppShell>
           tooltip: '',
         ),
       NavigationDestination(
-        icon: const _AnimatedWaveIcon(size: 24, active: false),
-        selectedIcon: const _AnimatedWaveIcon(size: 24, active: true),
+        icon: const AbsorbingNavIcon(size: 24, active: false),
+        selectedIcon: const AbsorbingNavIcon(size: 24, active: true),
         label: Wording.of(context).appShellAbsorbingTab,
         tooltip: '',
       ),
@@ -1713,128 +1713,4 @@ class _AppShellState extends State<AppShell>
       ),
     ];
   }
-}
-
-// ─── Animated wave icon for nav bar matching notification icon ────
-class _AnimatedWaveIcon extends StatefulWidget {
-  final double size;
-  final bool active;
-
-  const _AnimatedWaveIcon({required this.size, required this.active});
-
-  @override
-  State<_AnimatedWaveIcon> createState() => _AnimatedWaveIconState();
-}
-
-class _AnimatedWaveIconState extends State<_AnimatedWaveIcon>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  final _player = AudioPlayerService();
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1400),
-    );
-    _player.addListener(_onPlayerChanged);
-    _syncAnimation();
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    _player.removeListener(_onPlayerChanged);
-    super.dispose();
-  }
-
-  void _onPlayerChanged() {
-    _syncAnimation();
-    if (mounted) setState(() {});
-  }
-
-  void _syncAnimation() {
-    if (_player.isPlaying) {
-      if (!_ctrl.isAnimating) _ctrl.repeat();
-    } else {
-      if (_ctrl.isAnimating) _ctrl.stop();
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final playing = _player.isPlaying;
-    // Painted rather than an Icon, so the nav bar's icon theme passes it by.
-    // That only matters in e-ink mode, where the selected pill is solid black
-    // and the theme is what turns a selected icon white - without this the
-    // wave paints black on black and the tab looks empty.
-    final einkColor =
-        PlayerSettings.einkMode ? IconTheme.of(context).color : null;
-
-    return AnimatedBuilder(
-      animation: _ctrl,
-      builder: (_, __) => CustomPaint(
-        size: Size(widget.size, widget.size),
-        painter: _NavWavePainter(
-          phase: _ctrl.value,
-          color: einkColor ??
-              (widget.active ? cs.primary : cs.onSurfaceVariant),
-          playing: playing,
-        ),
-      ),
-    );
-  }
-}
-
-class _NavWavePainter extends CustomPainter {
-  final double phase;
-  final Color color;
-  final bool playing;
-
-  _NavWavePainter({
-    required this.phase,
-    required this.color,
-    required this.playing,
-  });
-
-  static const _barHeights = [0.35, 0.6, 1.0, 0.6, 0.35];
-  static const _barCount = 5;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 2.5
-      ..strokeCap = StrokeCap.round;
-
-    final totalWidth = size.width * 0.6;
-    final startX = (size.width - totalWidth) / 2;
-    final spacing = totalWidth / (_barCount - 1);
-    final midY = size.height / 2;
-    final maxHalf = size.height * 0.38;
-
-    for (int i = 0; i < _barCount; i++) {
-      final x = startX + spacing * i;
-      final baseRatio = _barHeights[i];
-
-      if (playing) {
-        final barPhase = phase * 2 * math.pi + i * 1.2;
-        final ratio = (baseRatio * (0.5 + 0.5 * math.sin(barPhase))).clamp(
-          0.2,
-          1.0,
-        );
-        final half = maxHalf * ratio;
-        canvas.drawLine(Offset(x, midY - half), Offset(x, midY + half), paint);
-      } else {
-        final half = maxHalf * baseRatio;
-        canvas.drawLine(Offset(x, midY - half), Offset(x, midY + half), paint);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(_NavWavePainter old) =>
-      old.phase != phase || old.playing != playing || old.color != color;
 }
