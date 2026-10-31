@@ -25,6 +25,7 @@ import 'socket_service.dart';
 import '../models/auth_session.dart';
 import '../utils/server_url.dart';
 import '../utils/percent_escapes.dart';
+import '../utils/keep_alive_client.dart';
 
 part 'bookorbit_api_service.dart';
 part 'bookorbit_admin_api.dart';
@@ -270,6 +271,12 @@ class ApiService {
   final bool _isLegacyToken;
   final Map<String, String> customHeaders;
   final http.Client? _httpClient;
+
+  /// One client for every session, so requests reuse open connections
+  /// (keep-alive). The top-level `http.get` etc. open and close a client per
+  /// call, which costs a new TCP (and TLS) handshake each time: +80 ms or
+  /// more per request over Tailscale.
+  static final http.Client _sharedClient = newKeepAliveClient();
 
   /// Called after a successful token refresh so the auth layer can persist.
   /// Returns whether the pair actually reached storage - a rotation that only
@@ -655,21 +662,19 @@ class ApiService {
   String get _cleanBaseUrl => normalizeServerUrl(baseUrl);
 
   Future<http.Response> _get(Uri url, {Map<String, String>? headers}) {
-    return _httpClient?.get(url, headers: headers) ?? http.get(url, headers: headers);
+    return (_httpClient ?? _sharedClient).get(url, headers: headers);
   }
 
   Future<http.Response> _post(Uri url, {Map<String, String>? headers, Object? body}) {
-    return _httpClient?.post(url, headers: headers, body: body) ??
-        http.post(url, headers: headers, body: body);
+    return (_httpClient ?? _sharedClient).post(url, headers: headers, body: body);
   }
 
   Future<http.Response> _patch(Uri url, {Map<String, String>? headers, Object? body}) {
-    return _httpClient?.patch(url, headers: headers, body: body) ??
-        http.patch(url, headers: headers, body: body);
+    return (_httpClient ?? _sharedClient).patch(url, headers: headers, body: body);
   }
 
   Future<http.Response> _delete(Uri url, {Map<String, String>? headers}) {
-    return _httpClient?.delete(url, headers: headers) ?? http.delete(url, headers: headers);
+    return (_httpClient ?? _sharedClient).delete(url, headers: headers);
   }
 
   /// Credential-presence diagnostic only. Never include token characters,
