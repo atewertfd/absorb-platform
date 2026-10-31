@@ -2,6 +2,8 @@ import '../utils/web_safe_platform.dart'; // web-safe Platform
 import 'package:flutter/widgets.dart';
 import '../l10n/app_localizations.dart';
 import '../services/wording.dart';
+import '../utils/fork_branding.dart';
+import '../utils/fork_platform.dart';
 
 class SettingSearchEntry {
   final String sectionId;    // exact string passed to _keyFor(...)
@@ -151,8 +153,8 @@ List<SettingSearchEntry> settingsSearchEntries(BuildContext context) {
     // ── Issues & Support ──
     SettingSearchEntry('Issues & Support', l.sectionIssuesAndSupport, l.showTipsAgain, [l.showTipsAgainSubtitle]),
     SettingSearchEntry('Issues & Support', l.sectionIssuesAndSupport, l.bugsAndFeatureRequests, [l.bugsAndFeatureRequestsSubtitle]),
-    SettingSearchEntry('Issues & Support', l.sectionIssuesAndSupport, l.joinDiscord, [l.joinDiscordSubtitle]),
-    SettingSearchEntry('Issues & Support', l.sectionIssuesAndSupport, l.contact, [l.contactSubtitle]),
+    if (ForkBranding.showUpstreamDiscord) SettingSearchEntry('Issues & Support', l.sectionIssuesAndSupport, l.joinDiscord, [l.joinDiscordSubtitle]),
+    SettingSearchEntry('Issues & Support', l.sectionIssuesAndSupport, l.contact, [l.supportContactSubtitle]),
     SettingSearchEntry('Issues & Support', l.sectionIssuesAndSupport, l.enableLogging, [l.enableLoggingOnSubtitle, l.enableLoggingOffSubtitle]),
     SettingSearchEntry('Issues & Support', l.sectionIssuesAndSupport, l.sendLogs, [l.sendLogsSubtitle]),
     SettingSearchEntry('Issues & Support', l.sectionIssuesAndSupport, l.clearLogs, const []),
@@ -168,6 +170,6 @@ List<SettingSearchEntry> settingsSearchEntries(BuildContext context) {
     if (Platform.isWindows)
       SettingSearchEntry('Windows Settings', l.windowsSettingsTitle, l.updateCheckFrequency, [l.updateCheckFrequencySubtitle, l.updateCheckOnStartup, l.updateCheckEverySixHours, l.updateCheckEveryTwelveHours, l.updateCheckDaily, l.updateCheckNever]),
     SettingSearchEntry('Advanced', l.sectionAdvanced, l.adminRmab, [l.adminRmabConnected, l.adminRmabAskAdmin]),
-    SettingSearchEntry('Advanced', l.sectionAdvanced, l.transcriptionTitle, [l.transcriptionAdvancedSubtitle, l.syncReadingListening]),
+    if (ForkPlatform.supportsTranscription) SettingSearchEntry('Advanced', l.sectionAdvanced, l.transcriptionTitle, [l.transcriptionAdvancedSubtitle, l.syncReadingListening]),
   ];
 }

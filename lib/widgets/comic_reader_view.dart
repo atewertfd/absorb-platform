@@ -178,7 +178,7 @@ class _ComicReaderViewState extends State<ComicReaderView> with WidgetsBindingOb
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused) _flushProgress();
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) _flushProgress();
   }
 
   late final EreaderVolumeNav _volumeNav = EreaderVolumeNav(

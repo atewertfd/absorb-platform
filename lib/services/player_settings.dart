@@ -7,6 +7,7 @@ import 'narrated_books.dart';
 import 'scoped_prefs.dart';
 import 'update_check_policy.dart';
 import '../widgets/card_button_config.dart';
+import '../utils/fork_platform.dart';
 
 typedef QueueModeSnapshot = ({
   String bookMode,
@@ -224,6 +225,7 @@ class PlayerSettings {
   }
 
   static Future<bool> getTranscriptionEnabled() async {
+    if (!ForkPlatform.supportsTranscription) return false; // Absorb Plus: Android-only
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool('transcriptionEnabled') ?? false;
   }

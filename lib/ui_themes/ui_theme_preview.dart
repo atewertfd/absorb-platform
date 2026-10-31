@@ -14,6 +14,7 @@ import '../widgets/cover_decode.dart';
 import 'frosted.dart';
 import 'ui_theme.dart';
 import 'ui_theme_hooks.dart';
+import '../utils/local_path.dart';
 
 /// One of the user's books shown in a look preview.
 @immutable
@@ -378,7 +379,7 @@ class _PreviewCover extends StatelessWidget {
     final Widget image;
     if (url == null || url.isEmpty) {
       image = placeholder;
-    } else if (url.startsWith('/')) {
+    } else if (isLocalCoverPath(url)) {
       image = kIsWeb
           ? placeholder
           : Image.file(

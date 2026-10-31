@@ -6,6 +6,7 @@ import 'api_service.dart';
 import 'download_service.dart';
 import 'scoped_prefs.dart';
 import 'sync_logic.dart';
+import 'user_account_service.dart';
 
 /// Manages local progress storage and server sync.
 /// Progress is ALWAYS saved locally first, then synced to server when online.
@@ -41,6 +42,39 @@ class ProgressSyncService {
 
   bool get isOnline => _isOnline;
 
+  /// Every read-modify-write of `pending_syncs` runs through this chain, so a
+  /// save landing mid-flush can't be written over by the flush's removal.
+  Future<void> _pendingChain = Future<void>.value();
+
+  Future<void> _mutatePending(void Function(List<String> list) change) {
+    final run = _pendingChain.then((_) async {
+      final list =
+          List<String>.from(await ScopedPrefs.getStringList('pending_syncs'));
+      final before = list.length;
+      change(list);
+      if (list.length != before) {
+        await ScopedPrefs.setStringList('pending_syncs', list);
+      }
+    });
+    _pendingChain = run.catchError((Object _) {});
+    return run;
+  }
+
+  /// The queue belongs to whichever account was active when a flush began.
+  /// Account switches move ScopedPrefs to the new account, so a flush (or its
+  /// scheduled retry) must stop rather than push one account's positions
+  /// through another account's session.
+  static String get _scope => UserAccountService().activeScopeKey;
+
+  /// Drop [itemId] from the pending list of [scope] only; a no-op once the
+  /// account changed, so the other account's entry for the same id stays.
+  Future<void> _removePending(String itemId, String scope) {
+    if (_scope != scope) return Future<void>.value();
+    return _mutatePending((list) {
+      if (_scope == scope) list.remove(itemId);
+    });
+  }
+
   /// Save progress locally and mark it as a pending change to sync.
   Future<void> saveLocal({
     required String itemId,
@@ -72,11 +106,9 @@ class ProgressSyncService {
     await ScopedPrefs.setString('progress_$itemId', jsonEncode(data));
     if (_staysOnPhone(itemId)) return;
 
-    final pendingList = await ScopedPrefs.getStringList('pending_syncs');
-    if (!pendingList.contains(itemId)) {
-      pendingList.add(itemId);
-      await ScopedPrefs.setStringList('pending_syncs', pendingList);
-    }
+    await _mutatePending((list) {
+      if (!list.contains(itemId)) list.add(itemId);
+    });
   }
 
   /// Cache server-known progress locally without marking it as a pending sync.
@@ -145,9 +177,7 @@ class ProgressSyncService {
   /// Delete locally saved progress for an item.
   Future<void> deleteLocal(String itemId) async {
     await ScopedPrefs.remove('progress_$itemId');
-    final pendingList = await ScopedPrefs.getStringList('pending_syncs');
-    pendingList.remove(itemId);
-    await ScopedPrefs.setStringList('pending_syncs', pendingList);
+    await _mutatePending((list) => list.remove(itemId));
   }
 
   /// The duration sent with a progress write becomes the divisor for the
@@ -219,6 +249,7 @@ class ProgressSyncService {
     final isFinished = data['isFinished'] as bool? ?? false;
     debugPrint('[Sync] Syncing $itemId: currentTime=$currentTime, duration=$duration, isFinished=$isFinished, sessionId=$sessionId');
 
+    final scope = _scope;
     try {
       if (sessionId != null) {
         await api.syncPlaybackSession(
@@ -239,9 +270,7 @@ class ProgressSyncService {
         }
       }
 
-      final pendingList = await ScopedPrefs.getStringList('pending_syncs');
-      pendingList.remove(itemId);
-      await ScopedPrefs.setStringList('pending_syncs', pendingList);
+      await _removePending(itemId, scope);
 
       debugPrint('[Sync] Synced $itemId: ${currentTime}s');
       return true;
@@ -267,6 +296,7 @@ class ProgressSyncService {
     final flushCompleter = Completer<void>();
     _flushCompleter = flushCompleter;
     var pendingAtStart = 0;
+    final scope = _scope;
     try {
       final pendingList = List<String>.from(
           await ScopedPrefs.getStringList('pending_syncs'));
@@ -285,11 +315,10 @@ class ProgressSyncService {
       debugPrint('[Sync] Flushing ${batch.length}/${pendingList.length} pending syncs');
 
       for (final itemId in batch) {
+        if (_scope != scope) break;
         final data = await getLocal(itemId);
         if (data == null || _staysOnPhone(itemId)) {
-          final updated = await ScopedPrefs.getStringList('pending_syncs');
-          updated.remove(itemId);
-          await ScopedPrefs.setStringList('pending_syncs', updated);
+          await _removePending(itemId, scope);
           continue;
         }
 
@@ -297,9 +326,7 @@ class ProgressSyncService {
         final localDuration = (data['duration'] as num?)?.toDouble() ?? 0;
         final localTimestamp = (data['timestamp'] as num?)?.toInt() ?? 0;
         if (localTime <= 0) {
-          final updated = await ScopedPrefs.getStringList('pending_syncs');
-          updated.remove(itemId);
-          await ScopedPrefs.setStringList('pending_syncs', updated);
+          await _removePending(itemId, scope);
           continue;
         }
 
@@ -333,6 +360,7 @@ class ProgressSyncService {
                 debugPrint('[Sync] Local changed during the pull for $itemId - comparing again on the next flush');
                 continue;
               }
+              if (_scope != scope) break;
               // This entry lost to the server, so it is no longer worth
               // protecting: replace it and clear it from pending. Refusing the
               // write here (as the clobber guard used to) and keeping the
@@ -346,9 +374,7 @@ class ProgressSyncService {
                 isFinished: serverProgress['isFinished'] as bool? ?? false,
                 overridePending: true,
               );
-              final updated = await ScopedPrefs.getStringList('pending_syncs');
-              updated.remove(itemId);
-              await ScopedPrefs.setStringList('pending_syncs', updated);
+              await _removePending(itemId, scope);
               if (_consecutiveFailures > 0) {
                 debugPrint('[Sync] Backoff reset (was $_consecutiveFailures)');
                 _consecutiveFailures = 0;
@@ -369,6 +395,7 @@ class ProgressSyncService {
           final localFinished = data['isFinished'] as bool? ?? false;
           final syncDuration =
               await serverTrustedDuration(api, itemId, localDuration);
+          if (_scope != scope) break;
           final bool pushed;
           if (episodeId != null) {
             pushed = await api.updateEpisodeProgress(
@@ -400,9 +427,7 @@ class ProgressSyncService {
             _consecutiveFailures = 0;
           }
 
-          final updated = await ScopedPrefs.getStringList('pending_syncs');
-          updated.remove(itemId);
-          await ScopedPrefs.setStringList('pending_syncs', updated);
+          await _removePending(itemId, scope);
         } catch (e) {
           debugPrint('[Sync] Flush failed for $itemId: $e');
           // Stop the batch on any network/TLS error - don't keep hammering
@@ -424,7 +449,7 @@ class ProgressSyncService {
       }
       // Also flush offline listening time and queued ebook positions while
       // we have a connection
-      if (_consecutiveFailures == 0) {
+      if (_consecutiveFailures == 0 && _scope == scope) {
         await _flushOfflineListeningTimeInternal(api: api);
         await _flushPendingEbookProgress(api);
       }
@@ -436,6 +461,12 @@ class ProgressSyncService {
       }
     }
 
+    if (_scope != scope) {
+      // The next account's own load or refresh flushes with its own session.
+      debugPrint('[Sync] Account changed during the flush - not retrying with the old session');
+      _flushAgain = false;
+      return;
+    }
     final remaining = await ScopedPrefs.getStringList('pending_syncs');
     final pendingOffline = await ScopedPrefs.getStringList('pending_offline_listening');
     final pendingEbook = await getPendingEbookProgress();
@@ -463,6 +494,10 @@ class ProgressSyncService {
 
       unawaited(
         Future<void>.delayed(clampedDelay, () {
+          if (_scope != scope) {
+            debugPrint('[Sync] Account changed - dropping the retry scheduled with the old session');
+            return null;
+          }
           return flushPendingSync(api: api, maxItems: maxItems);
         }),
       );

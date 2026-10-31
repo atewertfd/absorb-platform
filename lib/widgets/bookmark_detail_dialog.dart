@@ -24,6 +24,7 @@ import 'clip_editor_sheet.dart';
 import 'overlay_toast.dart';
 import 'progress_dialog.dart';
 import 'quote_share_sheet.dart';
+import '../utils/fork_platform.dart';
 
 /// Result of [BookmarkDetailSheet]. [action] is 'jump' (caller should seek
 /// there) or 'saved' (stay put, refresh). [position] is the possibly-nudged
@@ -673,8 +674,8 @@ class _BookmarkDetailSheetState extends State<BookmarkDetailSheet> {
                 onPressed: _preview.isLoading ? null : _togglePreview,
               ),
             ),
-            const SizedBox(height: 8),
-            SizedBox(
+            if (ForkPlatform.supportsClipExport) const SizedBox(height: 8),
+            if (ForkPlatform.supportsClipExport) SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
                 icon: const Icon(Icons.content_cut_rounded, size: 18),

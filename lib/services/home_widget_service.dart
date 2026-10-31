@@ -1117,6 +1117,7 @@ class HomeWidgetService {
   }
 
   Future<void> refreshStats({bool force = false}) async {
+    if (!Platform.isAndroid) return; // Absorb Plus: the stats widget is Android-only
     if (_refreshingStats) {
       debugPrint('[StatsWidget] Skipping refresh: already in flight');
       return;
@@ -1196,6 +1197,7 @@ class HomeWidgetService {
   /// accumulates, so the widget stays fresh while the app is backgrounded and
   /// the 15-min stats timer is throttled by Android Doze.
   Future<void> addLocalListeningSeconds(int seconds) async {
+    if (!Platform.isAndroid) return; // Absorb Plus: the stats widget is Android-only
     if (seconds <= 0) return;
     // Crossed midnight since the bases were taken: they belong to yesterday's
     // "today" and possibly last week. Drop the tick and let a refresh reset

@@ -15,6 +15,7 @@ import 'episode_list_sheet.dart';
 import 'cover_decode.dart';
 import 'library_item_snapshot.dart';
 import '../ui_themes/ui_theme_hooks.dart';
+import '../utils/local_path.dart';
 
 class BookCard extends StatelessWidget {
   final Map<String, dynamic> item;
@@ -512,7 +513,7 @@ class _CoverImage extends StatelessWidget {
           height: constraints.maxHeight,
           devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
         ));
-    if (coverUrl!.startsWith('/')) {
+    if (isLocalCoverPath(coverUrl!)) {
       final file = File(coverUrl!);
       if (! file.existsSync()) return _placeholder();
         return EinkCoverTone(child: BlurPaddedCover(

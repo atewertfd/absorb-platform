@@ -911,7 +911,7 @@ class ApiService {
 
           debugPrint('[API] Token refresh failed: ${response.statusCode}');
         } catch (e) {
-          debugPrint('[API] Token refresh error: $e');
+          debugPrint('[API] Token refresh error: ${e.runtimeType}');
         }
 
         if (attempt == 0) {
@@ -2824,6 +2824,11 @@ class ApiService {
     }
   }
 
+  /// A progress PATCH settled: it landed (2xx), or the server has no such
+  /// item (404) so a retry is pointless. 401/403/408/429 and 5xx stay queued.
+  static bool progressPatchSettled(int status) =>
+      (status >= 200 && status < 300) || status == 404;
+
   /// Update media progress directly (for offline sync).
   /// PATCH /api/me/progress/:id
   /// [isFinished] null = leave the finished flag out of the body. The server
@@ -2833,8 +2838,8 @@ class ApiService {
   /// false only to deliberately un-finish: the server answers that by
   /// clearing the position to 0, same as the web UI's "mark as not finished",
   /// so [currentTime] is not sent in that case.
-  /// Returns false on a 5xx, where a retry could still land; network errors
-  /// still throw.
+  /// Returns false unless [progressPatchSettled], so a queued save stays
+  /// queued; network errors still throw.
   Future<bool> updateProgress(
     String itemId, {
     required double currentTime,
@@ -2851,7 +2856,7 @@ class ApiService {
             body: jsonEncode({'isFinished': false}),
             timeout: const Duration(seconds: 10));
         debugPrint('[API] updateProgress unfinish $progressPath: ${unfinish.statusCode}');
-        return unfinish.statusCode < 500;
+        return progressPatchSettled(unfinish.statusCode);
       }
       final body = jsonEncode({
         'currentTime': currentTime,
@@ -2865,7 +2870,7 @@ class ApiService {
         body: body,
         timeout: const Duration(seconds: 10));
       debugPrint('[API] updateProgress response: ${resp.statusCode} ${resp.body}');
-      return resp.statusCode < 500;
+      return progressPatchSettled(resp.statusCode);
     } catch (e) {
       debugPrint('[API] updateProgress error: $e');
       rethrow;
@@ -2899,11 +2904,11 @@ class ApiService {
           ? '${itemId.substring(0, 36)}/${itemId.substring(37)}'
           : itemId;
       debugPrint('[API] updateEbookProgress PATCH /api/me/progress/$progressPath');
-      final resp = await http.patch(
+      final resp = await _authPatch(
         Uri.parse('$_cleanBaseUrl/api/me/progress/$progressPath'),
-        headers: _headers,
         body: body,
-      ).timeout(const Duration(seconds: 10));
+        timeout: const Duration(seconds: 10),
+      );
       debugPrint('[API] updateEbookProgress response: ${resp.statusCode} ${resp.body}');
       lastEbookProgressStatus = resp.statusCode;
       return resp.statusCode >= 200 && resp.statusCode < 300;
@@ -3079,7 +3084,7 @@ class ApiService {
   /// Same [isFinished] contract as [updateProgress]: null leaves the flag out
   /// so the server writes the percent, true marks finished, false un-finishes
   /// and lets the server clear the position to 0.
-  /// Returns false when it never reached the server (network error or 5xx),
+  /// Returns false unless [progressPatchSettled] (or on a network error),
   /// so a queued save can stay queued.
   Future<bool> updateEpisodeProgress(
     String itemId,
@@ -3095,7 +3100,7 @@ class ApiService {
             body: jsonEncode({'isFinished': false}),
             timeout: const Duration(seconds: 10));
         debugPrint('[API] updateEpisodeProgress unfinish $episodeId: ${unfinish.statusCode}');
-        return unfinish.statusCode < 500;
+        return progressPatchSettled(unfinish.statusCode);
       }
       final resp = await _authPatch(url,
         body: jsonEncode({
@@ -3108,7 +3113,7 @@ class ApiService {
       if (resp.statusCode != 200) {
         debugPrint('[API] updateEpisodeProgress $episodeId: HTTP ${resp.statusCode}');
       }
-      return resp.statusCode < 500;
+      return progressPatchSettled(resp.statusCode);
     } catch (e) {
       debugPrint('[API] updateEpisodeProgress error: $e');
       return false;

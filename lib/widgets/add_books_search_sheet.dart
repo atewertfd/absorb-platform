@@ -9,6 +9,7 @@ import '../providers/library_provider.dart';
 import '../services/book_search_index.dart';
 import 'overlay_toast.dart';
 import 'stackable_sheet.dart';
+import '../utils/local_path.dart';
 
 /// A stay-open search picker for bulk-adding books to a target (collection or
 /// playlist). Type to search the library, tap a result to add it (or tap an
@@ -296,7 +297,7 @@ class _AddBooksSearchSheetState extends State<AddBooksSearchSheet> {
                 child: SizedBox(
                   width: 44,
                   height: 44,
-                  child: coverUrl != null && !coverUrl.startsWith('/')
+                  child: coverUrl != null && !isLocalCoverPath(coverUrl)
                       ? CachedNetworkImage(
                           imageUrl: coverUrl,
                           fit: BoxFit.cover,

@@ -25,7 +25,15 @@ class FoliateBookServer {
 
   Future<void> _handle(HttpRequest req) async {
     final res = req.response;
-    res.headers.set('Access-Control-Allow-Origin', '*');
+    // Same-origin page only: no CORS header, so another website open in a
+    // browser can't read the book, and a foreign Host or Origin (DNS
+    // rebinding, a page probing loopback ports) is refused outright.
+    if (!isOwnRequest(req.method, req.headers.host, req.headers.port,
+        req.headers.value('origin'), port)) {
+      res.statusCode = HttpStatus.forbidden;
+      await res.close();
+      return;
+    }
     final path = req.uri.path;
     try {
       if (path == '/' || path == '/reader.html' || path == '/index.html') {
@@ -72,6 +80,22 @@ class FoliateBookServer {
     res.headers.contentType = ContentType.parse(_bookMime);
     res.headers.set('Accept-Ranges', 'bytes');
     await f.openRead().pipe(res);
+  }
+
+  /// GET/HEAD addressed to this loopback server, from no other origin.
+  static bool isOwnRequest(
+      String method, String? host, int? hostPort, String? origin, int port) {
+    if (method != 'GET' && method != 'HEAD') return false;
+    const hosts = {'127.0.0.1', 'localhost'};
+    if (host == null || !hosts.contains(host.toLowerCase()) || hostPort != port) {
+      return false;
+    }
+    if (origin == null) return true;
+    final o = Uri.tryParse(origin);
+    return o != null &&
+        o.scheme == 'http' &&
+        hosts.contains(o.host.toLowerCase()) &&
+        o.port == port;
   }
 
   Future<void> stop() async {

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../services/chromecast_service.dart';
 import '../services/wording.dart';
+import '../utils/fork_platform.dart';
 
 class CardButtonDef {
   final String id;
@@ -62,6 +63,7 @@ final Set<String> _hiddenButtons = {
   if (!ChromecastService.castSupported) 'cast',
   // AirPlay is iOS-only (Chromecast covers Android).
   if (!Platform.isIOS) 'airplay',
+  ...ForkPlatform.hiddenCardButtons(), // Absorb Plus: cast and live transcript are Android-only
 };
 
 const _allCardButtons = [

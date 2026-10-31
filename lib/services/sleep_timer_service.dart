@@ -704,8 +704,15 @@ class SleepTimerService extends ChangeNotifier {
       debugPrint('[SleepTimer] Chime: playing (vol=$vol, ducked main ${prevVol.toStringAsFixed(2)} -> ${ducked.toStringAsFixed(2)})');
 
       chime.play();
-      chime.playerStateStream.where((s) => s.processingState == ja.ProcessingState.completed).first.then((_) {
-        // Restore main player volume after chime finishes
+      // Restore the main volume when the chime ends - or fails, never ends,
+      // or is replaced - so the book can't stay at 15%.
+      chime.playerStateStream
+          .where((s) => s.processingState == ja.ProcessingState.completed)
+          .first
+          .timeout(const Duration(seconds: 10))
+          .then<void>((_) {}, onError: (Object e) {
+        debugPrint('[SleepTimer] Chime did not finish (${e.runtimeType}) - restoring volume');
+      }).whenComplete(() {
         player.setVolume(prevVol);
         chime.dispose();
         if (_chimePlayer == chime) _chimePlayer = null;

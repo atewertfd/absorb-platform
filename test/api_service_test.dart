@@ -146,4 +146,41 @@ void main() {
     expect(await service.getMe(), isNull);
     expect(requests, 1);
   });
+
+
+  test('ebook progress refreshes after a 401 instead of queueing', () async {
+    final paths = <String>[];
+    final client = MockClient((request) async {
+      paths.add('${request.method} ${request.url.path}');
+      if (request.url.path == '/auth/refresh') {
+        return http.Response(
+          jsonEncode({'accessToken': 'access-new', 'refreshToken': 'refresh-new'}),
+          200,
+        );
+      }
+      if (request.url.path == '/api/me/progress/book-1') {
+        return request.headers['authorization'] == 'Bearer access-new'
+            ? http.Response('{}', 200)
+            : http.Response('{}', 401);
+      }
+      return http.Response('not found', 404);
+    });
+    final service = ApiService(
+      baseUrl: 'https://audiobookshelf.example',
+      token: 'access-old',
+      refreshToken: 'refresh-old',
+      httpClient: client,
+    );
+
+    final ok = await service.updateEbookProgress('book-1',
+        ebookLocation: 'epubcfi(/6/2)', ebookProgress: 0.25);
+
+    expect(ok, isTrue);
+    expect(service.lastEbookProgressStatus, 200);
+    expect(paths, [
+      'PATCH /api/me/progress/book-1',
+      'POST /auth/refresh',
+      'PATCH /api/me/progress/book-1',
+    ]);
+  });
 }

@@ -619,7 +619,9 @@ class ChromecastService extends ChangeNotifier {
     _playbackState = CastPlaybackState.loading;
     notifyListeners();
 
-    final localPos = await _progressSync.getSavedPosition(itemId);
+    // Episodes keep their place under the compound key, like local playback.
+    final progressKey = episodeId != null ? '$itemId-$episodeId' : itemId;
+    final localPos = await _progressSync.getSavedPosition(progressKey);
     debugPrint('[Cast] Local saved position: $localPos');
     if (localPos > 0 && startTime == 0) startTime = localPos;
 
@@ -637,7 +639,7 @@ class ChromecastService extends ChangeNotifier {
       final serverPos = (sessionData['currentTime'] as num?)?.toDouble() ?? 0;
       debugPrint('[Cast] Server position: $serverPos');
       if (serverPos > 0) {
-        final localData = await _progressSync.getLocal(itemId);
+        final localData = await _progressSync.getLocal(progressKey);
         final lt = (localData?['timestamp'] as num?)?.toInt() ?? 0;
         final st = (sessionData['updatedAt'] as num?)?.toInt() ?? 0;
         if (st > lt && (serverPos - startTime).abs() > 1.0) startTime = serverPos;
@@ -1138,7 +1140,10 @@ class ChromecastService extends ChangeNotifier {
     if (_castingItemId == null) return;
     final ct = _castPosition.inMilliseconds / 1000.0;
     if (ct <= 0) return;
-    await _progressSync.saveLocal(itemId: _castingItemId!, currentTime: ct, duration: _castingDuration, speed: 1.0);
+    final progressKey = _castingEpisodeId != null
+        ? '$_castingItemId-$_castingEpisodeId'
+        : _castingItemId!;
+    await _progressSync.saveLocal(itemId: progressKey, currentTime: ct, duration: _castingDuration, speed: 1.0);
   }
 
   Future<void> _syncProgressToServer() async {

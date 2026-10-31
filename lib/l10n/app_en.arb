@@ -7176,5 +7176,15 @@
   "windowsTaskbarPlay": "Play",
   "windowsTaskbarPause": "Pause",
   "windowsTaskbarRewind": "Rewind",
-  "windowsTaskbarForward": "Fast-forward"
+  "windowsTaskbarForward": "Fast-forward",
+  "supportContactSubtitle": "Ask a question on the Absorb Plus GitHub",
+  "supportSaveLogsSubtitle": "Save the log file to attach to a GitHub issue",
+  "supportSaveLogsDialogTitle": "Save Absorb Plus logs",
+  "supportLogsSaved": "Logs saved to {path}",
+  "@supportLogsSaved": {"placeholders": {"path": {"type": "String"}}},
+  "supportLogsSaveFailed": "Couldn't save the logs: {error}",
+  "@supportLogsSaveFailed": {"placeholders": {"error": {"type": "String"}}},
+  "supportOpenLogsFolder": "Open logs folder",
+  "supportOpenLogsFolderSubtitle": "Show the log file in your file manager",
+  "supportOpenLogsFolderFailed": "Couldn't open the logs folder"
 }

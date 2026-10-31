@@ -22,6 +22,7 @@ import 'overlay_toast.dart';
 import '../services/ebook_cache.dart';
 import '../services/find_in_ebook.dart';
 import '../main.dart' show colorSourceNotifier, useColorEverywhereNotifier, manualSeedNotifier, manualColorScheme;
+import '../utils/local_path.dart';
 
 // ─── Custom route: slide-up + fade ────────────────────────────
 
@@ -198,7 +199,7 @@ class _ExpandedCardState extends State<ExpandedCard> {
     final lib = context.read<LibraryProvider>();
     return lib.getCoverUrl(_itemId, width: 1200);
   }
-  bool get _isLocalCover => _coverUrl != null && _coverUrl!.startsWith('/');
+  bool get _isLocalCover => _coverUrl != null && isLocalCoverPath(_coverUrl!);
 
   @override
   void initState() {
@@ -520,7 +521,7 @@ class _ExpandedCardState extends State<ExpandedCard> {
     final url = _coverUrl;
     if (url == null) return;
     final ImageProvider provider;
-    if (url.startsWith('/')) {
+    if (isLocalCoverPath(url)) {
       provider = FileImage(File(url));
     } else {
       provider = CachedNetworkImageProvider(url, headers: context.read<LibraryProvider>().mediaHeaders);
@@ -552,7 +553,7 @@ class _ExpandedCardState extends State<ExpandedCard> {
 
     try {
       final ImageProvider provider;
-      if (url.startsWith('/')) {
+      if (isLocalCoverPath(url)) {
         provider = FileImage(File(url));
       } else {
         final lib = context.read<LibraryProvider>();
@@ -563,7 +564,7 @@ class _ExpandedCardState extends State<ExpandedCard> {
       final stream = provider.resolve(ImageConfiguration.empty);
       late ImageStreamListener listener;
       listener = ImageStreamListener((info, _) {
-        completer.complete(info.image);
+        if (!completer.isCompleted) completer.complete(info.image);
         stream.removeListener(listener);
       }, onError: (e, _) {
         if (!completer.isCompleted) completer.completeError(e);
@@ -589,6 +590,7 @@ class _ExpandedCardState extends State<ExpandedCard> {
       final picture = recorder.endRecording();
       final blurred = await picture.toImage(targetWidth, targetHeight);
       picture.dispose();
+      srcImage.dispose(); // our clone of the full-size cover
 
       final topLuminance = await topStripLuminance(blurred);
 

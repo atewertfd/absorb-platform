@@ -24,6 +24,7 @@ import '../widgets/ebook_router.dart';
 import '../widgets/quote_share_sheet.dart';
 import '../widgets/overlay_toast.dart';
 import '../l10n/app_localizations.dart';
+import '../utils/local_path.dart';
 
 class BookmarksScreen extends StatefulWidget {
   const BookmarksScreen({super.key});
@@ -1195,7 +1196,7 @@ class _BookCover extends StatelessWidget {
   Widget _image() {
     if (coverUrl == null || coverUrl!.isEmpty) return _placeholder();
 
-    if (coverUrl!.startsWith('/')) {
+    if (isLocalCoverPath(coverUrl!)) {
       final file = File(coverUrl!);
       if (file.existsSync()) {
         return Image.file(file, fit: BoxFit.cover,

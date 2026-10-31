@@ -22238,6 +22238,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Fast-forward'**
   String get windowsTaskbarForward;
+
+  /// No description provided for @supportContactSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask a question on the Absorb Plus GitHub'**
+  String get supportContactSubtitle;
+
+  /// No description provided for @supportSaveLogsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Save the log file to attach to a GitHub issue'**
+  String get supportSaveLogsSubtitle;
+
+  /// No description provided for @supportSaveLogsDialogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Save Absorb Plus logs'**
+  String get supportSaveLogsDialogTitle;
+
+  /// No description provided for @supportLogsSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Logs saved to {path}'**
+  String supportLogsSaved(String path);
+
+  /// No description provided for @supportLogsSaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t save the logs: {error}'**
+  String supportLogsSaveFailed(String error);
+
+  /// No description provided for @supportOpenLogsFolder.
+  ///
+  /// In en, this message translates to:
+  /// **'Open logs folder'**
+  String get supportOpenLogsFolder;
+
+  /// No description provided for @supportOpenLogsFolderSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Show the log file in your file manager'**
+  String get supportOpenLogsFolderSubtitle;
+
+  /// No description provided for @supportOpenLogsFolderFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t open the logs folder'**
+  String get supportOpenLogsFolderFailed;
 }
 
 class _AppLocalizationsDelegate

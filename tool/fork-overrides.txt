@@ -3,6 +3,7 @@
 # Review upstream's change afterwards in case something there is worth porting.
 
 lib/services/carplay_service.dart   # no-op stub; Apple support removed
+lib/services/siri_service.dart      # no-op stub; Apple support removed
 README.md                           # Absorb Plus's own README
 
 # Absorb Plus's own logo (made by tool/make_icons.py from one drawing).

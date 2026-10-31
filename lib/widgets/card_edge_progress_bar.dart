@@ -281,7 +281,10 @@ class _CardEdgeProgressBarState extends State<CardEdgeProgressBar>
   }
 
   @override
-  Widget build(BuildContext context) {
+  // Absorb Plus: the 100 ms position ticker repaints only the bar, not the card.
+  Widget build(BuildContext context) => RepaintBoundary(child: _buildBar(context));
+
+  Widget _buildBar(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final l = AppLocalizations.of(context)!;

@@ -214,6 +214,14 @@ class LibraryProvider extends ChangeNotifier
         _connectivityDebounce?.cancel();
         _stopServerPingTimer();
         _stopHealthCheckTimer();
+        // The previous account's feeds and shelves must not outlive it, even
+        // when the new server never answers and the socket isn't replaced.
+        _stopBookOrbitPoll();
+        _stopLocalProbeTimer();
+        SocketService().disconnect();
+        _sectionsByLibrary.clear();
+        _sectionsFetchedAt.clear();
+        _locallyFinishedItems.clear();
         _isLoading = true;
         // Signing back in after a lapsed session hands the still-playing
         // book its new connection.
@@ -365,6 +373,9 @@ class LibraryProvider extends ChangeNotifier
       _stopBookOrbitPoll();
       _stopLocalProbeTimer();
       SocketService().disconnect();
+      _sectionsByLibrary.clear();
+      _sectionsFetchedAt.clear();
+      _locallyFinishedItems.clear();
       _personalizedInFlight = null;
       _rssHydrationInFlight = false;
       _lastRssHydrationAt = null;

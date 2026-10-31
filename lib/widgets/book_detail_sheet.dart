@@ -66,6 +66,8 @@ import 'stackable_sheet.dart';
 import 'ebook_router.dart';
 import '../utils/duration_format.dart';
 import '../utils/share_origin.dart';
+import '../utils/local_path.dart';
+import '../utils/fork_platform.dart';
 
 // ─── BOOK DETAIL BOTTOM SHEET ───────────────────────────────
 
@@ -622,7 +624,7 @@ class _BookDetailSheetContentState extends State<_BookDetailSheetContent> {
     _coverSchemeUrl = url;
     final brightness = Theme.of(context).brightness;
     final ImageProvider provider;
-    if (url.startsWith('/')) {
+    if (isLocalCoverPath(url)) {
       provider = FileImage(File(url));
     } else {
       final lib = context.read<LibraryProvider>();
@@ -797,7 +799,7 @@ class _BookDetailSheetContentState extends State<_BookDetailSheetContent> {
             ),
             clipBehavior: Clip.antiAlias,
             child: _squareCovers
-                ? (_coverUrl!.startsWith('/')
+                ? (isLocalCoverPath(_coverUrl!)
                     ? BlurPaddedCover(
                         blurChild: Image.file(File(_coverUrl!), fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) => const SizedBox.shrink()),
@@ -2046,7 +2048,7 @@ class _BookDetailSheetContentState extends State<_BookDetailSheetContent> {
     if (url == null) {
       img = Container(color: cs.surfaceContainerHighest,
         child: Icon(Icons.headphones_rounded, size: 24, color: cs.onSurfaceVariant.withValues(alpha: 0.4)));
-    } else if (url.startsWith('/')) {
+    } else if (isLocalCoverPath(url)) {
       img = Image.file(File(url), fit: BoxFit.cover,
         errorBuilder: (_, __, ___) => Container(color: cs.surfaceContainerHighest));
     } else {
@@ -2924,6 +2926,7 @@ class _BookDetailSheetContentState extends State<_BookDetailSheetContent> {
     final asin = _asin;
     if (asin == null) return;
     final url = 'https://www.$_audibleDomain/pd/$asin#customer-reviews';
+    if (ForkPlatform.openInBrowserInstead(url)) return;
     final cs = Theme.of(context).colorScheme;
 
     final controller = WebViewController()
@@ -3536,7 +3539,18 @@ class _BookDetailSheetContentState extends State<_BookDetailSheetContent> {
 
   /// [startTime] plays from there instead of the saved position (a chapter
   /// tapped in the list); on the live session it is a seek.
+  /// Absorb Plus: whichever way the start ends (an early return such as no
+  /// API while signed out, or an error), the Absorb button must not stay in
+  /// its "absorbing" state.
   Future<void> _startAbsorb(BuildContext context, {required AuthProvider auth, required String title, required String author, required String? coverUrl, required double duration, required List<dynamic> chapters, double? startTime}) async {
+    try {
+      await _startAbsorbImpl(context, auth: auth, title: title, author: author, coverUrl: coverUrl, duration: duration, chapters: chapters, startTime: startTime);
+    } finally {
+      if (mounted) setState(() => _isAbsorbing = false);
+    }
+  }
+
+  Future<void> _startAbsorbImpl(BuildContext context, {required AuthProvider auth, required String title, required String author, required String? coverUrl, required double duration, required List<dynamic> chapters, double? startTime}) async {
     // An Audiobookshelf narrated EPUB that can't stream right now plays once
     // its narration is downloaded: asked first, with the reason.
     if (_needsNarrationDownload(auth)) {

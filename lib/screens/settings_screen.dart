@@ -1,6 +1,9 @@
 import 'dart:async';
 import '../utils/web_safe_platform.dart';
 import '../utils/fork_branding.dart';
+import '../utils/fork_platform.dart';
+import 'rebuild_snapshots.dart';
+import '../widgets/support_actions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -1843,8 +1846,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
-    final auth = context.watch<AuthProvider>();
-    final lib = context.watch<LibraryProvider>();
+    final auth = context.watchOnly<AuthProvider>(settingsAuthSnapshot);
+    final lib = context.watchOnly<LibraryProvider>(settingsLibrarySnapshot);
     final l = AppLocalizations.of(context)!;
     // Libraries may not have loaded yet when initState fetched the admin issue
     // badge; retry once they arrive.
@@ -4576,11 +4579,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       trailing: Icon(Icons.open_in_new_rounded,
                           size: 18, color: cs.onSurfaceVariant),
                       onTap: () => launchUrl(
-                          Uri.parse('https://github.com/pounat/absorb/issues'),
+                          Uri.parse(ForkBranding.issuesUrl),
                           mode: LaunchMode.externalApplication),
                     ),
-                    const Divider(height: 1, indent: 16, endIndent: 16),
-                    ListTile(
+                    if (ForkBranding.showUpstreamDiscord) const Divider(height: 1, indent: 16, endIndent: 16),
+                    if (ForkBranding.showUpstreamDiscord) ListTile(
                       leading: Icon(Icons.discord, color: cs.onSurfaceVariant),
                       title: Text(l.joinDiscord),
                       subtitle: Text(l.joinDiscordSubtitle,
@@ -4595,13 +4598,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ListTile(
                       leading: Icon(Icons.email_outlined, color: cs.primary),
                       title: Text(l.contact),
-                      subtitle: Text(l.contactSubtitle,
+                      subtitle: Text(l.supportContactSubtitle,
                         style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
                       trailing: const Icon(Icons.chevron_right_rounded),
                       onTap: () {
-                        LogService().contactEmail(
-                          serverVersion: auth.serverVersion,
-                        );
+                        SupportActions.openIssues();
                       },
                     ),
                     const Divider(height: 1, indent: 16, endIndent: 16),
@@ -4630,12 +4631,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ListTile(
                         leading: Icon(Icons.attach_file_rounded, color: cs.primary),
                         title: Text(l.sendLogs),
-                        subtitle: Text(l.sendLogsSubtitle,
+                        subtitle: Text(SupportActions.savesLogsToFile ? l.supportSaveLogsSubtitle : l.sendLogsSubtitle,
                           style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
                         trailing: const Icon(Icons.chevron_right_rounded),
                         onTap: () async {
                           try {
-                            await LogService().shareLogs(
+                            await SupportActions.sendLogs(context,
                               serverVersion: auth.serverVersion,
                               sharePositionOrigin: shareOriginFor(context),
                             );
@@ -4650,6 +4651,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           }
                         },
                       ),
+                      if (SupportActions.savesLogsToFile) ...[const Divider(height: 1, indent: 16, endIndent: 16), const OpenLogsFolderTile()],
                       const Divider(height: 1, indent: 16, endIndent: 16),
                       ListTile(
                         leading: Icon(Icons.delete_outline_rounded, color: cs.error),
@@ -4864,8 +4866,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
                       onTap: _openLibationImportFromSettings,
                     ),
-                    const Divider(height: 1, indent: 16, endIndent: 16),
-                    ListTile(
+                    if (ForkPlatform.supportsTranscription) const Divider(height: 1, indent: 16, endIndent: 16),
+                    if (ForkPlatform.supportsTranscription) ListTile(
                       leading: Icon(Icons.record_voice_over_rounded, color: cs.primary),
                       title: Text(l.transcriptionTitle),
                       subtitle: Text(l.transcriptionAdvancedSubtitle,

@@ -12,6 +12,7 @@ import 'book_detail_sheet.dart';
 import 'books_sheet_shared.dart' show coverGridCount;
 import 'overlay_toast.dart';
 import 'stackable_sheet.dart';
+import '../utils/local_path.dart';
 
 /// Show a modal sheet listing every book the user has finished in the
 /// current calendar year. Loads full item metadata on demand so it can
@@ -372,7 +373,7 @@ class _FinishedBooksThisYearSheetState
 
   Widget _cover(String? coverUrl, LibraryProvider lib, ColorScheme cs) {
     if (coverUrl == null) return _placeholder(cs);
-    if (coverUrl.startsWith('/')) {
+    if (isLocalCoverPath(coverUrl)) {
       return Image.file(File(coverUrl),
           fit: BoxFit.cover,
           errorBuilder: (_, __, ___) => _placeholder(cs));

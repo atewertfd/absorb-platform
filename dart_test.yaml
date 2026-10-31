@@ -2,8 +2,8 @@
 #
 # test/integration/ talks to the throwaway Audiobookshelf server in
 # tool/test-server/. Those suites carry @Tags(['abs-server']) and are skipped
-# here, so a plain `flutter test` (and `dev.ps1 check`) neither compiles nor
-# runs them. `dev.ps1 itest` runs them with --tags abs-server --run-skipped;
+# here, so a plain `flutter test` (and `dev.ps1 check`) reports them as
+# skipped suites without running them. `dev.ps1 itest` runs them with --tags abs-server --run-skipped;
 # a suite that can't reach the server then skips itself with a reason.
 tags:
   abs-server:

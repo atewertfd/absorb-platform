@@ -14,6 +14,7 @@ import '../widgets/card_buttons.dart';
 import '../services/screen_wake.dart';
 import '../widgets/overlay_toast.dart';
 import '../l10n/app_localizations.dart';
+import '../utils/local_path.dart';
 
 class CarModeScreen extends StatefulWidget {
   final AudioPlayerService player;
@@ -151,7 +152,7 @@ class _CarModeScreenState extends State<CarModeScreen>
 
   bool get _isLocalCover {
     final url = _getCoverUrl(context);
-    return url != null && url.startsWith('/');
+    return isLocalCoverPath(url);
   }
 
   String _currentChapterTitle() {

@@ -11,6 +11,7 @@ import 'series_card.dart';
 import 'episode_list_sheet.dart';
 import 'books_sheet_shared.dart' show coverSizeScale;
 import '../ui_themes/ui_theme_hooks.dart';
+import '../utils/local_path.dart';
 
 class HomeSection extends StatelessWidget {
   final String title;
@@ -408,7 +409,7 @@ class _EpisodeCard extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   if (coverUrl != null)
-                    coverUrl.startsWith('/')
+                    isLocalCoverPath(coverUrl)
                         ? BlurPaddedCover(
                             blurChild: Image.file(File(coverUrl), fit: BoxFit.cover,
                                 errorBuilder: (_, __, ___) => const SizedBox.shrink()),

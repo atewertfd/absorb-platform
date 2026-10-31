@@ -11,8 +11,11 @@ import 'sleep_timer_service.dart';
 import 'user_account_service.dart';
 
 class BackupService {
+  /// [includeRmabSecrets] is for settings sync's opt-in RMAB sharing; a
+  /// settings-only backup file leaves the RMAB token and headers out.
   static Future<Map<String, dynamic>> exportSettings({
     required bool includeAccounts,
+    bool includeRmabSecrets = false,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     final pkgInfo = await PackageInfo.fromPlatform();
@@ -247,9 +250,11 @@ class BackupService {
     // RMAB integration config (scoped)
     final rmab = <String, dynamic>{
       'baseUrl': await ScopedPrefs.getString('rmab_base_url'),
-      'apiToken': await ScopedPrefs.getString('rmab_api_token'),
+      if (includeAccounts || includeRmabSecrets)
+        'apiToken': await ScopedPrefs.getString('rmab_api_token'),
       'legacyUrl': await ScopedPrefs.getString('rmab_url'),
-      'customHeaders': await ScopedPrefs.getString('rmab_custom_headers'),
+      if (includeAccounts || includeRmabSecrets)
+        'customHeaders': await ScopedPrefs.getString('rmab_custom_headers'),
     };
 
     // Home screen layout per library (scoped, keyed by libraryId)
@@ -384,7 +389,8 @@ class BackupService {
     final settingsSync = <String, dynamic>{
       'url': await ScopedPrefs.getString('settingsSyncUrl'),
       'username': await ScopedPrefs.getString('settingsSyncUser'),
-      'headers': await ScopedPrefs.getString('settingsSyncHeaders'),
+      if (includeAccounts)
+        'headers': await ScopedPrefs.getString('settingsSyncHeaders'),
       'enabled': await ScopedPrefs.getBool('settingsSyncEnabled'),
       'includeRmab': await ScopedPrefs.getBool('settingsSyncIncludeRmab'),
       if (includeAccounts)

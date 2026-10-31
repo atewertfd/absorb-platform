@@ -22,6 +22,7 @@ import 'editable_sheet_item.dart';
 import 'episode_list_sheet.dart';
 import 'stackable_sheet.dart';
 import 'swipe_action.dart';
+import '../utils/local_path.dart';
 
 class PlaylistDetailSheet extends StatefulWidget {
   final String playlistId;
@@ -573,7 +574,7 @@ class _PlaylistDetailSheetState extends State<PlaylistDetailSheet> {
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: coverUrl != null
-                  ? (coverUrl.startsWith('/')
+                  ? (isLocalCoverPath(coverUrl)
                       ? Image.file(File(coverUrl), fit: BoxFit.cover,
                           width: 36, height: 36,
                           errorBuilder: (_, __, ___) => _placeholder(cs))
@@ -664,7 +665,7 @@ class _PlaylistDetailSheetState extends State<PlaylistDetailSheet> {
                       child: Stack(children: [
                         Positioned.fill(
                           child: coverUrl != null
-                              ? (coverUrl.startsWith('/')
+                              ? (isLocalCoverPath(coverUrl)
                                   ? Image.file(File(coverUrl), fit: BoxFit.cover,
                                       errorBuilder: (_, __, ___) => _placeholder(cs))
                                   : CachedNetworkImage(
@@ -768,7 +769,7 @@ class _PlaylistDetailSheetState extends State<PlaylistDetailSheet> {
                   child: Stack(children: [
                     Positioned.fill(
                       child: coverUrl != null
-                          ? (coverUrl.startsWith('/')
+                          ? (isLocalCoverPath(coverUrl)
                               ? Image.file(File(coverUrl), fit: BoxFit.cover,
                                   errorBuilder: (_, __, ___) => _placeholder(cs))
                               : CachedNetworkImage(

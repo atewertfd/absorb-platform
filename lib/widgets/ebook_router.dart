@@ -8,6 +8,7 @@ import '../services/ebook_cache.dart';
 import '../services/image_epub.dart';
 import '../services/narration_service.dart';
 import '../services/server_backend.dart';
+import '../utils/fork_platform.dart';
 import 'comic_reader_view.dart';
 import 'ebook_reader_view.dart';
 import 'pdf_reader_view.dart';
@@ -26,6 +27,7 @@ String ebookExt(Map<String, dynamic>? ebookFile) {
 bool canReadEbook(Map<String, dynamic>? ebookFile) {
   if (ebookFile == null) return false;
   final ext = ebookExt(ebookFile);
+  if (!ForkPlatform.canOpenEbookFormat(ext)) return false;
   // BookOrbit unpacks CBR and CB7 on the server and sends the pages.
   if (comicEbookFormats.contains(ext) && ServerBackend.active.isBookOrbit) return true;
   return readableEbookFormats.contains(ext);
@@ -86,7 +88,7 @@ Future<void> openEbookReader(
   double? openAtAudioSeconds,
   bool startReadAlong = false,
 }) async {
-  final ext = ebookExt(ebookFile);
+  final ext = ForkPlatform.canOpenEbookFormat(ebookExt(ebookFile)) ? ebookExt(ebookFile) : ''; // '' shows 'unsupported'
   final Widget viewer;
   if (ext == 'epub') {
     viewer = _EpubGate(

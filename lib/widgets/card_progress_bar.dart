@@ -283,7 +283,10 @@ class _CardDualProgressBarState extends State<CardDualProgressBar> with WidgetsB
   }
 
   @override
-  Widget build(BuildContext context) {
+  // Absorb Plus: the 100 ms position ticker repaints only the bar, not the card.
+  Widget build(BuildContext context) => RepaintBoundary(child: _buildBar(context));
+
+  Widget _buildBar(BuildContext context) {
     final tt = Theme.of(context).textTheme;
     final cs = Theme.of(context).colorScheme;
     final l = AppLocalizations.of(context)!;

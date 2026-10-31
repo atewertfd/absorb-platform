@@ -6,6 +6,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../build_info.dart';
 import 'api_service.dart';
+import 'log_redaction.dart';
 
 class LogService {
   static final LogService _instance = LogService._();
@@ -32,6 +33,7 @@ class LogService {
   Future<void> init(bool loggingEnabled) async {
     _enabled = loggingEnabled;
     if (!_enabled) return;
+    _closeAppender();
 
     final dir = await getApplicationDocumentsDirectory();
     _logFile = File('${dir.path}/absorb_logs.txt');
@@ -89,10 +91,7 @@ class LogService {
     if (_logFile != null && message != null) {
       final ts = DateTime.now().toIso8601String();
       final sanitized = _sanitize(message);
-      _logFile!.writeAsStringSync(
-        '[$ts] $sanitized\n',
-        mode: FileMode.append,
-      );
+      _append('[$ts] $sanitized\n');
       _maybeRotate();
     }
   }
@@ -102,12 +101,34 @@ class LogService {
     if (_logFile != null) {
       final ts = DateTime.now().toIso8601String();
       final sanitized = _sanitize(message);
-      _logFile!.writeAsStringSync(
-        '[$ts] $sanitized\n',
-        mode: FileMode.append,
-      );
+      _append('[$ts] $sanitized\n');
       _maybeRotate();
     }
+  }
+
+  /// One handle kept open instead of an open/append/close per line. Writes
+  /// stay synchronous, so a crash line still lands before the process dies.
+  /// Append mode seeks to the end only once, so anything that rewrites the
+  /// file must [_closeAppender] first and rewrite synchronously.
+  RandomAccessFile? _appender;
+
+  void _append(String line) {
+    try {
+      (_appender ??= _logFile!.openSync(mode: FileMode.append))
+          .writeStringSync(line);
+    } catch (_) {
+      _closeAppender();
+      try {
+        _logFile!.writeAsStringSync(line, mode: FileMode.append);
+      } catch (_) {}
+    }
+  }
+
+  void _closeAppender() {
+    try {
+      _appender?.closeSync();
+    } catch (_) {}
+    _appender = null;
   }
 
   /// Periodic runtime rotation - check file size every [_rotateCheckInterval]
@@ -117,27 +138,27 @@ class LogService {
     _writeCount++;
     if (_writeCount < _rotateCheckInterval) return;
     _writeCount = 0;
-    // Run async rotation in the background - don't block the write path.
-    // Writes between the check and the trim are fine; they just append
-    // and the next rotation pass will catch them.
     _rotateIfNeeded();
   }
 
   /// If the log file exceeds [_maxSize], keep only the last [_keepSize] bytes.
   /// Trims at a newline boundary so partial lines aren't left at the top.
+  /// Synchronous on purpose: lines written between an async read and the
+  /// rewrite were lost, and the open appender must not write past the end.
   Future<void> _rotateIfNeeded() async {
     try {
-      if (_logFile == null || !await _logFile!.exists()) return;
-      final size = await _logFile!.length();
+      if (_logFile == null || !_logFile!.existsSync()) return;
+      final size = _logFile!.lengthSync();
       if (size <= _maxSize) return;
 
-      final contents = await _logFile!.readAsString();
+      final contents = _logFile!.readAsStringSync();
       final trimStart = contents.length - _keepSize;
       // Find the next newline after the trim point so we don't start
       // mid-line, which makes logs confusing to read.
       var cutAt = contents.indexOf('\n', trimStart);
       if (cutAt < 0) cutAt = trimStart;
-      await _logFile!.writeAsString(contents.substring(cutAt + 1));
+      _closeAppender();
+      _logFile!.writeAsStringSync(contents.substring(cutAt + 1));
     } catch (_) {
       // Don't let rotation errors break logging
     }
@@ -155,7 +176,8 @@ class LogService {
         ..writeln('Created: ${DateTime.now().toIso8601String()}')
         ..writeln('==================')
         ..writeln();
-      await _logFile!.writeAsString(header.toString());
+      _closeAppender();
+      _logFile!.writeAsStringSync(header.toString());
       // Reset creation timestamp
       try {
         final dir = _logFile!.parent;
@@ -188,7 +210,7 @@ class LogService {
   /// Sanitize a single log message: mask URLs, sensitive query params, and
   /// bare key=value pairs that look like credentials.
   static String _sanitize(String message) {
-    var result = _sanitizeUrls(message);
+    var result = _sanitizeUrls(redactLogSecrets(message));
     // Mask standalone sensitive key=value pairs not inside URLs
     // (e.g. "token=abc123" in non-URL context)
     result = result.replaceAllMapped(

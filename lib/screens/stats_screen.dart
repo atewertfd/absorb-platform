@@ -22,6 +22,7 @@ import '../main.dart' show flatNotifier, gradientIntensityNotifier;
 import '../ui_themes/ui_theme_hooks.dart';
 import 'app_shell.dart';
 import '../l10n/app_localizations.dart';
+import 'stats_tab_refresh.dart';
 
 class StatsScreen extends StatefulWidget {
   const StatsScreen({super.key});
@@ -96,6 +97,7 @@ class _StatsScreenState extends State<StatsScreen>
         CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic);
     _scrollController.addListener(_onScroll);
     PlayerSettings.settingsChanged.addListener(_onSettingsChanged);
+    StatsTabRefresh.instance.addListener(_loadStats); // Absorb Plus: reload when the tab opens
     _loadStats();
     _loadGoalSettings();
     SharedPreferences.getInstance().then((prefs) {
@@ -142,6 +144,7 @@ class _StatsScreenState extends State<StatsScreen>
   void dispose() {
     _scrollController.removeListener(_onScroll);
     PlayerSettings.settingsChanged.removeListener(_onSettingsChanged);
+    StatsTabRefresh.instance.removeListener(_loadStats);
     _scrollController.dispose();
     _animController.dispose();
     super.dispose();

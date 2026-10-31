@@ -45,6 +45,12 @@ String _avoidReservedStem(String s) {
 String safeDownloadFolder(String nested, {required bool windows}) =>
     nested.split('/').map((s) => _safeFolderName(s, windows: windows)).join('/');
 
+/// The id tail that tells two books with the same "Author/Title" folder
+/// apart: the last 8 characters, or the whole id when it is shorter
+/// (BookOrbit ids are short numbers, and substring threw a RangeError).
+String folderIdSuffix(String itemId) =>
+    itemId.length > 8 ? itemId.substring(itemId.length - 8) : itemId;
+
 String _safeFolderName(String name, {required bool windows}) {
   if (name == '.' || name == '..') return 'Unknown';
   if (!windows) return name;

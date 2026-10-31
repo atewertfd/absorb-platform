@@ -227,6 +227,8 @@ Future<void> applyAppearanceFromPrefs() async {
   applyManualSeed(await PlayerSettings.getManualSeedColor());
   applyGradientIntensity(await PlayerSettings.getGradientIntensity());
   applyUseColorEverywhere(await PlayerSettings.getUseColorEverywhere());
+  snappyTransitionsNotifier.value = await PlayerSettings.getSnappyTransitions();
+  classicWordingNotifier.value = await PlayerSettings.getClassicWording();
   await applyOrientationLock();
 }
 
@@ -760,6 +762,22 @@ class _AuthGateState extends State<AuthGate> {
     await handleSetupLinkLogin(context, link);
   }
 
+  /// The account whose saved look is on screen. Theme, e-ink, colors, snappy
+  /// and wording are stored per account, so a switch or sign-in re-applies
+  /// them; null until startup has applied the first account's.
+  String? _appearanceScope;
+
+  void _syncAppearanceScope() {
+    final scope = UserAccountService().activeScopeKey;
+    if (_appearanceScope == null || scope == _appearanceScope) return;
+    _appearanceScope = scope;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      applyAppearanceFromPrefs().catchError((Object e) {
+        debugPrint('[Init] Applying the account appearance failed: $e');
+      });
+    });
+  }
+
   Future<void> _initServices() async {
     // Load device info before log service so the log header has the real
     // app version and device model instead of fallback values.
@@ -790,6 +808,9 @@ class _AuthGateState extends State<AuthGate> {
     final sw = Stopwatch()..start();
     debugPrint('[Init] _initServices started');
 
+    // A throw in here (a corrupt prefs file, a bad saved account) used to
+    // skip tryRestoreSession and leave the loading screen up for good.
+    try {
     // Initialize user account scope FIRST so all ScopedPrefs reads use the
     // correct scoped keys. Without this, settings read before init() would
     // fall back to un-scoped keys and appear as defaults.
@@ -843,6 +864,10 @@ class _AuthGateState extends State<AuthGate> {
         );
       }
     }
+    } catch (e, st) {
+      debugPrint('[Init] Early startup step failed: $e\n$st');
+    }
+    _appearanceScope = UserAccountService().activeScopeKey;
 
     // Start auth restoration immediately — it doesn't depend on audio/cast/
     // download services and must not be blocked by a hanging service init.
@@ -948,6 +973,7 @@ class _AuthGateState extends State<AuthGate> {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
+    _syncAppearanceScope();
     if (!auth.isLoading && _pendingSetupLink != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _tryHandleSetupLink());
     }

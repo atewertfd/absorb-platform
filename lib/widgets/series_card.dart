@@ -7,6 +7,7 @@ import 'cover_badges.dart';
 import '../providers/auth_provider.dart';
 import '../providers/library_provider.dart';
 import 'series_books_sheet.dart';
+import '../utils/local_path.dart';
 
 class SeriesCard extends StatelessWidget {
   final Map<String, dynamic> series;
@@ -234,7 +235,7 @@ class _StackedCovers extends StatelessWidget {
   Widget _coverImage(String? url) {
     if (url == null) return _placeholder();
     // Series stacked covers are always cropped to fit - no blur padding needed
-    if (url.startsWith('/')) {
+    if (isLocalCoverPath(url)) {
       return Image.file(File(url), fit: BoxFit.cover,
           errorBuilder: (_, __, ___) => _placeholder());
     }

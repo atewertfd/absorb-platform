@@ -16,6 +16,7 @@ import 'episode_list_sheet.dart';
 import 'episode_row.dart';
 import 'overlay_toast.dart';
 import 'swipe_action.dart';
+import '../utils/local_path.dart';
 
 bool podcastEpisodeMatchesFilter(
   String filter, {
@@ -425,7 +426,7 @@ class _PodcastEpisodeFeedState extends State<PodcastEpisodeFeed> {
       child: url == null
           ? placeholder
           // Downloaded shows resolve to a local file path.
-          : url.startsWith('/')
+          : isLocalCoverPath(url)
           ? Image.file(
               File(url),
               width: 48,

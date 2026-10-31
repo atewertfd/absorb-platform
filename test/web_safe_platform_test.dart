@@ -25,7 +25,6 @@ const _webReachable = <String>[
   'lib/services/episode_notification_service.dart',
   'lib/services/home_widget_service.dart',
   'lib/services/quick_actions_service.dart',
-  'lib/services/siri_service.dart',
   'lib/services/translate_service.dart',
   'lib/services/up_next_narration.dart',
   'lib/widgets/audible_series_sheet.dart',

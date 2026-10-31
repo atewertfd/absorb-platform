@@ -268,8 +268,13 @@ class AudioPlayerHandler extends BaseAudioHandler with SeekHandler {
     if (refresh) refreshPlaybackState();
   }
 
+  // One live subscription: an error left the old one running (cancelOnError
+  // is off) and every re-subscribe stacked another copy of these handlers.
+  StreamSubscription<dynamic>? _playbackEventSub;
+
   void _subscribePlaybackEvents() {
-    _player.playbackEventStream.listen(
+    _playbackEventSub?.cancel();
+    _playbackEventSub = _player.playbackEventStream.listen(
       (event) {
         _clearAdvanceBufferingIfReady(refresh: false);
         // Only push state on meaningful changes (play/pause, processing state)
@@ -3678,6 +3683,8 @@ class AudioPlayerService extends ChangeNotifier {
     bool loadOnly = false,
   }) async {
     _pauseRequested = false;
+    // A decoder failure on the previous item must not force a rebuild of this one.
+    _playerBroken = false;
     // A pause timeout armed for the previous item must not fire into this one.
     _pauseStopTimer?.cancel();
     _pauseStopTimer = null;

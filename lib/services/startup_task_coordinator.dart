@@ -4,15 +4,9 @@ typedef StartupTask = Future<void> Function();
 typedef StartupTaskErrorHandler =
     void Function(Object error, StackTrace stackTrace);
 
-/// Separates startup work that must finish from optional work that can settle
-/// after the first authenticated frame is available.
+/// Starts optional startup work that can settle after the first authenticated
+/// frame is available; work that must finish is simply awaited in main.dart.
 abstract final class StartupTaskCoordinator {
-  static Future<void> runCritical(Iterable<StartupTask> tasks) async {
-    for (final task in tasks) {
-      await task();
-    }
-  }
-
   static void startBackground(
     Iterable<StartupTask> tasks, {
     required StartupTaskErrorHandler onError,

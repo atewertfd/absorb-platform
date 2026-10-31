@@ -15,6 +15,7 @@ import '../providers/library_provider.dart';
 import 'adaptive_modal.dart';
 import 'overlay_toast.dart';
 import '../utils/share_origin.dart';
+import '../utils/local_path.dart';
 
 /// Card shapes offered for a shared quote, as width/height.
 enum _QuoteShape {
@@ -134,7 +135,7 @@ class _QuoteShareSheetState extends State<_QuoteShareSheet> {
       return;
     }
     ImageProvider? provider;
-    if (url.startsWith('/')) {
+    if (isLocalCoverPath(url)) {
       final file = File(url);
       if (file.existsSync()) provider = FileImage(file);
     } else {

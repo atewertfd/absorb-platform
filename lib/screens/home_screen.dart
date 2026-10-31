@@ -40,6 +40,7 @@ import '../l10n/app_localizations.dart';
 import '../utils/duration_format.dart';
 import '../ui_themes/ui_theme_hooks.dart';
 import '../widgets/text_scale_room.dart';
+import '../utils/local_path.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -913,7 +914,7 @@ class _ContinueListeningCardState extends State<_ContinueListeningCard> {
     );
     if (coverUrl == null) return fallback;
 
-    final isLocal = coverUrl.startsWith('/');
+    final isLocal = isLocalCoverPath(coverUrl);
     Widget image({required BoxFit fit}) {
       if (isLocal) {
         return Image.file(File(coverUrl), fit: fit,
@@ -963,7 +964,7 @@ class _ContinueListeningCardState extends State<_ContinueListeningCard> {
       return;
     }
     final ImageProvider provider;
-    if (coverUrl.startsWith('/')) {
+    if (isLocalCoverPath(coverUrl)) {
       provider = FileImage(File(coverUrl));
     } else {
       provider = CachedNetworkImageProvider(coverUrl, headers: widget.lib.mediaHeaders);

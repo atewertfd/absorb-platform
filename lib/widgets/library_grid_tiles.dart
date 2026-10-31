@@ -18,6 +18,7 @@ import '../services/upcoming_releases_service.dart';
 import 'series_books_sheet.dart';
 import 'author_books_sheet.dart';
 import 'library_item_snapshot.dart';
+import '../utils/local_path.dart';
 
 // ═══════════════════════════════════════════════════════════════
 // Grid book tile (cover + title + author)
@@ -331,7 +332,7 @@ class _GridBookTileState extends State<GridBookTile> {
     final isSquare = (aspectRatio - 1.0).abs() < 0.01;
     final decodeWidth = coverGridDecodeWidth(context);
     if (!isSquare) {
-      if (coverUrl.startsWith('/')) {
+      if (isLocalCoverPath(coverUrl)) {
         return Image.file(File(coverUrl), fit: BoxFit.cover,
             cacheWidth: decodeWidth,
             errorBuilder: (_, __, ___) => placeholder);
@@ -345,7 +346,7 @@ class _GridBookTileState extends State<GridBookTile> {
     // offscreen blur layer per tile, which piles up GPU memory on dense grids
     // and gets the app OOM-killed mid-scroll - a tiny decode stretched to size
     // looks the same under the scrim at tile sizes and costs nothing.
-    if (coverUrl.startsWith('/')) {
+    if (isLocalCoverPath(coverUrl)) {
       return Stack(fit: StackFit.expand, children: [
         Image.file(File(coverUrl), fit: BoxFit.cover, cacheWidth: 32,
             errorBuilder: (_, __, ___) => const SizedBox.shrink()),
@@ -503,7 +504,7 @@ class _StackedCovers extends StatelessWidget {
     if (url == null) return _placeholder();
     final decodeWidth = coverGridDecodeWidth(context);
     // Series stacked covers are always cropped to fit - no blur padding needed
-    if (url.startsWith('/')) {
+    if (isLocalCoverPath(url)) {
       return Image.file(File(url), fit: BoxFit.cover,
           cacheWidth: decodeWidth,
           errorBuilder: (_, __, ___) => _placeholder());

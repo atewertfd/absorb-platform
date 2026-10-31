@@ -28,6 +28,8 @@ import 'expanded_card.dart';
 import '../main.dart' show colorSourceNotifier, useColorEverywhereNotifier, manualSeedNotifier, manualColorScheme;
 import 'stable_cached_network_image.dart';
 import 'text_scale_room.dart';
+import '../utils/local_path.dart';
+import 'item_download_watch.dart';
 
 class AbsorbingCard extends StatefulWidget {
   final Map<String, dynamic> item;
@@ -183,7 +185,7 @@ class AbsorbingCardState extends State<AbsorbingCard> with AutomaticKeepAliveCli
 
   String? _coverIdentity(String? coverUrl, LibraryProvider lib) {
     if (coverUrl == null) return null;
-    if (coverUrl.startsWith('/')) return coverUrl;
+    if (isLocalCoverPath(coverUrl)) return coverUrl;
     return stableCoverCacheKey(
       coverUrl,
       updatedAt: _coverUpdatedAt(lib),
@@ -280,7 +282,8 @@ class AbsorbingCardState extends State<AbsorbingCard> with AutomaticKeepAliveCli
     _loadSavedSpeed();
   }
 
-  void _onDownloadChanged() { if (mounted) setState(() {}); }
+  late final _dlWatch = ItemDownloadWatch(() => _episodeId != null ? '$_itemId-$_episodeId' : _itemId); // Absorb Plus
+  void _onDownloadChanged() { if (mounted && _dlWatch.changed()) setState(() {}); }
 
   void _onCastChanged() {
     _startChapterTracking();
@@ -499,7 +502,7 @@ class AbsorbingCardState extends State<AbsorbingCard> with AutomaticKeepAliveCli
     }
     final headers = lib.mediaHeaders;
     final ImageProvider provider;
-    if (coverUrl.startsWith('/')) {
+    if (isLocalCoverPath(coverUrl)) {
       provider = FileImage(File(coverUrl));
     } else {
       provider = CachedNetworkImageProvider(
@@ -545,7 +548,7 @@ class AbsorbingCardState extends State<AbsorbingCard> with AutomaticKeepAliveCli
       final stream = provider.resolve(ImageConfiguration.empty);
       late ImageStreamListener listener;
       listener = ImageStreamListener((info, _) {
-        completer.complete(info.image);
+        if (!completer.isCompleted) completer.complete(info.image);
         stream.removeListener(listener);
       }, onError: (e, _) {
         if (!completer.isCompleted) completer.completeError(e);
@@ -572,6 +575,7 @@ class AbsorbingCardState extends State<AbsorbingCard> with AutomaticKeepAliveCli
       final picture = recorder.endRecording();
       final blurred = await picture.toImage(targetWidth, targetHeight);
       picture.dispose();
+      srcImage.dispose(); // our clone of the full-size cover
 
       final topLuminance = await topStripLuminance(blurred);
 
@@ -614,7 +618,7 @@ class AbsorbingCardState extends State<AbsorbingCard> with AutomaticKeepAliveCli
     final lib = context.watch<LibraryProvider>();
     final coverUrl = lib.getCoverUrl(_itemId, width: 1200);
     final coverIdentity = _coverIdentity(coverUrl, lib);
-    final isLocalCover = coverUrl?.startsWith('/') ?? false;
+    final isLocalCover = isLocalCoverPath(coverUrl);
     _maybeRefetchOnServerChange(lib);
     // For podcast episodes, look up progress by compound key (itemId-episodeId)
     final progress = (_episodeId != null)

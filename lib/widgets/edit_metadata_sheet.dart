@@ -599,7 +599,7 @@ class _MetadataEditViewState extends State<MetadataEditView>
           ? _safeString(book['cover'])
           : _safeString(book['image']);
       if (coverUrl.isNotEmpty) {
-        await api.updateItemCoverUrl(widget.itemId, coverUrl, coverSlot: _coverSlot);
+        ok = await api.updateItemCoverUrl(widget.itemId, coverUrl, coverSlot: _coverSlot);
       }
     }
 
@@ -609,7 +609,7 @@ class _MetadataEditViewState extends State<MetadataEditView>
     final l = AppLocalizations.of(context)!;
     if (ok) {
       context.read<LibraryProvider>().refresh();
-      _coverVersion++;
+      setState(() => _coverVersion++);
       // stays on the edit page
       showOverlayToast(context, l.editMetadataUpdatedFromMatch,
           icon: Icons.check_circle_outline_rounded);
@@ -796,7 +796,7 @@ class _MetadataEditViewState extends State<MetadataEditView>
     final l = AppLocalizations.of(context)!;
     if (ok) {
       context.read<LibraryProvider>().refresh();
-      _coverVersion++;
+      setState(() => _coverVersion++);
       // stays on the edit page
       showOverlayToast(context, l.metadataUpdated,
           icon: Icons.check_circle_outline_rounded);

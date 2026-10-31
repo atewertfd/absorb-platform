@@ -84,9 +84,6 @@ bool isLibationAudioFile(String filename) =>
 bool isLibationCoverFile(String filename) =>
     kLibationCoverExtensions.contains(libationFileExtension(filename));
 
-bool isLibationExportFile(String filename) =>
-    kLibationExportExtensions.contains(libationFileExtension(filename));
-
 String stripFileExtension(String filename) {
   final dot = filename.lastIndexOf('.');
   return dot > 0 ? filename.substring(0, dot) : filename;
@@ -161,9 +158,6 @@ class LibationBookCandidate {
     this.skippedFilesCount = 0,
     this.modified,
   });
-
-  int get audioFileCount =>
-      files.where((file) => isLibationAudioFile(file.name)).length;
 
   int get totalBytes => files.fold<int>(0, (sum, file) => sum + file.size);
 

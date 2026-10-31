@@ -98,7 +98,7 @@ class _FoliateReaderViewState extends State<FoliateReaderView> with WidgetsBindi
   // Flush on background so an OS kill can't lose the last pages read.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused) _flushProgress();
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) _flushProgress();
   }
 
   late final EreaderVolumeNav _volumeNav = EreaderVolumeNav(

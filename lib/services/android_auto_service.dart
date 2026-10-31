@@ -389,6 +389,7 @@ class AndroidAutoService {
   static final List<void Function()> serverDataListeners = [];
 
   Future<void> refresh({bool force = false}) async {
+    if (!Platform.isAndroid) return; // Absorb Plus: Android Auto is Android-only
     // Always populate downloads immediately — no server needed.
     // This ensures Android Auto / CarPlay can show the Downloads tab even
     // if the server is unreachable (e.g. no remote access, offline-only

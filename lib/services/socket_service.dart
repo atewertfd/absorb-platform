@@ -345,7 +345,10 @@ class SocketService {
   }
 
   void connect(String serverUrl, String token, {Map<String, String> customHeaders = const {}}) {
-    if (_socket != null) disconnect();
+    // Replace only the socket: callers set the callbacks before connecting,
+    // and disconnect() would wipe them (logout is what disconnect() is for).
+    _socket?.dispose();
+    _socket = null;
 
     // BookOrbit has its own socket namespaces and no progress events, so
     // its accounts run on the refresh timers instead.
@@ -380,8 +383,11 @@ class SocketService {
       });
 
       _socket!.on('auth_failed', (_) {
-        debugPrint('[Socket] Auth failed');
-        disconnect();
+        // Usually an access token that ran out while nothing refreshed it.
+        // Stay connected with the callbacks intact: the next refresh hands
+        // the socket its new token through updateToken, which re-sends auth.
+        // A full disconnect() here turned live sync off for the session.
+        debugPrint('[Socket] Auth failed - waiting for a refreshed token');
       });
 
       // Cross-device progress sync
@@ -597,8 +603,11 @@ class SocketService {
       });
 
       _socket!.on('auth_failed', (_) {
-        debugPrint('[Socket] Auth failed');
-        disconnect();
+        // Usually an access token that ran out while nothing refreshed it.
+        // Stay connected with the callbacks intact: the next refresh hands
+        // the socket its new token through updateToken, which re-sends auth.
+        // A full disconnect() here turned live sync off for the session.
+        debugPrint('[Socket] Auth failed - waiting for a refreshed token');
       });
 
       _socket!.on('user_item_progress_updated', (data) {

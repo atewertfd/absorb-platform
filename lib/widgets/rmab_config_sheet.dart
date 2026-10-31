@@ -13,6 +13,7 @@ import '../utils/desktop_workspace.dart';
 import 'adaptive_modal.dart';
 import 'rmab_request_status_chip.dart';
 import 'stackable_sheet.dart';
+import '../utils/fork_platform.dart';
 
 /// ScopedPrefs keys used by the RMAB integration.
 const String kRmabBaseUrlKey = 'rmab_base_url';
@@ -348,6 +349,7 @@ class _RmabConfigSheetState extends State<_RmabConfigSheet> {
       setState(() => _errorText = l.rmabConfigErrorInvalidUrl);
       return;
     }
+    if (ForkPlatform.openInBrowserInstead(target)) return;
     final nav = contentNavigator(context);
     if (isDesktopWorkspace(context)) {
       Navigator.of(context, rootNavigator: true).popUntil((r) => r.isFirst);

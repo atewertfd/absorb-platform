@@ -22,6 +22,7 @@ import 'stackable_sheet.dart';
 import 'swipe_action.dart';
 import '../screens/app_shell.dart';
 import '../screens/smart_scope_editor_screen.dart';
+import '../utils/local_path.dart';
 
 class CollectionDetailSheet extends StatefulWidget {
   final String collectionId;
@@ -522,7 +523,7 @@ class _CollectionDetailSheetState extends State<CollectionDetailSheet> {
           leading: ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: coverUrl != null
-                ? (coverUrl.startsWith('/')
+                ? (isLocalCoverPath(coverUrl)
                     ? Image.file(File(coverUrl), fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) => _placeholder(cs))
                     : Image.network(coverUrl, fit: BoxFit.cover,
@@ -585,7 +586,7 @@ class _CollectionDetailSheetState extends State<CollectionDetailSheet> {
                     child: Stack(children: [
                       Positioned.fill(
                         child: coverUrl != null
-                            ? (coverUrl.startsWith('/')
+                            ? (isLocalCoverPath(coverUrl)
                                 ? Image.file(File(coverUrl), fit: BoxFit.cover,
                                     errorBuilder: (_, __, ___) => _placeholder(cs))
                                 : CachedNetworkImage(
@@ -722,7 +723,7 @@ class _CollectionDetailSheetState extends State<CollectionDetailSheet> {
                   child: Stack(children: [
                     Positioned.fill(
                       child: coverUrl != null
-                          ? (coverUrl.startsWith('/')
+                          ? (isLocalCoverPath(coverUrl)
                               ? Image.file(File(coverUrl), fit: BoxFit.cover,
                                   errorBuilder: (_, __, ___) => _placeholder(cs))
                               : CachedNetworkImage(

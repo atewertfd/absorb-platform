@@ -15,6 +15,7 @@ import '../widgets/card_buttons.dart' show showErrorToast;
 import 'app_shell.dart';
 import '../widgets/overlay_toast.dart';
 import '../l10n/app_localizations.dart';
+import '../utils/local_path.dart';
 
 String _downloadRate(double? bytesPerSecond) {
   if (bytesPerSecond == null || bytesPerSecond <= 0) return '';
@@ -803,7 +804,7 @@ class _DownloadCard extends StatelessWidget {
 
     // Try coverUrl via CachedNetworkImage
     if (info.coverUrl != null && info.coverUrl!.isNotEmpty) {
-      if (info.coverUrl!.startsWith('/')) {
+      if (isLocalCoverPath(info.coverUrl!)) {
         final file = File(info.coverUrl!);
         if (file.existsSync()) {
           return Image.file(file,
@@ -956,7 +957,7 @@ class _ActiveDownloadCard extends StatelessWidget {
 
   Widget _buildCover() {
     if (info.coverUrl != null && info.coverUrl!.isNotEmpty) {
-      if (info.coverUrl!.startsWith('/')) {
+      if (isLocalCoverPath(info.coverUrl!)) {
         final file = File(info.coverUrl!);
         if (file.existsSync()) {
           return Image.file(file,

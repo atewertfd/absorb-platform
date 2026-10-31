@@ -4,17 +4,6 @@ import 'package:absorb/services/startup_task_coordinator.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('critical tasks run in order and complete before readiness', () async {
-    final events = <String>[];
-
-    await StartupTaskCoordinator.runCritical([
-      () async => events.add('first'),
-      () async => events.add('second'),
-    ]);
-
-    expect(events, ['first', 'second']);
-  });
-
   test(
     'background tasks start without blocking the caller and contain errors',
     () async {

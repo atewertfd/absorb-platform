@@ -584,7 +584,7 @@ class AuthProvider extends ChangeNotifier {
         _refreshToken = savedRefreshToken;
         _isLegacyToken = savedRefreshToken == null;
         debugPrint(
-          '[Auth] Restored token: ${savedToken.substring(0, savedToken.length.clamp(0, 20))}... (${savedToken.length} chars, isLegacy=$_isLegacyToken)',
+          '[Auth] Restored token: ${ApiService.tokenFp(savedToken)} (${savedToken.length} chars, isLegacy=$_isLegacyToken)',
         );
         _username = savedUsername;
         _userId = prefs.getString('user_id');

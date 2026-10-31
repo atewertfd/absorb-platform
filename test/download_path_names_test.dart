@@ -150,4 +150,17 @@ void main() {
       );
     });
   });
+
+
+  group('folderIdSuffix', () {
+    test('keeps the last 8 characters of a long id', () {
+      expect(folderIdSuffix('li_0123456789abcdef'), '89abcdef');
+    });
+
+    test('uses the whole id when it is short (BookOrbit)', () {
+      expect(folderIdSuffix('42'), '42');
+      expect(folderIdSuffix('12345678'), '12345678');
+      expect(folderIdSuffix(''), '');
+    });
+  });
 }

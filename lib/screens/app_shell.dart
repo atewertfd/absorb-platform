@@ -77,6 +77,10 @@ import '../widgets/update_dialog.dart';
 import '../widgets/overlay_toast.dart';
 
 import '../utils/app_motion.dart';
+import '../utils/local_path.dart';
+import '../utils/fork_platform.dart';
+import 'rebuild_snapshots.dart';
+import 'stats_tab_refresh.dart';
 
 class _DesktopShortcutIntent extends Intent {
   final DesktopShortcutAction action;
@@ -257,6 +261,7 @@ class _AppShellState extends State<AppShell>
   }
 
   void _navigateTo(int index) {
+    if (index == 3) StatsTabRefresh.instance.tabActivated(); // Absorb Plus
     if (index == _currentIndex) {
       // Already on this tab — handle re-tap actions
       if (index == 2) {
@@ -579,7 +584,7 @@ class _AppShellState extends State<AppShell>
     _lastCoverItemId = itemId;
 
     final ImageProvider provider;
-    if (coverUrl.startsWith('/')) {
+    if (isLocalCoverPath(coverUrl)) {
       provider = FileImage(File(coverUrl));
     } else {
       provider = CachedNetworkImageProvider(
@@ -935,11 +940,10 @@ class _AppShellState extends State<AppShell>
     }
     // On phone landscape, shrink the nav bar so it doesn't eat ~20% of the
     // shorter screen height. Tablets keep the full-size bar in any orientation.
-    final mq = MediaQuery.of(context);
-    final isTablet = mq.size.shortestSide >= 600;
+    final isTablet = MediaQuery.sizeOf(context).shortestSide >= 600;
     final isPhoneLandscape =
-        !isTablet && mq.orientation == Orientation.landscape;
-    final lib = context.watch<LibraryProvider>();
+        !isTablet && MediaQuery.orientationOf(context) == Orientation.landscape;
+    final lib = context.watchOnly<LibraryProvider>(appShellNavSnapshot);
     final podcastsShown = _podcastsShown(lib);
     final destinations = _buildDestinations(context, podcastsShown);
     return SizeTransition(
@@ -1523,6 +1527,7 @@ class _AppShellState extends State<AppShell>
           : '';
     }
     if (!mounted || target.isEmpty) return;
+    if (ForkPlatform.openInBrowserInstead(target)) return;
     await Navigator.push(
         context, MaterialPageRoute(builder: (_) => AdminRmabScreen(url: target)));
   }
@@ -1663,7 +1668,7 @@ class _AppShellState extends State<AppShell>
     bool podcastsShown,
   ) {
     final l = AppLocalizations.of(context)!;
-    final lib = context.watch<LibraryProvider>();
+    final lib = context.watchOnly<LibraryProvider>(appShellNavSnapshot);
     // With the dedicated Podcasts tab, Home/Library always wear their book
     // labels - the podcast library being selected must not morph them.
     final isPodcast = !podcastsShown && lib.isPodcastLibrary;

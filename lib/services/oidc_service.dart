@@ -113,7 +113,7 @@ class OidcService {
             for (final sc in rawSetCookie) {
               final nameValue = sc.split(';').first.trim();
               _rawCookies.add(nameValue);
-              debugPrint('[OIDC] Captured raw cookie: $nameValue');
+              debugPrint('[OIDC] Captured raw cookie: ${nameValue.split('=').first}');
             }
           }
         }
@@ -285,7 +285,7 @@ class OidcService {
         url: url,
         callbackUrlScheme: scheme,
       );
-      debugPrint('[OIDC] Custom Tab returned: $resultUrl');
+      debugPrint('[OIDC] Custom Tab returned (${resultUrl.length} chars)');
       return Uri.parse(resultUrl);
     } on PlatformException catch (e) {
       // Cancellation arrives as PlatformException. Both plugins use code

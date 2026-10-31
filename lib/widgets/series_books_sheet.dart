@@ -29,6 +29,7 @@ import 'books_sheet_shared.dart';
 import '../services/api_service.dart';
 import '../utils/duration_format.dart';
 import '../utils/series_number_match.dart';
+import '../utils/local_path.dart';
 
 /// Show a bottom sheet with all books in a series, sorted by sequence.
 /// Can be called from any screen.
@@ -123,7 +124,7 @@ class _SeriesBooksSheetState extends State<SeriesBooksSheet> {
     if (url.isEmpty || _coverSchemeUrl == url || PlayerSettings.einkMode) return;
     _coverSchemeUrl = url;
     final brightness = Theme.of(context).brightness;
-    final ImageProvider provider = url.startsWith('/')
+    final ImageProvider provider = isLocalCoverPath(url)
         ? FileImage(File(url))
         : CachedNetworkImageProvider(url, headers: context.read<LibraryProvider>().mediaHeaders);
     PaletteGenerator.fromImageProvider(provider, maximumColorCount: 16).then((palette) {
@@ -1041,7 +1042,7 @@ class _SeriesBooksSheetState extends State<SeriesBooksSheet> {
   Widget _coverImage(LibraryProvider lib, String bookId) {
     final url = lib.getCoverUrl(bookId);
     if (url == null || url.isEmpty) return const ColoredBox(color: Colors.black26);
-    if (url.startsWith('/')) return Image.file(File(url), fit: BoxFit.cover);
+    if (isLocalCoverPath(url)) return Image.file(File(url), fit: BoxFit.cover);
     return CachedNetworkImage(
       imageUrl: url,
       httpHeaders: lib.mediaHeaders,
@@ -1607,7 +1608,7 @@ class _SeriesBooksSheetState extends State<SeriesBooksSheet> {
                   child: Stack(children: [
                     Positioned.fill(
                       child: coverUrl != null
-                          ? (coverUrl.startsWith('/')
+                          ? (isLocalCoverPath(coverUrl)
                               ? Image.file(File(coverUrl), fit: BoxFit.cover,
                                   errorBuilder: (_, __, ___) => _placeholder(cs))
                               : CachedNetworkImage(

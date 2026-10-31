@@ -14,6 +14,7 @@ import 'episode_detail_sheet.dart';
 import 'absorb_placement.dart';
 import 'swipe_action.dart';
 import 'stackable_sheet.dart';
+import '../utils/local_path.dart';
 
 /// Open the right detail sheet for a section entity: episode detail for
 /// podcast entries (which carry a `recentEpisode`), book detail otherwise.
@@ -327,7 +328,7 @@ class _SectionDetailSheetState extends State<SectionDetailSheet> {
 
   Widget _cover(String? coverUrl, LibraryProvider lib, ColorScheme cs) {
     if (coverUrl == null) return _placeholder(cs);
-    if (coverUrl.startsWith('/')) {
+    if (isLocalCoverPath(coverUrl)) {
       return Image.file(File(coverUrl), fit: BoxFit.cover,
           errorBuilder: (_, __, ___) => _placeholder(cs));
     }

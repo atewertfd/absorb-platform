@@ -13095,4 +13095,35 @@ class AppLocalizationsNo extends AppLocalizations {
 
   @override
   String get windowsTaskbarForward => 'Fast-forward';
+
+  @override
+  String get supportContactSubtitle =>
+      'Ask a question on the Absorb Plus GitHub';
+
+  @override
+  String get supportSaveLogsSubtitle =>
+      'Save the log file to attach to a GitHub issue';
+
+  @override
+  String get supportSaveLogsDialogTitle => 'Save Absorb Plus logs';
+
+  @override
+  String supportLogsSaved(String path) {
+    return 'Logs saved to $path';
+  }
+
+  @override
+  String supportLogsSaveFailed(String error) {
+    return 'Couldn\'t save the logs: $error';
+  }
+
+  @override
+  String get supportOpenLogsFolder => 'Open logs folder';
+
+  @override
+  String get supportOpenLogsFolderSubtitle =>
+      'Show the log file in your file manager';
+
+  @override
+  String get supportOpenLogsFolderFailed => 'Couldn\'t open the logs folder';
 }

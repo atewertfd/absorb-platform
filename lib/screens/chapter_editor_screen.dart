@@ -519,8 +519,8 @@ class _ChapterEditBodyState extends State<ChapterEditBody>
     });
     unawaited(_checkFindAvailable());
 
+    final player = AudioPlayer();
     try {
-      final player = AudioPlayer();
       _preview = player;
       _previewPosSub = player.positionStream.listen((pos) {
         if (!mounted || _scrubbing) return;
@@ -547,10 +547,12 @@ class _ChapterEditBodyState extends State<ChapterEditBody>
       await player.setAudioSource(AudioSource.uri(
           Uri.parse(api.buildTrackUrl(contentUrl)),
           options: mp3ExtractorOptions()));
+      if (!identical(_preview, player)) return; // a newer preview replaced this one
       await player.seek(Duration(milliseconds: (seekSec * 1000).round()));
       if (autoplay) await player.play();
     } catch (e) {
       debugPrint('[ChapterEditor] preview error: $e');
+      if (!identical(_preview, player)) return; // stop only our own preview
       await _stopPreview();
       if (mounted) showOverlayToast(context, l.chapterCouldNotPlayPreview, icon: Icons.error_outline_rounded);
     }

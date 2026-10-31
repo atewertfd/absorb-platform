@@ -1080,7 +1080,7 @@ class DownloadService extends ChangeNotifier {
           : _sanitizePath(title);
       nested = safeDownloadFolder(nested, windows: Platform.isWindows);
       if (_folderTakenByOther(nested, itemId)) {
-        nested = '$nested (${itemId.substring(itemId.length - 8)})';
+        nested = '$nested (${folderIdSuffix(itemId)})';
       }
       final moved = await _moveBookToSaf(tree, nested, [for (final p in paths) p.split('/').last], paths);
       if (moved != null) {
@@ -2332,7 +2332,7 @@ class DownloadService extends ChangeNotifier {
           : _sanitizePath(title);
       nestedName = safeDownloadFolder(nestedName, windows: Platform.isWindows);
       if (_folderTakenByOther(nestedName, itemId)) {
-        nestedName = '$nestedName (${itemId.substring(itemId.length - 8)})';
+        nestedName = '$nestedName (${folderIdSuffix(itemId)})';
       }
       String? relDir; // Android: relative to applicationDocuments
       if (Platform.isIOS) {
@@ -2531,7 +2531,7 @@ class DownloadService extends ChangeNotifier {
           : _sanitizePath(title);
       nestedName = safeDownloadFolder(nestedName, windows: Platform.isWindows);
       if (_folderTakenByOther(nestedName, itemId)) {
-        nestedName = '$nestedName (${itemId.substring(itemId.length - 8)})';
+        nestedName = '$nestedName (${folderIdSuffix(itemId)})';
       }
       final Directory bookDir;
       String? relDir;
