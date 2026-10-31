@@ -72,6 +72,7 @@ import '../services/review_service.dart';
 import '../services/settings_sync_service.dart';
 import '../services/update_checker_service.dart';
 import '../services/desktop_shortcuts.dart';
+import '../services/windows_shell.dart';
 import '../widgets/update_dialog.dart';
 import '../widgets/overlay_toast.dart';
 
@@ -401,6 +402,7 @@ class _AppShellState extends State<AppShell>
         BookOrbitNotificationSocket.instance.incoming.listen(showIncomingNotificationToast);
     EreaderVolumeNav.ensureHandler();
     PlayerScreenWake.start();
+    unawaited(WindowsShell.instance.start());
     if (!widget.startOnAbsorbing) _loadStartScreen();
     _ensurePageBuilt(_currentIndex);
     _syncPlayerOnScreen();
@@ -1352,6 +1354,8 @@ class _AppShellState extends State<AppShell>
         _navigateTo(1);
       case DesktopShortcutAction.nowPlaying:
         _switchToAbsorbing();
+      case DesktopShortcutAction.fullScreen:
+        unawaited(WindowsShell.instance.toggleFullScreen());
     }
   }
 

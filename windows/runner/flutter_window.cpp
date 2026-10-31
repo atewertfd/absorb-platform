@@ -4,8 +4,9 @@
 
 #include "flutter/generated_plugin_registrant.h"
 
-FlutterWindow::FlutterWindow(const flutter::DartProject& project)
-    : project_(project) {}
+FlutterWindow::FlutterWindow(const flutter::DartProject& project,
+                             const LaunchOptions& launch)
+    : project_(project), launch_(launch) {}
 
 FlutterWindow::~FlutterWindow() {
   // Clear the member before controller destruction can re-enter MessageHandler.
@@ -29,9 +30,16 @@ bool FlutterWindow::OnCreate() {
   }
   RegisterPlugins(flutter_controller_->engine());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
+  shell_ = std::make_unique<WindowsShell>(
+      this, flutter_controller_->engine()->messenger(), launch_);
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
-    this->Show();
+    // Normally shown; minimized or left in the tray for --minimized.
+    if (shell_) {
+      shell_->ShowAtStartup();
+    } else {
+      this->Show();
+    }
   });
 
   // Flutter can complete the first frame before the "show window" callback is
@@ -42,7 +50,13 @@ bool FlutterWindow::OnCreate() {
   return true;
 }
 
+void FlutterWindow::ExitAfterMessageLoop(UINT exit_code) {
+  if (shell_) shell_->ExitNow(exit_code);
+}
+
 void FlutterWindow::OnDestroy() {
+  // The shell's channels use the engine's messenger: release them first.
+  shell_ = nullptr;
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
   }
@@ -54,6 +68,15 @@ LRESULT
 FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
                               WPARAM const wparam,
                               LPARAM const lparam) noexcept {
+  // Absorb Plus shell first: it owns WM_CLOSE (tray, saving before quit),
+  // the tray icon, taskbar buttons and second-launch activation.
+  if (shell_) {
+    if (std::optional<LRESULT> handled =
+            shell_->HandleMessage(hwnd, message, wparam, lparam)) {
+      return *handled;
+    }
+  }
+
   // Give Flutter, including plugins, an opportunity to handle window messages.
   if (flutter_controller_) {
     std::optional<LRESULT> result =

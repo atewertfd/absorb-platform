@@ -22118,6 +22118,126 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'The release notes for this version'**
   String get settingsSeeWhatsNewSubtitle;
+
+  /// No description provided for @windowsCloseToTray.
+  ///
+  /// In en, this message translates to:
+  /// **'Close to tray'**
+  String get windowsCloseToTray;
+
+  /// No description provided for @windowsCloseToTraySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Closing the window keeps Absorb Plus running in the notification area. Quit from the tray icon.'**
+  String get windowsCloseToTraySubtitle;
+
+  /// No description provided for @windowsStartWithWindows.
+  ///
+  /// In en, this message translates to:
+  /// **'Start with Windows'**
+  String get windowsStartWithWindows;
+
+  /// No description provided for @windowsStartWithWindowsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Absorb Plus when you sign in to Windows'**
+  String get windowsStartWithWindowsSubtitle;
+
+  /// No description provided for @windowsStartWithWindowsRegistered.
+  ///
+  /// In en, this message translates to:
+  /// **'Starts: {command}'**
+  String windowsStartWithWindowsRegistered(String command);
+
+  /// No description provided for @windowsStartWithWindowsOtherCopy.
+  ///
+  /// In en, this message translates to:
+  /// **'Another copy is set to start: {command}. Turn on to use this copy instead.'**
+  String windowsStartWithWindowsOtherCopy(String command);
+
+  /// No description provided for @windowsStartupDisabledBySystem.
+  ///
+  /// In en, this message translates to:
+  /// **'Switched off in Task Manager\'s Startup apps. Turn it back on there.'**
+  String get windowsStartupDisabledBySystem;
+
+  /// No description provided for @windowsStartMinimized.
+  ///
+  /// In en, this message translates to:
+  /// **'Start minimized'**
+  String get windowsStartMinimized;
+
+  /// No description provided for @windowsStartMinimizedSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'When it starts with Windows, keep it in the tray (or minimized if Close to tray is off)'**
+  String get windowsStartMinimizedSubtitle;
+
+  /// No description provided for @windowsAlwaysOnTop.
+  ///
+  /// In en, this message translates to:
+  /// **'Always on top'**
+  String get windowsAlwaysOnTop;
+
+  /// No description provided for @windowsAlwaysOnTopSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep the window above other windows'**
+  String get windowsAlwaysOnTopSubtitle;
+
+  /// No description provided for @windowsKeepAwake.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep PC awake while playing or downloading'**
+  String get windowsKeepAwake;
+
+  /// No description provided for @windowsKeepAwakeSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Stops the PC from going to sleep. The screen can still turn off.'**
+  String get windowsKeepAwakeSubtitle;
+
+  /// No description provided for @windowsSettingFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Windows didn\'t accept that change'**
+  String get windowsSettingFailed;
+
+  /// No description provided for @windowsTrayShow.
+  ///
+  /// In en, this message translates to:
+  /// **'Show Absorb Plus'**
+  String get windowsTrayShow;
+
+  /// No description provided for @windowsTrayQuit.
+  ///
+  /// In en, this message translates to:
+  /// **'Quit Absorb Plus'**
+  String get windowsTrayQuit;
+
+  /// No description provided for @windowsTaskbarPlay.
+  ///
+  /// In en, this message translates to:
+  /// **'Play'**
+  String get windowsTaskbarPlay;
+
+  /// No description provided for @windowsTaskbarPause.
+  ///
+  /// In en, this message translates to:
+  /// **'Pause'**
+  String get windowsTaskbarPause;
+
+  /// No description provided for @windowsTaskbarRewind.
+  ///
+  /// In en, this message translates to:
+  /// **'Rewind'**
+  String get windowsTaskbarRewind;
+
+  /// No description provided for @windowsTaskbarForward.
+  ///
+  /// In en, this message translates to:
+  /// **'Fast-forward'**
+  String get windowsTaskbarForward;
 }
 
 class _AppLocalizationsDelegate

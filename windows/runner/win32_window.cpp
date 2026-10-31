@@ -3,6 +3,8 @@
 #include <dwmapi.h>
 #include <flutter_windows.h>
 
+#include <algorithm>
+
 #include "resource.h"
 
 namespace {
@@ -29,8 +31,13 @@ constexpr const wchar_t kGetPreferredBrightnessRegValue[] = L"AppsUseLightTheme"
 // Keep the desktop window where the user left it without adding a Flutter
 // plugin or another always-running process. Values are physical screen pixels
 // and are restored only when the saved monitor still exists.
-constexpr const wchar_t kWindowStateRegKey[] =
-    L"Software\\Absorb Plus\\Window";
+std::wstring& WindowStateRegKey() {
+  static std::wstring key = L"Software\\Absorb Plus\\Window";
+  return key;
+}
+
+constexpr const wchar_t kInstanceProperty[] = L"AbsorbPlus.Instance";
+ULONG_PTR g_instance_tag = 0;
 
 // The number of Win32Window objects that currently exist.
 static int g_active_window_count = 0;
@@ -65,58 +72,93 @@ bool ReadWindowStateValue(HKEY key, const wchar_t* name, DWORD* value) {
                      &size) == ERROR_SUCCESS;
 }
 
-void RestoreWindowPlacement(HWND window) {
+// Restores the saved size and position. Returns true when the window was
+// maximized last time, so the first Show() maximizes it again.
+bool RestoreWindowPlacement(HWND window) {
   HKEY key = nullptr;
-  if (RegOpenKeyExW(HKEY_CURRENT_USER, kWindowStateRegKey, 0, KEY_READ, &key) !=
-      ERROR_SUCCESS) {
-    return;
+  if (RegOpenKeyExW(HKEY_CURRENT_USER, WindowStateRegKey().c_str(), 0,
+                    KEY_READ, &key) != ERROR_SUCCESS) {
+    return false;
   }
 
-  DWORD x = 0, y = 0, width = 0, height = 0;
+  DWORD x = 0, y = 0, width = 0, height = 0, maximized = 0;
   const bool complete = ReadWindowStateValue(key, L"x", &x) &&
                         ReadWindowStateValue(key, L"y", &y) &&
                         ReadWindowStateValue(key, L"width", &width) &&
                         ReadWindowStateValue(key, L"height", &height);
+  ReadWindowStateValue(key, L"maximized", &maximized);
   RegCloseKey(key);
-  if (!complete || width < 800 || height < 500) return;
+  // Small sizes are fine: WM_GETMINMAXINFO keeps the window at least the
+  // minimum size. Only reject values that cannot be a real window.
+  if (!complete || width < 200 || height < 200 || width > 32767 ||
+      height > 32767) {
+    return false;
+  }
 
   const LONG left = static_cast<LONG>(x);
   const LONG top = static_cast<LONG>(y);
   RECT requested = {left, top, left + static_cast<LONG>(width),
                     top + static_cast<LONG>(height)};
   HMONITOR monitor = MonitorFromRect(&requested, MONITOR_DEFAULTTONULL);
-  if (monitor == nullptr) return;
+  if (monitor == nullptr) return false;
 
   SetWindowPos(window, nullptr, requested.left, requested.top,
                requested.right - requested.left,
                requested.bottom - requested.top,
                SWP_NOZORDER | SWP_NOACTIVATE);
+  return maximized != 0;
 }
 
-void SaveWindowPlacement(HWND window) {
-  if (window == nullptr || IsIconic(window) || IsZoomed(window)) return;
+// Saves the restored (not maximized) bounds plus whether the window is
+// maximized, so a maximized window comes back maximized and un-maximizing it
+// returns to the size the user chose.
+void SaveWindowPlacement(HWND window, const WINDOWPLACEMENT* placement_override) {
+  if (window == nullptr) return;
 
-  RECT bounds;
-  if (!GetWindowRect(window, &bounds)) return;
-
-  HKEY key = nullptr;
-  DWORD disposition = 0;
-  if (RegCreateKeyExW(HKEY_CURRENT_USER, kWindowStateRegKey, 0, nullptr, 0,
-                      KEY_WRITE, nullptr, &key, &disposition) != ERROR_SUCCESS) {
+  WINDOWPLACEMENT placement = {sizeof(WINDOWPLACEMENT)};
+  if (placement_override != nullptr) {
+    placement = *placement_override;
+  } else if (!GetWindowPlacement(window, &placement)) {
     return;
   }
 
-  const DWORD values[][2] = {
-      {static_cast<DWORD>(bounds.left), 0},
-      {static_cast<DWORD>(bounds.top), 0},
-      {static_cast<DWORD>(bounds.right - bounds.left), 0},
-      {static_cast<DWORD>(bounds.bottom - bounds.top), 0},
+  // rcNormalPosition is in workspace coordinates; the saved values are screen
+  // coordinates (they differ when the taskbar is on the left or top).
+  RECT bounds = placement.rcNormalPosition;
+  HMONITOR monitor = MonitorFromRect(&bounds, MONITOR_DEFAULTTONEAREST);
+  MONITORINFO info = {sizeof(MONITORINFO)};
+  if (monitor != nullptr && GetMonitorInfoW(monitor, &info)) {
+    OffsetRect(&bounds, info.rcWork.left - info.rcMonitor.left,
+               info.rcWork.top - info.rcMonitor.top);
+  }
+  if (bounds.right - bounds.left < 200 || bounds.bottom - bounds.top < 200) {
+    return;
+  }
+  const bool maximized =
+      placement.showCmd == SW_SHOWMAXIMIZED ||
+      (placement_override == nullptr && IsZoomed(window)) ||
+      (placement.showCmd == SW_SHOWMINIMIZED &&
+       (placement.flags & WPF_RESTORETOMAXIMIZED) != 0);
+
+  HKEY key = nullptr;
+  DWORD disposition = 0;
+  if (RegCreateKeyExW(HKEY_CURRENT_USER, WindowStateRegKey().c_str(), 0,
+                      nullptr, 0, KEY_WRITE, nullptr, &key,
+                      &disposition) != ERROR_SUCCESS) {
+    return;
+  }
+
+  const DWORD values[] = {
+      static_cast<DWORD>(bounds.left),
+      static_cast<DWORD>(bounds.top),
+      static_cast<DWORD>(bounds.right - bounds.left),
+      static_cast<DWORD>(bounds.bottom - bounds.top),
+      maximized ? 1u : 0u,
   };
-  const wchar_t* names[] = {L"x", L"y", L"width", L"height"};
-  for (int i = 0; i < 4; ++i) {
+  const wchar_t* names[] = {L"x", L"y", L"width", L"height", L"maximized"};
+  for (int i = 0; i < 5; ++i) {
     RegSetValueExW(key, names[i], 0, REG_DWORD,
-                   reinterpret_cast<const BYTE*>(&values[i][0]),
-                   sizeof(DWORD));
+                   reinterpret_cast<const BYTE*>(&values[i]), sizeof(DWORD));
   }
   RegCloseKey(key);
 }
@@ -212,7 +254,14 @@ bool Win32Window::Create(const std::wstring& title,
     return false;
   }
 
-  RestoreWindowPlacement(window);
+  if (g_instance_tag != 0) {
+    SetPropW(window, kInstanceProperty,
+             reinterpret_cast<HANDLE>(g_instance_tag));
+  }
+
+  if (RestoreWindowPlacement(window)) {
+    show_command_ = SW_SHOWMAXIMIZED;
+  }
 
   UpdateTheme(window);
 
@@ -220,7 +269,97 @@ bool Win32Window::Create(const std::wstring& title,
 }
 
 bool Win32Window::Show() {
-  return ShowWindow(window_handle_, SW_SHOWNORMAL);
+  const int command = has_been_shown_ ? SW_SHOWNORMAL : show_command_;
+  has_been_shown_ = true;
+  return ShowWindow(window_handle_, command);
+}
+
+bool Win32Window::ShowMinimized() {
+  WINDOWPLACEMENT placement = {sizeof(WINDOWPLACEMENT)};
+  if (!GetWindowPlacement(window_handle_, &placement)) return false;
+  placement.showCmd = SW_SHOWMINNOACTIVE;
+  if (show_command_ == SW_SHOWMAXIMIZED) {
+    placement.flags |= WPF_RESTORETOMAXIMIZED;
+  }
+  has_been_shown_ = true;
+  return SetWindowPlacement(window_handle_, &placement) != FALSE;
+}
+
+// static
+void Win32Window::SetStateRegistryKey(const std::wstring& key) {
+  WindowStateRegKey() = key;
+}
+
+// static
+const std::wstring& Win32Window::StateRegistryKey() {
+  return WindowStateRegKey();
+}
+
+// static
+void Win32Window::SetInstanceTag(ULONG_PTR tag) {
+  g_instance_tag = tag;
+}
+
+// static
+const wchar_t* Win32Window::InstanceProperty() {
+  return kInstanceProperty;
+}
+
+// static
+const wchar_t* Win32Window::WindowClassName() {
+  return kWindowClassName;
+}
+
+void Win32Window::SetFullScreen(bool full_screen) {
+  HWND window = window_handle_;
+  if (window == nullptr || full_screen == full_screen_) return;
+
+  if (full_screen) {
+    saved_placement_ = {sizeof(WINDOWPLACEMENT)};
+    if (!GetWindowPlacement(window, &saved_placement_)) return;
+    if (IsZoomed(window)) saved_placement_.showCmd = SW_SHOWMAXIMIZED;
+    saved_style_ = GetWindowLongPtrW(window, GWL_STYLE);
+    MONITORINFO info = {sizeof(MONITORINFO)};
+    if (!GetMonitorInfoW(MonitorFromWindow(window, MONITOR_DEFAULTTONEAREST),
+                         &info)) {
+      return;
+    }
+    full_screen_ = true;
+    SetWindowLongPtrW(window, GWL_STYLE,
+                      saved_style_ & ~(WS_OVERLAPPEDWINDOW | WS_MAXIMIZE));
+    const RECT& m = info.rcMonitor;
+    SetWindowPos(window, nullptr, m.left, m.top, m.right - m.left,
+                 m.bottom - m.top,
+                 SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+  } else {
+    full_screen_ = false;
+    const LONG_PTR current = GetWindowLongPtrW(window, GWL_STYLE);
+    SetWindowLongPtrW(window, GWL_STYLE,
+                      (saved_style_ & ~static_cast<LONG_PTR>(WS_VISIBLE)) |
+                          (current & WS_VISIBLE));
+    const bool visible = IsWindowVisible(window) != FALSE;
+    WINDOWPLACEMENT placement = saved_placement_;
+    if (!visible) placement.showCmd = SW_HIDE;
+    SetWindowPlacement(window, &placement);
+    SetWindowPos(window, nullptr, 0, 0, 0, 0,
+                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOOWNERZORDER |
+                     SWP_FRAMECHANGED | SWP_NOACTIVATE);
+  }
+}
+
+void Win32Window::SetAlwaysOnTop(bool always_on_top) {
+  if (window_handle_ == nullptr) return;
+  SetWindowPos(window_handle_, always_on_top ? HWND_TOPMOST : HWND_NOTOPMOST,
+               0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+}
+
+bool Win32Window::IsAlwaysOnTop() const {
+  return window_handle_ != nullptr &&
+         (GetWindowLongPtrW(window_handle_, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0;
+}
+
+void Win32Window::SaveWindowPlacementNow() {
+  SaveWindowPlacement(window_handle_, full_screen_ ? &saved_placement_ : nullptr);
 }
 
 // static
@@ -250,13 +389,33 @@ Win32Window::MessageHandler(HWND hwnd,
                             LPARAM const lparam) noexcept {
   switch (message) {
     case WM_DESTROY:
-      SaveWindowPlacement(hwnd);
+      SaveWindowPlacement(hwnd, full_screen_ ? &saved_placement_ : nullptr);
+      RemovePropW(hwnd, kInstanceProperty);
       window_handle_ = nullptr;
       Destroy();
       if (quit_on_close_) {
         PostQuitMessage(0);
       }
       return 0;
+
+    case WM_GETMINMAXINFO: {
+      // Keep the layout usable: at least kMinWidth x kMinHeight logical
+      // pixels, but never more than the monitor's work area allows.
+      auto info = reinterpret_cast<MINMAXINFO*>(lparam);
+      HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+      const double scale = FlutterDesktopGetDpiForMonitor(monitor) / 96.0;
+      LONG min_width = Scale(kMinWidth, scale);
+      LONG min_height = Scale(kMinHeight, scale);
+      MONITORINFO monitor_info = {sizeof(MONITORINFO)};
+      if (GetMonitorInfoW(monitor, &monitor_info)) {
+        const RECT& work = monitor_info.rcWork;
+        min_width = std::min(min_width, (work.right - work.left) * 9 / 10);
+        min_height = std::min(min_height, (work.bottom - work.top) * 9 / 10);
+      }
+      info->ptMinTrackSize.x = min_width;
+      info->ptMinTrackSize.y = min_height;
+      return 0;
+    }
 
     case WM_DPICHANGED: {
       auto newRectSize = reinterpret_cast<RECT*>(lparam);
@@ -296,7 +455,7 @@ void Win32Window::Destroy() {
   OnDestroy();
 
   if (window_handle_) {
-    SaveWindowPlacement(window_handle_);
+    SaveWindowPlacementNow();
     DestroyWindow(window_handle_);
     window_handle_ = nullptr;
   }

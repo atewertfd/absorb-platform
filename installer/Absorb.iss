@@ -38,6 +38,12 @@ ChangesAssociations=no
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
 
+[Registry]
+; "Start with Windows" (Settings -> Windows Settings) writes this value itself.
+; Nothing is created at install; uninstalling removes the entry so Windows
+; does not try to start a removed copy.
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "Absorb Plus"; Flags: uninsdeletevalue dontcreatekey
+
 [Icons]
 Name: "{autodesktop}\Absorb"; Filename: "{app}\absorb.exe"; WorkingDir: "{app}"; IconFilename: "{app}\absorb.exe"
 Name: "{group}\Absorb"; Filename: "{app}\absorb.exe"; WorkingDir: "{app}"; IconFilename: "{app}\absorb.exe"

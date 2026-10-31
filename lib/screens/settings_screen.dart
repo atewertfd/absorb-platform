@@ -59,6 +59,7 @@ import '../widgets/color_wheel_picker.dart';
 import '../widgets/absorb_slider.dart';
 import '../widgets/card_scrubber_mode_selector.dart';
 import '../widgets/collapsible_section.dart';
+import '../widgets/windows_settings_tiles.dart';
 import '../widgets/overlay_toast.dart';
 import '../widgets/tips_sheet.dart';
 import '../widgets/feature_hint.dart';
@@ -139,6 +140,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return 'Open library';
       case DesktopShortcutAction.nowPlaying:
         return 'Open now playing';
+      case DesktopShortcutAction.fullScreen:
+        return 'Full screen';
     }
   }
 
@@ -3650,7 +3653,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(l.shakeSensitivity, style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
+                            Flexible(child: Text(l.shakeSensitivity, style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant))),
                             Text(_shakeSensitivityLabel(l, _shakeSensitivity),
                               style: tt.bodyMedium?.copyWith(fontWeight: FontWeight.w600, color: cs.primary)),
                           ],
@@ -4875,6 +4878,68 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 const SizedBox(height: 16),
 
+                // ── Windows (fork) ──
+                if (WindowsSettingsTiles.isAvailable) ...[
+                  CollapsibleSection(
+                    key: _keyFor('Windows Settings'),
+                    icon: Icons.desktop_windows_rounded,
+                    title: l.windowsSettingsTitle,
+                    cs: cs,
+                    isExpanded: _expandedSection == 'Windows Settings',
+                    onExpansionChanged: (v) =>
+                        _onSectionExpanded('Windows Settings', v),
+                    children: [
+                      ListTile(
+                        leading: Icon(Icons.keyboard_rounded, color: cs.primary),
+                        title: const Text('Keyboard shortcuts'),
+                        subtitle: const Text(
+                          'Playback, speed, search, and navigation controls',
+                        ),
+                        trailing: Icon(
+                          Icons.chevron_right_rounded,
+                          color: cs.onSurfaceVariant,
+                        ),
+                        onTap: _showDesktopShortcutsDialog,
+                      ),
+                      ListTile(
+                        title: Text(l.updateCheckFrequency),
+                        subtitle: Text(
+                          '${_updateCheckFrequencyLabel(l, _updateCheckFrequency)}\n'
+                          '${l.updateCheckFrequencySubtitle}',
+                          style: tt.bodySmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                        trailing: DropdownButton<UpdateCheckFrequency>(
+                          value: _updateCheckFrequency,
+                          underline: const SizedBox.shrink(),
+                          items: [
+                            for (final frequency in UpdateCheckFrequency.values)
+                              DropdownMenuItem(
+                                value: frequency,
+                                child: Text(
+                                  _updateCheckFrequencyLabel(l, frequency),
+                                ),
+                              ),
+                          ],
+                          onChanged: _loaded
+                              ? (frequency) {
+                                  if (frequency == null) return;
+                                  setState(() =>
+                                      _updateCheckFrequency = frequency);
+                                  PlayerSettings.setUpdateCheckFrequency(
+                                    frequency,
+                                  );
+                                }
+                              : null,
+                        ),
+                      ),
+                      const WindowsSettingsTiles(),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
                 // ── Support the Dev ──
                 if (ForkBranding.showUpstreamSupportCard) ...[
                 Padding(
@@ -5114,8 +5179,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: tt.bodySmall?.copyWith(
-            color: isSkipped ? cs.onSurfaceVariant.withValues(alpha: 0.4) : cs.onSurfaceVariant)),
+          Flexible(child: Text(label, style: tt.bodySmall?.copyWith(
+            color: isSkipped ? cs.onSurfaceVariant.withValues(alpha: 0.4) : cs.onSurfaceVariant))),
           Text(isSkipped ? '→ ${l.rewindNoRewind}' : '→ ${l.rewindSeconds(rewind.toStringAsFixed(1))}',
             style: tt.bodySmall?.copyWith(
                 fontWeight: FontWeight.w600,
@@ -5243,65 +5308,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ],
                 ),
               ),
-                if (Platform.isWindows)...[
-                  const SizedBox(height: 16),
-                  CollapsibleSection(
-                    key: _keyFor('Windows Settings'),
-                    icon: Icons.desktop_windows_rounded,
-                    title: l.windowsSettingsTitle,
-                    cs: cs,
-                    isExpanded: _expandedSection == 'Windows Settings',
-                    onExpansionChanged: (v) =>
-                        _onSectionExpanded('Windows Settings', v),
-                    children: [
-                      ListTile(
-                        leading: Icon(Icons.keyboard_rounded, color: cs.primary),
-                        title: const Text('Keyboard shortcuts'),
-                        subtitle: const Text(
-                          'Playback, speed, search, and navigation controls',
-                        ),
-                        trailing: Icon(
-                          Icons.chevron_right_rounded,
-                          color: cs.onSurfaceVariant,
-                        ),
-                        onTap: _showDesktopShortcutsDialog,
-                      ),
-                      ListTile(
-                        title: Text(l.updateCheckFrequency),
-                        subtitle: Text(
-                          '${_updateCheckFrequencyLabel(l, _updateCheckFrequency)}\n'
-                          '${l.updateCheckFrequencySubtitle}',
-                          style: tt.bodySmall?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                        trailing: DropdownButton<UpdateCheckFrequency>(
-                          value: _updateCheckFrequency,
-                          underline: const SizedBox.shrink(),
-                          items: [
-                            for (final frequency in UpdateCheckFrequency.values)
-                              DropdownMenuItem(
-                                value: frequency,
-                                child: Text(
-                                  _updateCheckFrequencyLabel(l, frequency),
-                                ),
-                              ),
-                          ],
-                          onChanged: _loaded
-                              ? (frequency) {
-                                  if (frequency == null) return;
-                                  setState(() =>
-                                      _updateCheckFrequency = frequency);
-                                  PlayerSettings.setUpdateCheckFrequency(
-                                    frequency,
-                                  );
-                                }
-                              : null,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
               const SizedBox(height: 16),
             ],
 

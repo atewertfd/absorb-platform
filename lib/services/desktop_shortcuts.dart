@@ -14,6 +14,7 @@ enum DesktopShortcutAction {
   search,
   library,
   nowPlaying,
+  fullScreen,
 }
 
 class DesktopShortcutDefinition {
@@ -24,6 +25,9 @@ class DesktopShortcutDefinition {
   final bool shift;
   final bool alt;
 
+  /// Works wherever focus is (function keys never type text).
+  final bool global;
+
   const DesktopShortcutDefinition({
     required this.action,
     required this.key,
@@ -31,10 +35,11 @@ class DesktopShortcutDefinition {
     this.control = false,
     this.shift = false,
     this.alt = false,
+    this.global = false,
   });
 
   /// No modifier: a key that also types text (Space, arrows, brackets).
-  bool get isPlainKey => !control && !shift && !alt;
+  bool get isPlainKey => !global && !control && !shift && !alt;
 
   SingleActivator get activator => SingleActivator(
         key,
@@ -44,7 +49,21 @@ class DesktopShortcutDefinition {
       );
 }
 
-const desktopShortcutDefinitions = <DesktopShortcutDefinition>[
+/// The shortcuts for this platform; F11 full screen is Windows-only.
+List<DesktopShortcutDefinition> get desktopShortcutDefinitions => [
+      ..._sharedShortcutDefinitions,
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows)
+        _fullScreenShortcut,
+    ];
+
+const _fullScreenShortcut = DesktopShortcutDefinition(
+  action: DesktopShortcutAction.fullScreen,
+  key: LogicalKeyboardKey.f11,
+  label: 'F11',
+  global: true,
+);
+
+const _sharedShortcutDefinitions = <DesktopShortcutDefinition>[
   DesktopShortcutDefinition(
     action: DesktopShortcutAction.playPause,
     key: LogicalKeyboardKey.space,
@@ -96,7 +115,9 @@ const desktopShortcutDefinitions = <DesktopShortcutDefinition>[
 ];
 
 DesktopShortcutDefinition desktopShortcutFor(DesktopShortcutAction action) {
-  return desktopShortcutDefinitions.firstWhere((shortcut) => shortcut.action == action);
+  if (action == DesktopShortcutAction.fullScreen) return _fullScreenShortcut;
+  return _sharedShortcutDefinitions
+      .firstWhere((shortcut) => shortcut.action == action);
 }
 
 /// Whether keyboard focus is in a text field (search box, settings field).

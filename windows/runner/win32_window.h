@@ -37,7 +37,41 @@ class Win32Window {
   bool Create(const std::wstring& title, const Point& origin, const Size& size);
 
   // Show the current window. Returns true if the window was successfully shown.
+  // Uses the remembered state: maximized when the window was last maximized.
   bool Show();
+
+  // Absorb Plus window management (fork-owned).
+  // Smallest window, in logical pixels; clamped to the monitor's work area.
+  static constexpr int kMinWidth = 400;
+  static constexpr int kMinHeight = 600;
+
+  // Registry key (under HKCU) for the window state and shell settings. The
+  // probe target uses its own key so it never touches the app's settings.
+  static void SetStateRegistryKey(const std::wstring& key);
+  static const std::wstring& StateRegistryKey();
+
+  // Window property value that lets a second launch find this instance.
+  static void SetInstanceTag(ULONG_PTR tag);
+  static const wchar_t* InstanceProperty();
+  static const wchar_t* WindowClassName();
+
+  // Borderless full screen on the window's monitor; leaving restores the
+  // previous size, position and maximized state.
+  void SetFullScreen(bool full_screen);
+  bool IsFullScreen() const { return full_screen_; }
+
+  void SetAlwaysOnTop(bool always_on_top);
+  bool IsAlwaysOnTop() const;
+
+  // Writes the current (or pre-full-screen) placement to the registry.
+  void SaveWindowPlacementNow();
+
+  // First show, minimized without taking focus; restoring returns to the
+  // remembered (possibly maximized) state.
+  bool ShowMinimized();
+
+  // Whether the window has been shown at least once.
+  bool HasBeenShown() const { return has_been_shown_; }
 
   // Release OS resources associated with window.
   void Destroy();
@@ -91,6 +125,15 @@ class Win32Window {
   static void UpdateTheme(HWND const window);
 
   bool quit_on_close_ = false;
+
+  // Show command for the first Show(): maximized when it was last maximized.
+  int show_command_ = SW_SHOWNORMAL;
+  bool has_been_shown_ = false;
+
+  // State saved while in full screen.
+  bool full_screen_ = false;
+  LONG_PTR saved_style_ = 0;
+  WINDOWPLACEMENT saved_placement_ = {sizeof(WINDOWPLACEMENT)};
 
   // window handle for top level window.
   HWND window_handle_ = nullptr;

@@ -13025,4 +13025,74 @@ class AppLocalizationsPt extends AppLocalizations {
   @override
   String get settingsSeeWhatsNewSubtitle =>
       'The release notes for this version';
+
+  @override
+  String get windowsCloseToTray => 'Close to tray';
+
+  @override
+  String get windowsCloseToTraySubtitle =>
+      'Closing the window keeps Absorb Plus running in the notification area. Quit from the tray icon.';
+
+  @override
+  String get windowsStartWithWindows => 'Start with Windows';
+
+  @override
+  String get windowsStartWithWindowsSubtitle =>
+      'Open Absorb Plus when you sign in to Windows';
+
+  @override
+  String windowsStartWithWindowsRegistered(String command) {
+    return 'Starts: $command';
+  }
+
+  @override
+  String windowsStartWithWindowsOtherCopy(String command) {
+    return 'Another copy is set to start: $command. Turn on to use this copy instead.';
+  }
+
+  @override
+  String get windowsStartupDisabledBySystem =>
+      'Switched off in Task Manager\'s Startup apps. Turn it back on there.';
+
+  @override
+  String get windowsStartMinimized => 'Start minimized';
+
+  @override
+  String get windowsStartMinimizedSubtitle =>
+      'When it starts with Windows, keep it in the tray (or minimized if Close to tray is off)';
+
+  @override
+  String get windowsAlwaysOnTop => 'Always on top';
+
+  @override
+  String get windowsAlwaysOnTopSubtitle =>
+      'Keep the window above other windows';
+
+  @override
+  String get windowsKeepAwake => 'Keep PC awake while playing or downloading';
+
+  @override
+  String get windowsKeepAwakeSubtitle =>
+      'Stops the PC from going to sleep. The screen can still turn off.';
+
+  @override
+  String get windowsSettingFailed => 'Windows didn\'t accept that change';
+
+  @override
+  String get windowsTrayShow => 'Show Absorb Plus';
+
+  @override
+  String get windowsTrayQuit => 'Quit Absorb Plus';
+
+  @override
+  String get windowsTaskbarPlay => 'Play';
+
+  @override
+  String get windowsTaskbarPause => 'Pause';
+
+  @override
+  String get windowsTaskbarRewind => 'Rewind';
+
+  @override
+  String get windowsTaskbarForward => 'Fast-forward';
 }

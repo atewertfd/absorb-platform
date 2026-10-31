@@ -1,4 +1,5 @@
 import 'package:absorb/services/desktop_shortcuts.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -32,6 +33,27 @@ void main() {
     expect(slower.control, isFalse);
     expect(faster.control, isFalse);
     expect(normal.control, isFalse);
+  });
+
+  test('F11 full screen is listed on Windows only', () {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    try {
+      expect(
+        desktopShortcutDefinitions.map((s) => s.action),
+        contains(DesktopShortcutAction.fullScreen),
+      );
+      final f11 = desktopShortcutFor(DesktopShortcutAction.fullScreen);
+      expect(f11.key, LogicalKeyboardKey.f11);
+      expect(f11.label, 'F11');
+      expect(f11.isPlainKey, isFalse);
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+      expect(
+        desktopShortcutDefinitions.map((s) => s.action),
+        isNot(contains(DesktopShortcutAction.fullScreen)),
+      );
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
   });
 
   test('shortcut labels are stable and readable', () {
@@ -133,6 +155,15 @@ void main() {
       await tester.pump();
       expect(fired, isEmpty);
       expect(buttonPresses, 1);
+    });
+
+    testWidgets('F11 toggles full screen even while typing', variant: windows,
+        (tester) async {
+      await pump(tester);
+      fieldFocus.requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.f11);
+      expect(fired, [DesktopShortcutAction.fullScreen]);
     });
 
     testWidgets('on Android, plain keys never trigger shortcuts',

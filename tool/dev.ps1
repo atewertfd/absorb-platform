@@ -105,6 +105,41 @@ function Invoke-Flutter {
   Invoke-Step -Name $name -Run { & $flutter @flutterArgs } `
     -SummaryPattern 'No issues found|issues found|All tests passed|tests? passed|Built '
 }
+# Asks running absorb.exe copies to quit and waits up to 15 s. The window may
+# be hidden in the tray (Close to tray), where CloseMainWindow cannot reach
+# it, so the runner's "AbsorbPlus.QuitRequest" message goes first; it saves
+# progress and exits. CloseMainWindow covers builds older than that message.
+function Stop-AbsorbGracefully {
+  param([System.Diagnostics.Process[]]$Processes)
+  if (-not ('AbsorbDev.Native' -as [type])) {
+    Add-Type -Namespace AbsorbDev -Name Native -MemberDefinition @'
+[DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern uint RegisterWindowMessage(string name);
+[DllImport("user32.dll")] public static extern bool PostMessage(IntPtr hwnd, uint msg, IntPtr w, IntPtr l);
+public delegate bool EnumProc(IntPtr hwnd, IntPtr l);
+[DllImport("user32.dll")] public static extern bool EnumWindows(EnumProc proc, IntPtr l);
+[DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint pid);
+[DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetClassName(IntPtr hwnd, System.Text.StringBuilder name, int max);
+public static void RequestQuit(uint pid) {
+  uint message = RegisterWindowMessage("AbsorbPlus.QuitRequest");
+  EnumWindows((h, l) => {
+    uint owner; GetWindowThreadProcessId(h, out owner);
+    var name = new System.Text.StringBuilder(64); GetClassName(h, name, 64);
+    if (owner == pid && name.ToString() == "FLUTTER_RUNNER_WIN32_WINDOW") PostMessage(h, message, IntPtr.Zero, IntPtr.Zero);
+    return true;
+  }, IntPtr.Zero);
+}
+'@
+  }
+  foreach ($p in $Processes) {
+    [AbsorbDev.Native]::RequestQuit([uint32]$p.Id)
+    [void]$p.CloseMainWindow()
+  }
+  $deadline = (Get-Date).AddSeconds(15)
+  while ((Get-Date) -lt $deadline -and
+         (Get-Process -Id $Processes.Id -ErrorAction SilentlyContinue)) {
+    Start-Sleep -Milliseconds 500
+  }
+}
 # The owner's always-current test copy (Desktop\Absorb Plus Beta): Windows\
 # is refreshed after every build, Android\ by `apk`, and "What's new.txt"
 # lists the changes since the last published release. Copies never delete
@@ -150,13 +185,8 @@ function Update-BetaFolder {
   $running = Get-Process -Name absorb -ErrorAction SilentlyContinue |
     Where-Object { $_.Path -eq $dstExe }
   if ($running -and $CloseRunning) {
-    # Closing Absorb's window only hides it to the tray; ask it to quit.
-    foreach ($p in $running) { [void]$p.CloseMainWindow() }
-    $deadline = (Get-Date).AddSeconds(15)
-    while ((Get-Date) -lt $deadline -and
-           (Get-Process -Id $running.Id -ErrorAction SilentlyContinue)) {
-      Start-Sleep -Milliseconds 500
-    }
+    # Works even when the window is hidden in the tray.
+    Stop-AbsorbGracefully $running
     $running = Get-Process -Id $running.Id -ErrorAction SilentlyContinue
   }
   if ($running) {
@@ -211,12 +241,7 @@ switch ($Command) {
       if (-not $CloseRunning) {
         throw "The Release absorb.exe is running (pid $($running.Id)). Close it or pass -CloseRunning."
       }
-      foreach ($p in $running) { [void]$p.CloseMainWindow() }
-      $deadline = (Get-Date).AddSeconds(15)
-      while ((Get-Date) -lt $deadline -and
-             (Get-Process -Id $running.Id -ErrorAction SilentlyContinue)) {
-        Start-Sleep -Milliseconds 500
-      }
+      Stop-AbsorbGracefully $running
       if (Get-Process -Id $running.Id -ErrorAction SilentlyContinue) {
         throw 'absorb.exe did not close; close it manually and retry.'
       }
