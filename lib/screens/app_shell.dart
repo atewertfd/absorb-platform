@@ -72,6 +72,7 @@ import '../services/review_service.dart';
 import '../services/settings_sync_service.dart';
 import '../services/update_checker_service.dart';
 import '../services/desktop_shortcuts.dart';
+import '../widgets/desktop_shortcut_scope.dart';
 import '../services/windows_shell.dart';
 import '../widgets/update_dialog.dart';
 import '../widgets/overlay_toast.dart';
@@ -81,12 +82,6 @@ import '../utils/local_path.dart';
 import '../utils/fork_platform.dart';
 import 'rebuild_snapshots.dart';
 import 'stats_tab_refresh.dart';
-
-class _DesktopShortcutIntent extends Intent {
-  final DesktopShortcutAction action;
-
-  const _DesktopShortcutIntent(this.action);
-}
 
 class AppShell extends StatefulWidget {
   final bool startOnAbsorbing;
@@ -403,6 +398,7 @@ class _AppShellState extends State<AppShell>
   void initState() {
     super.initState();
     _instance = this;
+    DesktopShortcutScope.handlers = _desktopShortcutHandlers; // Absorb Plus
     _incomingNotifications =
         BookOrbitNotificationSocket.instance.incoming.listen(showIncomingNotificationToast);
     EreaderVolumeNav.ensureHandler();
@@ -545,6 +541,9 @@ class _AppShellState extends State<AppShell>
       context.read<LibraryProvider>().removeListener(_onLibraryChanged);
     } catch (_) {}
     if (_instance == this) _instance = null;
+    if (identical(DesktopShortcutScope.handlers, _desktopShortcutHandlers)) {
+      DesktopShortcutScope.handlers = null;
+    }
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -848,27 +847,10 @@ class _AppShellState extends State<AppShell>
         // From any other tab, go to Absorbing
         _switchToAbsorbing();
       },
-      // Focus sits inside Shortcuts/Actions: key events travel up from the
-      // focused widget, so a focus node above Shortcuts never reached them.
-      child: Shortcuts(
-          shortcuts: {
-            for (final shortcut in desktopShortcutDefinitions)
-              shortcut.activator: _DesktopShortcutIntent(shortcut.action),
-          },
-          child: Actions(
-            actions: <Type, Action<Intent>>{
-              _DesktopShortcutIntent: DesktopShortcutCallbackAction(
-                actionOf: (intent) =>
-                    intent is _DesktopShortcutIntent ? intent.action : null,
-                onInvoke: (intent) {
-                  if (intent is _DesktopShortcutIntent) {
-                    _handleDesktopShortcut(intent.action);
-                  }
-                  return null;
-                },
-              ),
-            },
-            child: Focus(
+      // The desktop shortcuts live above the navigator (DesktopShortcutScope,
+      // so they also work over the full-screen player and readers); the
+      // shell runs them through _desktopShortcutHandlers.
+      child: Focus(
         focusNode: desktopShellFocusNode,
         autofocus: true,
         child: Scaffold(
@@ -887,8 +869,6 @@ class _AppShellState extends State<AppShell>
         ),
               bottomNavigationBar: FrostedNavBar(child: _buildBottomNav(context)),
             ),
-          ),
-        ),
       ),
     );
   }
@@ -954,6 +934,10 @@ class _AppShellState extends State<AppShell>
       child: GestureDetector(
         onLongPressStart: (details) =>
             _onNavLongPress(details.localPosition.dx, destinations.length),
+        onSecondaryTapUp: ForkPlatform.isDesktop
+            ? (details) =>
+                _onNavLongPress(details.localPosition.dx, destinations.length)
+            : null,
         child: NavigationBar(
           // null keeps Material's default indicator animation (as upstream).
           animationDuration: (AppMotionScope.maybeOf(context) ??
@@ -1334,7 +1318,46 @@ class _AppShellState extends State<AppShell>
     );
   }
 
+  late final _desktopShortcutHandlers = DesktopShortcutHandlers(
+    canRun: _canRunDesktopShortcut,
+    run: _handleDesktopShortcut,
+    canSwitchCard: () =>
+        mounted && _currentIndex == 2 && _shellRouteOnTop() == true,
+    switchCard: (delta) => AbsorbingScreen.stepCard(delta),
+  );
+
+  /// True when the shell is the top page, false when the full-screen player
+  /// is, null when anything else (a page, sheet or reader) is on top.
+  bool? _shellRouteOnTop() {
+    final nav = rootNavigatorKey.currentState;
+    if (nav == null) return null;
+    final top = topRouteOf(nav);
+    if (top == null || top.isFirst) return true;
+    return top is ExpandedCardRoute ? false : null;
+  }
+
+  /// Playback shortcuts work over any page; the tab-switching ones only
+  /// from the shell (they used to be unreachable elsewhere), plus Search and
+  /// Library over the full-screen player on desktop, which they close first.
+  bool _canRunDesktopShortcut(DesktopShortcutAction action) {
+    if (!mounted) return false;
+    switch (action) {
+      case DesktopShortcutAction.search:
+      case DesktopShortcutAction.library:
+        final onTop = _shellRouteOnTop();
+        return onTop == true || (onTop == false && ForkPlatform.isDesktop);
+      case DesktopShortcutAction.nowPlaying:
+        return _shellRouteOnTop() == true;
+      default:
+        return true;
+    }
+  }
+
   void _handleDesktopShortcut(DesktopShortcutAction action) {
+    // Search pops back to the shell itself; Library needs the player closed.
+    if (action == DesktopShortcutAction.library && _shellRouteOnTop() == false) {
+      rootNavigatorKey.currentState?.maybePop();
+    }
     switch (action) {
       case DesktopShortcutAction.playPause:
         _runNavHoldAction('playPause');

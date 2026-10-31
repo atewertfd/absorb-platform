@@ -40,6 +40,7 @@ import 'notes_sheet.dart';
 import 'overlay_toast.dart';
 import 'sleep_timer_sheet.dart';
 import 'transcription_download_prompt.dart';
+import 'desktop_input.dart';
 
 /// E-ink screens dither faint greys and cover-colored accents into noise, so
 /// the card controls bump to near-black when e-ink mode is on. Disabled stays
@@ -70,7 +71,8 @@ class Pressable extends StatefulWidget {
   final VoidCallback? onLongPress;
   final HitTestBehavior? behavior;
   final Widget child;
-  const Pressable({super.key, this.onTap, this.onLongPress, this.behavior, required this.child});
+  final String? tooltip; // Absorb Plus: desktop hover hint
+  const Pressable({super.key, this.onTap, this.onLongPress, this.behavior, this.tooltip, required this.child});
   @override State<Pressable> createState() => _PressableState();
 }
 
@@ -79,10 +81,11 @@ class _PressableState extends State<Pressable> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return DesktopPressTarget(onTap: widget.onTap, onLongPress: widget.onLongPress, tooltip: widget.tooltip, child: GestureDetector(
       behavior: widget.behavior,
       onTap: widget.onTap,
       onLongPress: widget.onLongPress,
+      onSecondaryTap: desktopSecondaryTap(widget.onLongPress),
       onTapDown: (_) => setState(() => _pressed = true),
       onTapUp: (_) => setState(() => _pressed = false),
       onTapCancel: () => setState(() => _pressed = false),
@@ -95,7 +98,7 @@ class _PressableState extends State<Pressable> {
           child: widget.child,
         ),
       ),
-    );
+    ));
   }
 }
 
@@ -169,6 +172,7 @@ class CardWideButton extends StatelessWidget {
             : cs.onSurface.withValues(alpha: _inkAlpha(0.24, 0.85)));
     return Pressable(
       onTap: enabled ? onTap : () => showInactiveToast(context),
+      tooltip: showIconOnly ? label : null,
       child: Container(
         padding: EdgeInsets.symmetric(vertical: vPad),
         decoration: BoxDecoration(
@@ -294,6 +298,7 @@ class CardSleepButtonInline extends StatelessWidget {
         final radius = compact ? 10.0 : (large ? 16.0 : 14.0);
 
         return Pressable(
+          tooltip: compact || iconsOnly ? l.timer : null,
           onTap: isActive ? () {
             showSleepTimerSheet(context, accent);
           } : () => showInactiveToast(context),
@@ -405,6 +410,7 @@ class CardDownloadButtonInline extends StatelessWidget {
         final radius = compact ? 10.0 : (large ? 16.0 : 14.0);
 
         return Pressable(
+          tooltip: compact || iconsOnly ? label : null,
           onTap: () => _handleTap(context, dl),
           child: Container(
             height: h,
@@ -538,6 +544,7 @@ class _CardBookmarkButtonInlineState extends State<CardBookmarkButtonInline> {
     return Pressable(
       onTap: () => _showBookmarks(context),
       onLongPress: active ? () => _quickAdd(context) : null,
+      tooltip: cp || widget.iconsOnly ? l.bookmarks : null,
       child: Container(
         padding: EdgeInsets.symmetric(vertical: vPad),
         decoration: BoxDecoration(
@@ -669,6 +676,7 @@ class _CardSpeedButtonInlineState extends State<CardSpeedButtonInline> {
           );
         }
         return Pressable(
+          tooltip: widget.compact || widget.iconsOnly ? AppLocalizations.of(context)!.speed : null,
           onTap: () {
             showModalBottomSheet(context: context, backgroundColor: Colors.transparent,
               useSafeArea: true,
@@ -785,6 +793,7 @@ class _CardSpeedSheetState extends State<CardSpeedSheet> {
             return GestureDetector(
               onTap: () => _setSpeed(s),
               onLongPress: canRemove ? () => _removePreset(s) : null,
+              onSecondaryTap: desktopSecondaryTap(canRemove ? () => _removePreset(s) : null),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -1096,6 +1105,7 @@ class _SimpleBookmarkSheetState extends State<SimpleBookmarkSheet> {
                           }
                         },
                         onLongPress: () => _editBookmark(bm),
+                        onSecondaryTap: desktopSecondaryTap(() => _editBookmark(bm)),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1866,6 +1876,7 @@ class CardActionDelegate {
         final iconColor = castActive ? accent : cs.onSurfaceVariant;
         final moreIcon = castActive ? Icons.cast_connected_rounded : Icons.more_horiz_rounded;
         return Pressable(
+          tooltip: iconsOnly ? l.more : null,
           onTap: () => showMoreMenu(accent, Theme.of(context).textTheme),
           child: Container(
             height: h,

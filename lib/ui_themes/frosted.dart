@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../widgets/desktop_shortcut_scope.dart';
 import 'ui_theme.dart';
 import 'ui_theme_try.dart';
 
@@ -153,13 +154,17 @@ ThemeData frostedThemeData(ThemeData base) {
 /// so every route, dialog and sheet sees it, and hosts the "Try it" preview
 /// bar ([UiThemeTryOutLayer]). The tree shape never changes with the look
 /// (no navigator remount when switching looks or starting a preview).
+/// Also hosts the desktop shortcuts ([DesktopShortcutScope]) above every
+/// route, so they work while the full-screen player or a reader is open.
 Widget absorbLookBuilder(BuildContext context, Widget? child) {
   final app = Theme.of(context);
   return Theme(
     data: frostedThemeData(app),
     child: _AppBaseTheme(
       data: app,
-      child: UiThemeTryOutLayer(child: child ?? const SizedBox.shrink()),
+      child: UiThemeTryOutLayer(
+        child: DesktopShortcutScope(child: child ?? const SizedBox.shrink()),
+      ),
     ),
   );
 }

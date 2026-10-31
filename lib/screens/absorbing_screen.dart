@@ -22,6 +22,7 @@ import '../widgets/collection_detail_sheet.dart';
 import '../widgets/episode_list_sheet.dart';
 import '../l10n/app_localizations.dart';
 import '../services/wording.dart';
+import '../widgets/desktop_input.dart';
 
 class AbsorbingScreen extends StatefulWidget {
   const AbsorbingScreen({super.key});
@@ -53,6 +54,19 @@ class AbsorbingScreen extends StatefulWidget {
           duration: const Duration(milliseconds: 350),
           curve: Curves.easeOutCubic);
     }
+  }
+
+  /// Absorb Plus: move the carousel one card left (-1) or right (1), for
+  /// the desktop keyboard shortcuts. False when there's nowhere to go.
+  static bool stepCard(int delta) {
+    final c = globalKey.currentState?._pageController;
+    if (c == null || !c.hasClients || c.positions.length != 1) return false;
+    final page = (c.page ?? c.initialPage.toDouble()).round();
+    final p = c.position;
+    if (delta < 0 ? page <= 0 : p.pixels >= p.maxScrollExtent) return false;
+    c.animateToPage(page + delta.sign,
+        duration: const Duration(milliseconds: 350), curve: Curves.easeOutCubic);
+    return true;
   }
 
   @override
@@ -870,6 +884,7 @@ class _AbsorbingScreenState extends State<AbsorbingScreen> {
                             )
                           : PageView.builder(
                           controller: _pageController,
+                          scrollBehavior: desktopMouseDragBehavior(context, scrollbars: false),
                           scrollDirection: Axis.horizontal,
                           clipBehavior: Clip.none,
                           physics: const PageScrollPhysics(parent: ClampingScrollPhysics()),

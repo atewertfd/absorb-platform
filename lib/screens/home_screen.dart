@@ -41,6 +41,7 @@ import '../utils/duration_format.dart';
 import '../ui_themes/ui_theme_hooks.dart';
 import '../widgets/text_scale_room.dart';
 import '../utils/local_path.dart';
+import '../widgets/desktop_input.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -400,7 +401,7 @@ class HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMi
             // Taller row when 2:3 covers are on; the card's
             // cover alone is ~225 with rectangle covers.
             height: (_rectangleCovers ? 320 : 250) + textScaleRoom(context, 58),
-            child: ListView.separated(
+            child: DesktopMouseDrag(child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 20),
               physics: const BouncingScrollPhysics(),
@@ -423,7 +424,7 @@ class HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMi
                       : null,
                 ));
               },
-            ),
+            )),
           ),
         ),
       ),
@@ -1136,6 +1137,7 @@ class _ContinueListeningCardState extends State<_ContinueListeningCard> {
                   ? openDetails
                   : resume,
           onLongPress: widget.selectionMode ? null : openQuickActions,
+          onSecondaryTap: desktopSecondaryTap(widget.selectionMode ? null : openQuickActions),
           borderRadius: BorderRadius.circular(14),
           child: SizedBox(
             width: 150,

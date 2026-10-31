@@ -27,6 +27,17 @@ abstract final class ForkPlatform {
   static bool get isLinux =>
       !isWeb && defaultTargetPlatform == TargetPlatform.linux;
 
+  /// The native desktop builds (not web, where the browser owns right-click,
+  /// F5 and the back button). Mouse and keyboard extras check this, so
+  /// Android and touch behave exactly as upstream.
+  static bool get isDesktop =>
+      !isWeb &&
+      (defaultTargetPlatform == TargetPlatform.windows ||
+          defaultTargetPlatform == TargetPlatform.linux ||
+          defaultTargetPlatform == TargetPlatform.macOS);
+  static bool get isWindows =>
+      !isWeb && defaultTargetPlatform == TargetPlatform.windows;
+
   /// `webview_flutter` has only Android (and iOS) implementations in this
   /// build, so an in-app web view would crash on Windows, Linux and web.
   static bool get hasInAppWebView => isAndroid;
@@ -42,6 +53,32 @@ abstract final class ForkPlatform {
 
   /// Home-screen widgets and Android Auto exist only on Android.
   static bool get hasHomeWidgets => isAndroid;
+
+  // Settings that only do something on a phone. Settings and its search
+  // index hide them elsewhere (owner decision, 2026-10-30).
+
+  /// Android Auto: car autoplay, car browse order, car-mode screen.
+  static bool get hasCarMode => isAndroid;
+
+  /// Desktop windows and the browser don't rotate.
+  static bool get supportsOrientationLock => isAndroid;
+
+  /// Shake-to-reset needs the phone's accelerometer.
+  static bool get supportsShakeToReset => isAndroid;
+
+  /// The headphone-button wind-down reset is wired to Android's media session.
+  static bool get supportsHeadsetSleepButton => isAndroid;
+
+  /// The Android media notification and Android Auto (chapter progress in
+  /// the notification, locked notification seek bar).
+  static bool get hasMediaNotification => isAndroid;
+
+  /// The Permissions section (notifications, battery) is Android-only.
+  static bool get hasPermissionSettings => isAndroid;
+
+  /// Downloads can go to a plain folder the user picks (Windows, Linux).
+  /// Android uses the system folder picker (SAF) instead.
+  static bool get supportsDesktopDownloadFolder => isWindows || isLinux;
 
   /// Whether a reader for ebook format [ext] (lower-case, no dot) works here.
   /// - Web: no reader works (they need local files or a loopback server).

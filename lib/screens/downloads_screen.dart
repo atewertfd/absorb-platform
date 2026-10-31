@@ -16,6 +16,7 @@ import 'app_shell.dart';
 import '../widgets/overlay_toast.dart';
 import '../l10n/app_localizations.dart';
 import '../utils/local_path.dart';
+import '../widgets/desktop_input.dart';
 
 String _downloadRate(double? bytesPerSecond) {
   if (bytesPerSecond == null || bytesPerSecond <= 0) return '';
@@ -701,6 +702,7 @@ class _DownloadCard extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         onTap: selecting ? onToggle : onPlay,
         onLongPress: !selecting ? onLongPress : null,
+        onSecondaryTap: desktopSecondaryTap(!selecting ? onLongPress : null),
         child: Card(
           elevation: 0,
           color: cs.surfaceContainerHigh,

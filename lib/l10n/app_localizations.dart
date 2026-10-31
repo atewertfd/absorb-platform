@@ -9530,6 +9530,126 @@ abstract class AppLocalizations {
   /// **'Speed'**
   String get speed;
 
+  /// No description provided for @desktopShortcutPlayPause.
+  ///
+  /// In en, this message translates to:
+  /// **'Play / pause'**
+  String get desktopShortcutPlayPause;
+
+  /// No description provided for @desktopShortcutRewind.
+  ///
+  /// In en, this message translates to:
+  /// **'Rewind'**
+  String get desktopShortcutRewind;
+
+  /// No description provided for @desktopShortcutForward.
+  ///
+  /// In en, this message translates to:
+  /// **'Fast-forward'**
+  String get desktopShortcutForward;
+
+  /// No description provided for @desktopShortcutSlower.
+  ///
+  /// In en, this message translates to:
+  /// **'Decrease playback speed'**
+  String get desktopShortcutSlower;
+
+  /// No description provided for @desktopShortcutFaster.
+  ///
+  /// In en, this message translates to:
+  /// **'Increase playback speed'**
+  String get desktopShortcutFaster;
+
+  /// No description provided for @desktopShortcutNormalSpeed.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset playback speed'**
+  String get desktopShortcutNormalSpeed;
+
+  /// No description provided for @desktopShortcutSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Open search'**
+  String get desktopShortcutSearch;
+
+  /// No description provided for @desktopShortcutLibrary.
+  ///
+  /// In en, this message translates to:
+  /// **'Open library'**
+  String get desktopShortcutLibrary;
+
+  /// No description provided for @desktopShortcutNowPlaying.
+  ///
+  /// In en, this message translates to:
+  /// **'Open now playing'**
+  String get desktopShortcutNowPlaying;
+
+  /// No description provided for @desktopShortcutFullScreen.
+  ///
+  /// In en, this message translates to:
+  /// **'Full screen'**
+  String get desktopShortcutFullScreen;
+
+  /// No description provided for @desktopShortcutClosePlayer.
+  ///
+  /// In en, this message translates to:
+  /// **'Close the full-screen player'**
+  String get desktopShortcutClosePlayer;
+
+  /// No description provided for @desktopShortcutBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Go back (close the top page or sheet)'**
+  String get desktopShortcutBack;
+
+  /// No description provided for @desktopShortcutRefresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh the list on screen'**
+  String get desktopShortcutRefresh;
+
+  /// No description provided for @desktopShortcutPreviousCard.
+  ///
+  /// In en, this message translates to:
+  /// **'Previous Absorbing card'**
+  String get desktopShortcutPreviousCard;
+
+  /// No description provided for @desktopShortcutNextCard.
+  ///
+  /// In en, this message translates to:
+  /// **'Next Absorbing card'**
+  String get desktopShortcutNextCard;
+
+  /// No description provided for @desktopShortcutContextMenu.
+  ///
+  /// In en, this message translates to:
+  /// **'Open the long-press menu'**
+  String get desktopShortcutContextMenu;
+
+  /// No description provided for @desktopShortcutMouseBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Mouse back button'**
+  String get desktopShortcutMouseBack;
+
+  /// No description provided for @desktopShortcutRightClick.
+  ///
+  /// In en, this message translates to:
+  /// **'Right-click'**
+  String get desktopShortcutRightClick;
+
+  /// No description provided for @desktopShortcutDragShelves.
+  ///
+  /// In en, this message translates to:
+  /// **'Drag shelves and cards sideways'**
+  String get desktopShortcutDragShelves;
+
+  /// No description provided for @desktopShortcutMouseDrag.
+  ///
+  /// In en, this message translates to:
+  /// **'Click and drag'**
+  String get desktopShortcutMouseDrag;
+
   /// No description provided for @details.
   ///
   /// In en, this message translates to:
@@ -22286,6 +22406,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Couldn\'t open the logs folder'**
   String get supportOpenLogsFolderFailed;
+
+  /// No description provided for @desktopDownloadFolderOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Open in Explorer'**
+  String get desktopDownloadFolderOpen;
+
+  /// No description provided for @desktopDownloadFolderOpenLinux.
+  ///
+  /// In en, this message translates to:
+  /// **'Open folder'**
+  String get desktopDownloadFolderOpenLinux;
+
+  /// No description provided for @desktopDownloadFolderOpenFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t open the folder'**
+  String get desktopDownloadFolderOpenFailed;
+
+  /// No description provided for @desktopDownloadFolderNotWritable.
+  ///
+  /// In en, this message translates to:
+  /// **'Absorb can\'t save files in that folder. Choose another one.'**
+  String get desktopDownloadFolderNotWritable;
+
+  /// No description provided for @desktopDownloadFolderPickFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t show the folder picker'**
+  String get desktopDownloadFolderPickFailed;
+
+  /// No description provided for @desktopDownloadFolderDefault.
+  ///
+  /// In en, this message translates to:
+  /// **'Default folder'**
+  String get desktopDownloadFolderDefault;
 }
 
 class _AppLocalizationsDelegate

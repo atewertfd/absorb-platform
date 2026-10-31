@@ -5372,6 +5372,66 @@ class AppLocalizationsPt extends AppLocalizations {
   String get speed => 'Speed';
 
   @override
+  String get desktopShortcutPlayPause => 'Play / pause';
+
+  @override
+  String get desktopShortcutRewind => 'Rewind';
+
+  @override
+  String get desktopShortcutForward => 'Fast-forward';
+
+  @override
+  String get desktopShortcutSlower => 'Decrease playback speed';
+
+  @override
+  String get desktopShortcutFaster => 'Increase playback speed';
+
+  @override
+  String get desktopShortcutNormalSpeed => 'Reset playback speed';
+
+  @override
+  String get desktopShortcutSearch => 'Open search';
+
+  @override
+  String get desktopShortcutLibrary => 'Open library';
+
+  @override
+  String get desktopShortcutNowPlaying => 'Open now playing';
+
+  @override
+  String get desktopShortcutFullScreen => 'Full screen';
+
+  @override
+  String get desktopShortcutClosePlayer => 'Close the full-screen player';
+
+  @override
+  String get desktopShortcutBack => 'Go back (close the top page or sheet)';
+
+  @override
+  String get desktopShortcutRefresh => 'Refresh the list on screen';
+
+  @override
+  String get desktopShortcutPreviousCard => 'Previous Absorbing card';
+
+  @override
+  String get desktopShortcutNextCard => 'Next Absorbing card';
+
+  @override
+  String get desktopShortcutContextMenu => 'Open the long-press menu';
+
+  @override
+  String get desktopShortcutMouseBack => 'Mouse back button';
+
+  @override
+  String get desktopShortcutRightClick => 'Right-click';
+
+  @override
+  String get desktopShortcutDragShelves => 'Drag shelves and cards sideways';
+
+  @override
+  String get desktopShortcutMouseDrag => 'Click and drag';
+
+  @override
   String get details => 'Details';
 
   @override
@@ -13126,4 +13186,24 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get supportOpenLogsFolderFailed => 'Couldn\'t open the logs folder';
+
+  @override
+  String get desktopDownloadFolderOpen => 'Open in Explorer';
+
+  @override
+  String get desktopDownloadFolderOpenLinux => 'Open folder';
+
+  @override
+  String get desktopDownloadFolderOpenFailed => 'Couldn\'t open the folder';
+
+  @override
+  String get desktopDownloadFolderNotWritable =>
+      'Absorb can\'t save files in that folder. Choose another one.';
+
+  @override
+  String get desktopDownloadFolderPickFailed =>
+      'Couldn\'t show the folder picker';
+
+  @override
+  String get desktopDownloadFolderDefault => 'Default folder';
 }

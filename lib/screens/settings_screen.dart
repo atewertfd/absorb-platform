@@ -28,7 +28,6 @@ import '../screens/app_shell.dart';
 import '../build_info.dart';
 import '../services/update_checker_service.dart';
 import '../services/update_check_policy.dart';
-import '../services/desktop_shortcuts.dart';
 import '../services/libation_import_helper.dart';
 import '../services/audiobookshelf_update_service.dart';
 import '../widgets/update_dialog.dart';
@@ -63,6 +62,8 @@ import '../widgets/absorb_slider.dart';
 import '../widgets/card_scrubber_mode_selector.dart';
 import '../widgets/collapsible_section.dart';
 import '../widgets/windows_settings_tiles.dart';
+import '../widgets/desktop_download_folder_sheet.dart';
+import '../widgets/desktop_shortcut_help.dart';
 import '../widgets/overlay_toast.dart';
 import '../widgets/tips_sheet.dart';
 import '../widgets/feature_hint.dart';
@@ -123,31 +124,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  String _desktopShortcutActionLabel(DesktopShortcutAction action) {
-    switch (action) {
-      case DesktopShortcutAction.playPause:
-        return 'Play / pause';
-      case DesktopShortcutAction.rewind:
-        return 'Rewind';
-      case DesktopShortcutAction.forward:
-        return 'Fast-forward';
-      case DesktopShortcutAction.slower:
-        return 'Decrease playback speed';
-      case DesktopShortcutAction.faster:
-        return 'Increase playback speed';
-      case DesktopShortcutAction.normalSpeed:
-        return 'Reset playback speed';
-      case DesktopShortcutAction.search:
-        return 'Open search';
-      case DesktopShortcutAction.library:
-        return 'Open library';
-      case DesktopShortcutAction.nowPlaying:
-        return 'Open now playing';
-      case DesktopShortcutAction.fullScreen:
-        return 'Full screen';
-    }
-  }
-
   Future<void> _showDesktopShortcutsDialog() async {
     await showDialog<void>(
       context: context,
@@ -155,27 +131,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         title: const Text('Keyboard shortcuts'),
         content: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 420),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (final shortcut in desktopShortcutDefinitions)
-                  Semantics(
-                    label: '${_desktopShortcutActionLabel(shortcut.action)}, ${shortcut.label}',
-                    child: ListTile(
-                      dense: true,
-                      title: Text(_desktopShortcutActionLabel(shortcut.action)),
-                      trailing: Text(
-                        shortcut.label,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.primary,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
+          child: const SingleChildScrollView(
+            child: DesktopShortcutHelpList(),
           ),
         ),
         actions: [
@@ -2522,7 +2479,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     // iPadOS ignores orientation preferences for multitasking
                     // apps, so the lock can't work there - hide it on iPad.
-                    if (!(Platform.isIOS && MediaQuery.sizeOf(context).shortestSide >= 600)) ...[
+                    if (ForkPlatform.supportsOrientationLock && !(Platform.isIOS && MediaQuery.sizeOf(context).shortestSide >= 600)) ...[
                       const Divider(height: 1, indent: 16, endIndent: 16),
                       SwitchListTile(
                         title: const Text('Lock rotation'),
@@ -3402,6 +3359,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   isExpanded: _expandedSection == 'Media Controls',
                   onExpansionChanged: (v) => _onSectionExpanded('Media Controls', v),
                   children: [
+                    if (ForkPlatform.hasMediaNotification) ...[
                     SwitchListTile(
                       title: Text(Platform.isIOS
                           ? l.chapterProgressInNotificationIos
@@ -3420,6 +3378,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       } : null,
                     ),
                     const Divider(height: 1, indent: 16, endIndent: 16),
+                    ],
                     ListTile(
                       title: Text(l.nowPlayingText),
                       subtitle: Text(l.nowPlayingTextSubtitle,
@@ -3427,6 +3386,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       trailing: Icon(Icons.chevron_right_rounded, color: cs.onSurfaceVariant),
                       onTap: () => NowPlayingTextSheet.show(context),
                     ),
+                    if (ForkPlatform.hasMediaNotification) ...[
                     const Divider(height: 1, indent: 16, endIndent: 16),
                     // Cross-platform: drops the seek action so the scrubber in the
                     // notification / lockscreen / car can't be dragged.
@@ -3441,6 +3401,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         PlayerSettings.setLockSeekBar(v);
                       } : null,
                     ),
+                    ],
                     // Android only: chooses which pair fills the phone media
                     // player's two extra slots. iOS uses CarPlay's own buttons.
                     if (Platform.isAndroid) ...[
@@ -3478,6 +3439,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 16),
 
                 // ── Car ──
+                if (ForkPlatform.hasCarMode) ...[
                 CollapsibleSection(
                   key: _keyFor('Car'),
                   icon: Icons.directions_car_rounded,
@@ -3561,6 +3523,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ],
                 ),
                 const SizedBox(height: 16),
+                ],
 
                 if (Platform.isIOS) ...[
                   // ── Siri ──
@@ -3625,6 +3588,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   isExpanded: _expandedSection == 'Sleep Timer',
                   onExpansionChanged: (v) => _onSectionExpanded('Sleep Timer', v),
                   children: [
+                    if (ForkPlatform.supportsShakeToReset) ...[
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
                       child: Text(l.shakeDuringSleepTimer, style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
@@ -3675,6 +3639,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       const SizedBox(height: 4),
                     ],
                     const Divider(height: 1, indent: 16, endIndent: 16),
+                    ],
+                    if (ForkPlatform.supportsHeadsetSleepButton) ...[
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                       child: Text(l.buttonDuringSleepTimer, style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
@@ -3704,9 +3670,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         child: Text(l.buttonDuringSleepTimerHint,
                           style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant.withValues(alpha: 0.7), fontSize: 11)),
                       ),
+                    ],
                     // Shared by shake and button add-time modes, so it shows
                     // whenever either trigger needs it
-                    if (_shakeMode == 'addTime' || _sleepButtonMode == 'addTime') ...[
+                    if ((ForkPlatform.supportsShakeToReset && _shakeMode == 'addTime') || (ForkPlatform.supportsHeadsetSleepButton && _sleepButtonMode == 'addTime')) ...[
                       const Divider(height: 1, indent: 16, endIndent: 16),
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
@@ -3729,7 +3696,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                       const SizedBox(height: 4),
                     ],
-                    const Divider(height: 1, indent: 16, endIndent: 16),
+                    if (ForkPlatform.supportsHeadsetSleepButton) const Divider(height: 1, indent: 16, endIndent: 16),
                     SwitchListTile(
                       title: Text(l.resetTimerOnPause),
                       subtitle: Text(
@@ -4448,6 +4415,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 16),
 
                 // ── Permissions ──
+                if (ForkPlatform.hasPermissionSettings) ...[
                 CollapsibleSection(
                   key: _keyFor('Permissions'),
                   icon: Icons.shield_outlined,
@@ -4512,6 +4480,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ],
                 ),
                 const SizedBox(height: 16),
+                ],
 
                 // ── Issues & Support ──
                 CollapsibleSection(
@@ -5200,6 +5169,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _pickDownloadLocation(BuildContext context, ColorScheme cs, TextTheme tt) async {
+    if (ForkPlatform.supportsDesktopDownloadFolder) {
+      return DesktopDownloadFolderSheet.show(context,
+          onLabelChanged: (label) { if (mounted) setState(() => _downloadLocationLabel = label); });
+    }
     final l = AppLocalizations.of(context)!;
     final dl = DownloadService();
     final hasExistingDownloads = dl.downloadedItems.isNotEmpty;

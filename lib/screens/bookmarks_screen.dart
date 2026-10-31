@@ -25,6 +25,7 @@ import '../widgets/quote_share_sheet.dart';
 import '../widgets/overlay_toast.dart';
 import '../l10n/app_localizations.dart';
 import '../utils/local_path.dart';
+import '../widgets/desktop_input.dart';
 
 class BookmarksScreen extends StatefulWidget {
   const BookmarksScreen({super.key});
@@ -1256,6 +1257,7 @@ class _BookmarkRow extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: selecting ? () => onToggle(itemId, bookmark.id) : () => onJump(itemId, bookmark),
       onLongPress: !selecting ? () => onLongPress(itemId, bookmark.id) : null,
+      onSecondaryTap: desktopSecondaryTap(!selecting ? () => onLongPress(itemId, bookmark.id) : null),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(
@@ -1482,6 +1484,7 @@ class _HighlightRow extends StatelessWidget {
           ? () => onToggle(itemId, highlight.id)
           : () => onActions(itemId, highlight),
       onLongPress: selecting ? null : () => onLongPress(itemId, highlight.id),
+      onSecondaryTap: desktopSecondaryTap(selecting ? null : () => onLongPress(itemId, highlight.id)),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 10),
         child: Row(children: [

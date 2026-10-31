@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import '../utils/fork_platform.dart';
+
 /// Actions exposed by the desktop shell. Keeping these in one table means the
 /// actual bindings and the accessibility help UI cannot drift apart.
 enum DesktopShortcutAction {
@@ -120,6 +122,103 @@ DesktopShortcutDefinition desktopShortcutFor(DesktopShortcutAction action) {
       .firstWhere((shortcut) => shortcut.action == action);
 }
 
+/// Window navigation on the native desktop builds: closing the full-screen
+/// player, going back, refreshing and switching Absorbing cards. Kept apart
+/// from [DesktopShortcutAction] because Settings switches over that enum.
+enum DesktopNavigationAction {
+  closePlayer,
+  back,
+  refresh,
+  previousCard,
+  nextCard,
+}
+
+/// When a navigation shortcut may fire, given where keyboard focus is.
+enum DesktopShortcutFocusRule {
+  /// Wherever focus is (Esc, F5, Alt+Left never type text).
+  anywhere,
+
+  /// Not while typing (Ctrl+arrows move by word in a text field).
+  notTyping,
+
+  /// Like Space and the arrows: only while nothing more specific has focus.
+  plainKey,
+}
+
+class DesktopNavigationShortcut {
+  final DesktopNavigationAction action;
+  final SingleActivator activator;
+  final String label;
+  final DesktopShortcutFocusRule focusRule;
+
+  const DesktopNavigationShortcut({
+    required this.action,
+    required this.activator,
+    required this.label,
+    this.focusRule = DesktopShortcutFocusRule.anywhere,
+  });
+
+  /// Whether focus allows this shortcut right now.
+  bool get allowedByFocus => switch (focusRule) {
+        DesktopShortcutFocusRule.anywhere => true,
+        DesktopShortcutFocusRule.notTyping => !isTypingInTextField(),
+        DesktopShortcutFocusRule.plainKey =>
+          !isTypingInTextField() && nothingMoreSpecificHasFocus(),
+      };
+}
+
+/// The navigation shortcuts; none on Android or web (the browser owns F5
+/// and Alt+Left there). The mouse back button also goes back.
+List<DesktopNavigationShortcut> get desktopNavigationShortcuts =>
+    ForkPlatform.isDesktop ? _navigationShortcuts : const [];
+
+const _navigationShortcuts = <DesktopNavigationShortcut>[
+  DesktopNavigationShortcut(
+    action: DesktopNavigationAction.closePlayer,
+    activator: SingleActivator(LogicalKeyboardKey.escape),
+    label: 'Esc',
+  ),
+  DesktopNavigationShortcut(
+    action: DesktopNavigationAction.back,
+    activator: SingleActivator(LogicalKeyboardKey.arrowLeft, alt: true),
+    label: 'Alt+Left',
+  ),
+  DesktopNavigationShortcut(
+    action: DesktopNavigationAction.refresh,
+    activator: SingleActivator(LogicalKeyboardKey.f5),
+    label: 'F5',
+  ),
+  DesktopNavigationShortcut(
+    action: DesktopNavigationAction.refresh,
+    activator: SingleActivator(LogicalKeyboardKey.keyR, control: true),
+    label: 'Ctrl+R',
+  ),
+  DesktopNavigationShortcut(
+    action: DesktopNavigationAction.previousCard,
+    activator: SingleActivator(LogicalKeyboardKey.arrowLeft, control: true),
+    label: 'Ctrl+Left',
+    focusRule: DesktopShortcutFocusRule.notTyping,
+  ),
+  DesktopNavigationShortcut(
+    action: DesktopNavigationAction.nextCard,
+    activator: SingleActivator(LogicalKeyboardKey.arrowRight, control: true),
+    label: 'Ctrl+Right',
+    focusRule: DesktopShortcutFocusRule.notTyping,
+  ),
+  DesktopNavigationShortcut(
+    action: DesktopNavigationAction.previousCard,
+    activator: SingleActivator(LogicalKeyboardKey.pageUp),
+    label: 'Page Up',
+    focusRule: DesktopShortcutFocusRule.plainKey,
+  ),
+  DesktopNavigationShortcut(
+    action: DesktopNavigationAction.nextCard,
+    activator: SingleActivator(LogicalKeyboardKey.pageDown),
+    label: 'Page Down',
+    focusRule: DesktopShortcutFocusRule.plainKey,
+  ),
+];
+
 /// Whether keyboard focus is in a text field (search box, settings field).
 bool isTypingInTextField() {
   final context = FocusManager.instance.primaryFocus?.context;
@@ -133,8 +232,17 @@ bool isTypingInTextField() {
 final FocusNode desktopShellFocusNode =
     FocusNode(debugLabel: 'Desktop shortcuts shell');
 
+/// True while the shell holds focus, or a page, sheet or the full-screen
+/// player is open with nothing inside it focused (its route's focus scope is
+/// the primary focus). A focused button, slider or text field returns false.
+bool nothingMoreSpecificHasFocus() {
+  final focus = FocusManager.instance.primaryFocus;
+  return focus == desktopShellFocusNode || focus is FocusScopeNode;
+}
+
 /// Runs desktop shortcuts. Plain-key ones (Space, arrows, brackets) only run
-/// on desktop while the shell itself has focus: a focused button keeps Space,
+/// on desktop while nothing more specific has focus (the shell, or an open
+/// page or player with nothing in it focused): a focused button keeps Space,
 /// a text field keeps typing, and D-pad arrows keep moving focus. A disabled
 /// action lets the key through. Ctrl shortcuts always work.
 class DesktopShortcutCallbackAction extends CallbackAction<Intent> {
@@ -153,8 +261,6 @@ class DesktopShortcutCallbackAction extends CallbackAction<Intent> {
     final desktop = defaultTargetPlatform == TargetPlatform.windows ||
         defaultTargetPlatform == TargetPlatform.linux ||
         defaultTargetPlatform == TargetPlatform.macOS;
-    return desktop &&
-        !isTypingInTextField() &&
-        FocusManager.instance.primaryFocus == desktopShellFocusNode;
+    return desktop && !isTypingInTextField() && nothingMoreSpecificHasFocus();
   }
 }

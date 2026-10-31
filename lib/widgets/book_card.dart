@@ -16,6 +16,7 @@ import 'cover_decode.dart';
 import 'library_item_snapshot.dart';
 import '../ui_themes/ui_theme_hooks.dart';
 import '../utils/local_path.dart';
+import 'desktop_input.dart';
 
 class BookCard extends StatelessWidget {
   final Map<String, dynamic> item;
@@ -233,6 +234,7 @@ class BookCard extends StatelessWidget {
       child: InkWell(
         onTap: () => _navigateToDetail(context),
         onLongPress: () => _onLongPress(context),
+        onSecondaryTap: desktopSecondaryTap(() => _onLongPress(context)),
         borderRadius: BorderRadius.circular(16),
         child: Row(
           children: [
@@ -604,6 +606,7 @@ class _PressableCardState extends State<_PressableCard>
         widget.onTap();
       },
       onTapCancel: () => _controller.reverse(),
+      onSecondaryTap: desktopSecondaryTap(widget.onLongPress),
       onLongPress: widget.onLongPress == null
           ? null
           : () {

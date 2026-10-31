@@ -4,6 +4,7 @@ import '../l10n/app_localizations.dart';
 import '../providers/library_provider.dart';
 import '../services/download_service.dart';
 import 'episode_detail_sheet.dart';
+import 'desktop_input.dart';
 
 class EpisodeRow extends StatefulWidget {
   final Map<String, dynamic> episode;
@@ -83,7 +84,7 @@ class _EpisodeRowState extends State<EpisodeRow> {
       }
     }
 
-    return InkWell(
+    return DesktopInkWell(
       onTap: () {
         EpisodeDetailSheet.show(
           context,

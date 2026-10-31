@@ -30,6 +30,7 @@ import '../services/api_service.dart';
 import '../utils/duration_format.dart';
 import '../utils/series_number_match.dart';
 import '../utils/local_path.dart';
+import 'desktop_input.dart';
 
 /// Show a bottom sheet with all books in a series, sorted by sequence.
 /// Can be called from any screen.
@@ -682,7 +683,7 @@ class _SeriesBooksSheetState extends State<SeriesBooksSheet> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  GestureDetector(
+                  DesktopGestureDetector(
                     onTap: () => setState(() {
                       if (isExpanded) _expandedSubSeries.remove(seriesId);
                       else _expandedSubSeries.add(seriesId);

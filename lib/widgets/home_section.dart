@@ -12,6 +12,7 @@ import 'episode_list_sheet.dart';
 import 'books_sheet_shared.dart' show coverSizeScale;
 import '../ui_themes/ui_theme_hooks.dart';
 import '../utils/local_path.dart';
+import 'desktop_input.dart';
 
 class HomeSection extends StatelessWidget {
   final String title;
@@ -320,7 +321,7 @@ class _SnapScrollListState extends State<_SnapScrollList> {
         }
         return false;
       },
-      child: ListView.separated(
+      child: DesktopMouseDrag(child: ListView.separated(
         controller: _controller,
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -328,7 +329,7 @@ class _SnapScrollListState extends State<_SnapScrollList> {
         itemCount: widget.itemCount,
         separatorBuilder: (_, __) => const SizedBox(width: 12),
         itemBuilder: widget.itemBuilder,
-      ),
+      )),
     );
   }
 }
@@ -365,7 +366,7 @@ class _EpisodeCard extends StatelessWidget {
     final isFinished = episodeId != null && lib.getEpisodeProgressData(itemId, episodeId)?['isFinished'] == true;
     final isDownloaded = episodeId != null && DownloadService().isDownloaded('$itemId-$episodeId');
 
-    return GestureDetector(
+    return DesktopGestureDetector(
       onTap: () {
         if (episode != null) {
           EpisodeDetailSheet.show(

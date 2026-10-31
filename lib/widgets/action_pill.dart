@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'desktop_input.dart';
 
 /// One action in an [ActionPillGrid]: a centered icon over a short label.
 class ActionPillData {
@@ -59,6 +60,7 @@ class _ActionPill extends StatelessWidget {
     return GestureDetector(
       onTap: data.onTap,
       onLongPress: data.onLongPress,
+      onSecondaryTap: desktopSecondaryTap(data.onLongPress),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
         decoration: BoxDecoration(

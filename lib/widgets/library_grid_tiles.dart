@@ -19,6 +19,7 @@ import 'series_books_sheet.dart';
 import 'author_books_sheet.dart';
 import 'library_item_snapshot.dart';
 import '../utils/local_path.dart';
+import 'desktop_input.dart';
 
 // ═══════════════════════════════════════════════════════════════
 // Grid book tile (cover + title + author)
@@ -104,7 +105,7 @@ class _GridBookTileState extends State<GridBookTile> {
     final isSubscribed = snapshot.isSubscribed;
     final unfinishedCount = snapshot.unfinishedCount;
 
-    return GestureDetector(
+    return DesktopGestureDetector(
       // opaque so taps on the blank space below the title (the tile's tall
       // aspect ratio leaves a gap when the Column children stop short)
       // still trigger the onTap. Without this, taps in that blank strip
@@ -574,7 +575,7 @@ class GridSeriesTile extends StatelessWidget {
     }
     final seriesProgress = itemIds.isNotEmpty ? totalProgress / itemIds.length : 0.0;
 
-    return GestureDetector(
+    return DesktopGestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () {
         if (seriesId.isNotEmpty) {
@@ -931,6 +932,7 @@ class GridAuthorTile extends StatelessWidget {
         }
       },
       onLongPress: onSelectionToggle,
+      onSecondaryTap: desktopSecondaryTap(onSelectionToggle),
       child: Column(
         children: [
           // Circular avatar

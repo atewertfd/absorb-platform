@@ -62,6 +62,7 @@ import 'card_chapters_sheet.dart';
 import 'chromecast_button.dart';
 import 'equalizer_sheet.dart';
 import 'sleep_timer_sheet.dart';
+import 'desktop_input.dart';
 
 typedef _ReaderAction = ({
   IconData icon,
@@ -896,7 +897,7 @@ class EbookReaderViewState extends State<EbookReaderView> with WidgetsBindingObs
       onPressed: () => _runBarButton(id),
     );
     if (id != 'autoscroll') return button;
-    return GestureDetector(onLongPress: _showAutoScrollSleepSheet, child: button);
+    return DesktopGestureDetector(onLongPress: _showAutoScrollSleepSheet, child: button);
   }
 
   Future<void> _updateTurnStyle(String style) async {
@@ -6893,7 +6894,7 @@ class EbookReaderViewState extends State<EbookReaderView> with WidgetsBindingObs
     final id = _barActionId;
     Widget build() {
       final a = _readerAction(id);
-      return GestureDetector(
+      return DesktopGestureDetector(
         onLongPress: _pickBarAction,
         child: id == 'speed'
             ? TextButton(
