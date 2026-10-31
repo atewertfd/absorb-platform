@@ -43,7 +43,7 @@ Claude is the main and only developer of Absorb Plus, a fork of [pounat/absorb](
 - **After every app change (standing owner OK, 2026-10-30):**
   - run `dev.ps1 bump` and `dev.ps1 build -CloseRunning`;
   - that closes the beta copy even when it's hidden in the tray, refreshes `Windows\` and "What's new", then push;
-  - for changes that affect the phone, also run `dev.ps1 apk` in the background.
+  - for changes that affect the phone, also run `dev.ps1 apk` in the background, **batched** (one APK per few changes) and **untracked**: don't wait on it or report it; update the phone download page when it lands. Build it right away only when the owner asks for the phone update (owner, 2026-10-30).
 - `origin` is upstream; **never push to it** (hook- and permission-enforced). `fork` is where everything is pushed. `codex-local` is the old Codex checkout under `C:\Users\pc\Documents\Codex\2026-09-29\`, kept read-only as a backup; don't build or commit there.
 - A `v*` tag on the fork publishes a pre-release through CI. Pushing `main` redeploys the web build to GitHub Pages.
 
