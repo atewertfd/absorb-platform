@@ -4,7 +4,7 @@ Research checkpoint: 2026-10-01. This is a feasibility record, not an announceme
 
 ## Required experience
 
-Inside Absorb Plus, choose Connect Audible, authenticate with the provider, browse the account's library, select books, and import supported media into Audiobookshelf without installing a separate Libation application. Other software integrations are deferred. The existing file-export importer does **not** satisfy this requirement.
+Inside Absorb Plus, choose Connect Audible, authenticate with the provider, browse the account's library, select books, and import supported media into Audiobookshelf without installing a separate Libation application. Other software integrations are deferred. The file-export importer that existed at the time did **not** satisfy this requirement (it was removed on 2026-10-30).
 
 ## Evidence and unresolved constraints
 

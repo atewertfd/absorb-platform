@@ -23,7 +23,7 @@ Line numbers are from this checkout and will drift.
 - **Settings and wording:** `player_settings.dart`, `wording.dart`, `backup_service.dart`.
 - **Accounts and backends:** `user_account_service.dart`, `server_backend.dart`, `signed_out_playback.dart`, `setup_link_service.dart`, `oidc_service.dart`, `audiobookshelf_update_service.dart`. All six are also in report 02, so they're only skimmed here.
 - **Small player policies:** `now_playing_layout.dart`, `cold_start_play_policy.dart`, `playback_error_policy.dart`, `external_audio_output_types.dart`.
-- **Fork-only files:** `desktop_shortcuts.dart`, `libation_import_helper.dart`, `startup_task_coordinator.dart`, `whats_new_notes.dart`, `windows_shell.dart` (new, still being written).
+- **Fork-only files:** `desktop_shortcuts.dart`, `libation_import_helper.dart` (removed 2026-10-30), `startup_task_coordinator.dart`, `whats_new_notes.dart`, `windows_shell.dart` (new, still being written).
 
 **Depth of the review:**
 - **In depth:** `download_service.dart`, `download_track_names.dart`, `libation_import_helper.dart`, `log_service.dart`, `screen_wake.dart`, `desktop_shortcuts.dart`, `wording.dart`, `ebook_cache.dart` (size helpers), `home_widget_service.dart` (timers and stats), `transcription_service.dart` (platform path), `backup_service.dart` (secrets).
@@ -160,6 +160,8 @@ Line numbers are from this checkout and will drift.
 
 ### 1.4 Libation import
 
+**Removed 2026-10-30 (owner decision):** the Libation import, this helper, its widgets and its tests are gone; the notes below describe the code as audited.
+
 **`libation_import_helper.dart`** (fork, 516 lines). Pure helpers plus a directory scan.
 - **Name helpers:** extension sets (:20-55), `libationAsinFrom` (:65), `cleanLibationBookTitle` (:111), `inferTitleFromSelectedFiles` (:123).
 - **Model:** `LibationBookCandidate` (:145), with an ASIN taken from the folder, then from the first audio file.
@@ -269,7 +271,7 @@ Line numbers are from this checkout and will drift.
 - `catchUpEbookCaches` (called on reconnect by `library_provider.dart:428` and `_lp_core.dart:1255`) re-fetches missing companion ebooks and asks the server once per run for books whose record has no ebook.
 - `registerNarration` / `updateNarrationTimeline` keep the narration audio taken out of an EPUB as a normal download record.
 
-**Libation import:** see 1.4.
+**Libation import:** see 1.4 (removed 2026-10-30).
 
 **Logging:** see 1.3.
 
@@ -430,7 +432,7 @@ Recent fixes not re-reported: names valid on Windows (ab3d26ad), multi-disc trac
 
 **Unused members** (grepped across `lib`, `test` and `tool`; no references outside their definition):
 - **Fork-owned** (remove freely):
-  - `libation_import_helper.dart`: `isLibationExportFile` (:87) and `LibationBookCandidate.audioFileCount` (:165).
+  - ~~`libation_import_helper.dart`: `isLibationExportFile` (:87) and `LibationBookCandidate.audioFileCount` (:165).~~ File removed 2026-10-30.
   - `downloads_screen.dart:36`: `_formatDownloadBytes`, the same as `_formatBytes` at :291 in the same file (see 2.4).
 - **Upstream** (not worth the merge cost on their own; drop them if the file is touched anyway):
   - `player_settings.dart`: `get/setAutoPlayNextBook`, `get/setAutoPlayNextPodcast` (:732), `clearQueueModePlaylist` (:598), `clearQueueModeCollection`, `getEreaderAutoScrollSleepMinutes` (:1119).
@@ -467,8 +469,8 @@ Recent fixes not re-reported: names valid on Windows (ab3d26ad), multi-disc trac
   - `UserAccountService.onScopeMoved` is a single static callback slot that the DownloadService constructor takes over (:431).
 - **One global notifier for every setting:** `PlayerSettings.settingsChanged` fires for any setting, and `ScreenWake._reload` plus `windows_shell` re-read their prefs on every change.
 - **Plain-text secrets in prefs:** tokens in `user_account_service`, the RMAB token, the WebDAV password. These are known; moving them to secure storage needs the owner's OK.
-- **`dart:io` `Platform` on code web can reach:** `log_service.dart:62` (only if logging is turned on on web, and caught in `main`) and `libation_import_helper.dart:467` (reached only after `kIsWeb` guards). Low risk; note it for report 04's web pass.
-- **Libation folders guessed as authors:** the author comes from the parent folder (`libation_import_helper.dart:406-417`). With Libation's "series" folder template the series name becomes the author, and `Disc 1`/`Disc 2` subfolders become separate books. The user can edit before uploading, so this is low risk; worth a test fixture.
+- **`dart:io` `Platform` on code web can reach:** `log_service.dart:62` (only if logging is turned on on web, and caught in `main`) and `libation_import_helper.dart:467` (reached only after `kIsWeb` guards; file removed 2026-10-30). Low risk; note it for report 04's web pass.
+- **Libation folders guessed as authors** (moot: removed 2026-10-30): the author comes from the parent folder (`libation_import_helper.dart:406-417`). With Libation's "series" folder template the series name becomes the author, and `Disc 1`/`Disc 2` subfolders become separate books. The user can edit before uploading, so this is low risk; worth a test fixture.
 
 ---
 
@@ -488,7 +490,7 @@ Recent fixes not re-reported: names valid on Windows (ab3d26ad), multi-disc trac
 | 10 | Siri stub + remove `siri_matcher` (CarPlay precedent) | fork overrides | S | low |
 | 11 | B1: desktop download and log folder in ApplicationSupport or a user-picked folder (new downloads only; optional move) | upstream (fork hunk) | M | medium: storage change, **owner OK required** |
 | 12 | P4: async size map on the Downloads screen | upstream screen | S | low |
-| 13 | Fork clean-ups: remove the duplicate `_formatDownloadBytes`; localize `_downloadEta`/`_downloadRate`; remove `isLibationExportFile` and `audioFileCount` | fork | S | low |
+| 13 | Fork clean-ups: remove the duplicate `_formatDownloadBytes`; localize `_downloadEta`/`_downloadRate`; ~~remove `isLibationExportFile` and `audioFileCount`~~ (file removed 2026-10-30) | fork | S | low |
 | 14 | B9, B10, B11, B13 (wording locale, cancel-while-finalizing, persisted episode id, log rotation race) | upstream | S each | low |
 | 15 | P5: skip the start-up `_save()` unless a migration changed something (measure prefs size first) | upstream | S | low |
 | 16 | B12: test long titles on Windows; add `longPathAware` or trim names if it fails | fork (manifest) | S | low (verify first) |

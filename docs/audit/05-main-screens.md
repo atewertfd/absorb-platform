@@ -126,8 +126,8 @@ Every main screen is upstream-owned. The fork's code in them is hooks only. Page
 | 184-426 | about 120 state fields mirroring prefs |
 | 323-407 | BookOrbit inbox (notifications and achievements), book requests |
 | 428-449 | `_keyFor` / `_onSectionExpanded`: one `GlobalKey` per section; auto-scroll 350 ms after expand |
-| 453-467 | `initState`: `_loadSettings`, What's new flag, book requests, admin issue count, sync status, socket and `settingsChanged` listeners, Libation new-export count |
-| 471-528 | Libation count (fork), admin issue badge (3 s debounce), ABS server update check, `dispose` |
+| 453-467 | `initState`: `_loadSettings`, What's new flag, book requests, admin issue count, sync status, socket and `settingsChanged` listeners, Libation new-export count (removed 2026-10-30) |
+| 471-528 | Libation count (fork, removed 2026-10-30), admin issue badge (3 s debounce), ABS server update check, `dispose` |
 | 530-546 | `_openSearchResult`: clear query, expand section, highlight after 700 ms |
 | 548-626 | external queue-mode refresh, queue mode setters |
 | 626-1185 | color swatches and custom color dialog, nav-hold dialog, stats goal editors, episode-notification interval, podcast tab library |
@@ -158,15 +158,15 @@ The whole page is one `SliverToBoxAdapter(Column)`. The search bar sits at 1896-
 | 4205-4443 | **Library** (in `Consumer<LibraryProvider>`): podcast tab, hide e-book-only, home cards open details, Goodreads, explicit/e-book badges, per-library cover, subtitles and skip overrides | `PlayerSettings` (`setSkipOverride` and friends) |
 | 4444-4509 | **Permissions**: notifications tile on **every platform**; episode notifications on Android/iOS; battery on Android | `permission_handler` |
 | 4510-4678 | **Issues & Support**: Server health 4522 (fork, hard-coded English), tips, What's new 4549/4558 (fork), upstream issues/Discord/contact 4570-4600, logging 4606-4660 | `WhatsNewPrompt`, `PlayerSettings.setLoggingEnabled`, `LogService` |
-| 4679-4877 | **Advanced**: nav hold, local server, trust certs, MP3 index (Android), pre-releases (`_updatesEnabled`), RMAB, book requests, Libation import (fork), transcription | `PlayerSettings`, `ScopedPrefs` (RMAB keys), `applyTrustAllCerts` |
+| 4679-4877 | **Advanced**: nav hold, local server, trust certs, MP3 index (Android), pre-releases (`_updatesEnabled`), RMAB, book requests, Libation import (fork, removed 2026-10-30), transcription | `PlayerSettings`, `ScopedPrefs` (RMAB keys), `applyTrustAllCerts` |
 | 4878-4910 | Support the Dev (hidden by `ForkBranding.showUpstreamSupportCard = false`) | none |
 | 4911-4940 | Backup and sync | `SettingsSyncService` |
 | 4941-4960 | All bookmarks | none |
 | 4961-5043 | Version and Check for update (`UpdateCheckerService`, `UpdateDialog`) | none |
 
-**After `build`:** rewind previews 5061, `_formatBytes` 5128, **`_pickDownloadLocation` 5135-5405 (which contains the misplaced "Windows Settings" section, 5246-5304; see B1)**, sync 5407-5471, account sheet 5472-5718, RMAB/Libation openers 5727-5778, logout, add, edit, remove and switch account 5779-5995 (context-after-await fixed in 9003f360).
+**After `build`:** rewind previews 5061, `_formatBytes` 5128, **`_pickDownloadLocation` 5135-5405 (which contains the misplaced "Windows Settings" section, 5246-5304; see B1)**, sync 5407-5471, account sheet 5472-5718, RMAB/Libation openers 5727-5778 (Libation removed 2026-10-30), logout, add, edit, remove and switch account 5779-5995 (context-after-await fixed in 9003f360).
 
-**`settings_search_index.dart`:** 140 hand-written `SettingSearchEntry(sectionId, …)` rows. Each `sectionId` must equal a `_keyFor` id. It isn't generated, so new tiles silently drop out of search. **Missing:** Libation import, book requests, RMAB import, Backup and sync, All bookmarks, Keyboard shortcuts, Server health, What's new. The `'Windows Settings'` row points at a section that isn't in the page (B1).
+**`settings_search_index.dart`:** 140 hand-written `SettingSearchEntry(sectionId, …)` rows. Each `sectionId` must equal a `_keyFor` id. It isn't generated, so new tiles silently drop out of search. **Missing:** book requests, RMAB import, Backup and sync, All bookmarks, Keyboard shortcuts, Server health, What's new. The `'Windows Settings'` row points at a section that isn't in the page (B1).
 
 ---
 

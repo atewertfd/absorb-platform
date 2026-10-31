@@ -84,7 +84,7 @@ Ranked by value for the effort and merge cost. Items marked **(engine)** touch p
 - Tests for `sync_logic`, the playback policies and the sleep timer (09 #6, #13, 01 #8). Integration tests run on request in CI (09 #12).
 - Dead fork code:
   - unused strings and `runCritical` (04 #8);
-  - a duplicate byte formatter and two unused Libation helpers (03 #13);
+  - a duplicate byte formatter and two unused Libation helpers (03 #13; moot, Libation removed 2026-10-30);
   - unused dev dependencies (09 #14);
   - the Siri files, replaced by a stub like CarPlay (03 #10).
 

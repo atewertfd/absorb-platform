@@ -108,8 +108,8 @@ Every reader:
 | File | Lines | Imp | Purpose / state |
 |---|---|---|---|
 | `accessible_header_action.dart` | 88 | 4 | `FocusableActionDetector` + `Semantics(excludeSemantics)` + 44 px tap target around custom header icons (Enter/Space activate, focus ring). Clean; good pattern to copy. Used by `offline_status_icon` and page headers. |
-| `libation_import_card.dart` | 187 | 1 | Pure-UI `ExpansionTile` for Settings → Advanced / `admin_upload_screen`. All actions are callbacks; test keys exposed. Clean. |
-| `libation_book_picker_sheet.dart` | 186 | 1 | Bottom sheet listing scanned exports (search field when there are more than 8; New/Imported tags). Clean. Uses raw `showModalBottomSheet` (M3 caps it at 640 px on desktop). |
+| `libation_import_card.dart` (removed 2026-10-30) | 187 | 1 | Pure-UI `ExpansionTile` for Settings → Advanced / `admin_upload_screen`. All actions are callbacks; test keys exposed. Clean. |
+| `libation_book_picker_sheet.dart` (removed 2026-10-30) | 186 | 1 | Bottom sheet listing scanned exports (search field when there are more than 8; New/Imported tags). Clean. Uses raw `showModalBottomSheet` (M3 caps it at 640 px on desktop). |
 | `whats_new_sheet.dart` | 717 | 4 | In-app release notes: a bottom sheet below 720 px width, otherwise a 640 px dialog. Links limited to http(s) by the parser (`services/whats_new_notes.dart:256`); `TapGestureRecognizer`s disposed. Tested. |
 | `text_scale_room.dart` | 48 | 7 | **Untracked WIP.** `textScaleRoom()` + `LabelRoomGridDelegate` (adds label height to grid cells at large text). Used by home/library screens and tabs plus `absorbing_card`. |
 
@@ -197,7 +197,7 @@ All are clean at grep level (controllers and listeners disposed, no leaked timer
 
 **Dead code:** no fully unused widget or top-level symbol in my scope. I grepped every public class and function across `lib/ test/ tool/`; every one is referenced at least once. The only file with no importer is `chromecast_button_stub.dart`, which is used by upstream's F-Droid recipe; keep it. One unused bit: `navHoldIdAvailable`'s `rmabWeb`/`rmabConfigured` params, left on purpose.
 
-**Tests:** only `collapsible_section`, `whats_new_*`, `welcome_sheet`, `update_dialog`, `settings_search`, `accessible_header_action`, `nav_hold_options` and the Libation card (through `admin_upload_screen_test`) are tested. No reader, `overlay_toast`, `notes_sheet` or `edit_metadata_sheet` tests.
+**Tests:** only `collapsible_section`, `whats_new_*`, `welcome_sheet`, `update_dialog`, `settings_search`, `accessible_header_action`, `nav_hold_options` and the Libation card (through `admin_upload_screen_test`; removed 2026-10-30) are tested. No reader, `overlay_toast`, `notes_sheet` or `edit_metadata_sheet` tests.
 
 ---
 
@@ -306,7 +306,7 @@ Severity: H/M/L. Confidence: **high** = traced in code; **med** = traced, but ru
 - The `ebook_reader_view` timers (`_readingTimer`, `_readAlongTimer`, `_controlsHideTimer`, `_curlShotTimer`, `_autoScrollSleepTimer`, `_pendingTapAction`, `_narrationSpotTimer`) are all cancelled in `dispose`. `_ebookPushTimer` is flushed through `_stopReadAlong()`.
 - The auto-scroll sleep sheet's ticker cancels itself when the sheet's context unmounts.
 - The `await`-then-`context` scan (the lint is disabled in `analysis_options.yaml`) found only safe cases after the recent mounted-guard commits.
-- What's-new links are http(s) only. Libation widgets are pure UI and never touch Libation config files.
+- What's-new links are http(s) only. Libation widgets were pure UI and never touched Libation config files (removed 2026-10-30).
 - All metadata and author writes happen only behind explicit Save/Apply buttons.
 
 ---
@@ -335,4 +335,4 @@ Ranked by value ÷ (effort + merge cost).
 - merge the four readers' duplicated fullscreen and progress-throttle code;
 - convert raw `showModalBottomSheet` calls to `adaptive_modal` across upstream widgets.
 
-All of these are large merge cost for little user value. The one cheap exception is the fork-owned `libation_book_picker_sheet`, which could use `showAdaptiveSheetDialog` on desktop if the owner wants Libation import to feel native on Windows.
+All of these are large merge cost for little user value. The one cheap exception was the fork-owned `libation_book_picker_sheet` (removed 2026-10-30), which could use `showAdaptiveSheetDialog` on desktop if the owner wants Libation import to feel native on Windows.

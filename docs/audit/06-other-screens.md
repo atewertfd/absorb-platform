@@ -23,7 +23,7 @@ Only one file is fork-owned: `server_health_screen.dart`. Every other file exist
 
 | File | Fork diff vs upstream | What the fork changed |
 |---|---|---|
-| `admin_upload_screen.dart` | +690 / −91 | Libation export import, existing-book target, duplicate check, index wait, `canUpload` guard |
+| `admin_upload_screen.dart` | +690 / −91 | Libation export import (removed 2026-10-30), existing-book target, duplicate check, index wait, `canUpload` guard |
 | `downloads_screen.dart` | +157 / −3 | Failed-download section with retry/dismiss, bytes/rate/ETA line, semantics |
 | `admin_screen.dart` | +2 / −79 | RMAB tile removed (moved to Settings → Advanced); passes `canUpload` |
 | `book_requests_screen.dart` | +6 / −1 | Stops the load-more spinner when a refresh replaced the list |
@@ -50,7 +50,7 @@ All other files are byte-identical to upstream, so any change there costs merge 
 | `admin_missing_items_screen.dart` | 358 | Missing/invalid items with delete | admin_screen | `SocketService` items listener | |
 | `admin_podcasts_screen.dart` | 2822 | Podcast admin: feeds, episode download/check, settings; also exports `showAddPodcastSheet` and `showPodcastAdminSettings` | admin_screen; `library_screen.dart`; `widgets/episode_list_sheet.dart` | 5 States; `SocketService` item-updated listener; TabController | Largest file in scope; reachable from the library too, not only admin |
 | `podcast_edit_screen.dart` | 336 | Podcast metadata and cover edit | admin_podcasts_screen | | The cover picker uses `files.single.path`, which throws on web (`:90-93`) |
-| `admin_upload_screen.dart` | 2084 | Upload files to a library folder; **fork: Libation export import** (scan folder, pick book, ASIN duplicate check, import history, launch Libation exe), add to an existing book | admin_screen, app_shell, `settings_screen` (Libation tile); `test/admin_upload_screen_test.dart` | Many injectable seams (picker, scanner, uploader, clock); `LibationImportHistory`, `SharedPreferences` | Biggest fork hotspot inside an upstream file. `_submit` (`:948-1184`) has broken indentation from merges. Desktop-only Libation is gated by `_desktopLibationEnabled` (`:256`). |
+| `admin_upload_screen.dart` | 2084 | Upload files to a library folder; **fork: Libation export import** (removed 2026-10-30), add to an existing book | admin_screen, app_shell, `settings_screen` (Libation tile); `test/admin_upload_screen_test.dart` | Many injectable seams (picker, scanner, uploader, clock); `LibationImportHistory`, `SharedPreferences` | Biggest fork hotspot inside an upstream file. `_submit` (`:948-1184`) has broken indentation from merges. Desktop-only Libation is gated by `_desktopLibationEnabled` (`:256`). |
 | `admin_rmab_screen.dart` | 106 | ReadMeABook site in an in-app **`webview_flutter`** WebView | `app_shell.dart:1523` (nav-hold `rmabWeb`); `widgets/rmab_config_sheet.dart:356` ("Open in browser view", admins only) | `WebViewController` | **No Windows, Linux or web implementation of webview_flutter is in pubspec.lock.** See B1. |
 
 ### BookOrbit backend screens. Upstream; used only when the account's backend is BookOrbit.
@@ -211,6 +211,7 @@ Where it breaks:
 ### Merge-cost hotspot
 
 **M1. `admin_upload_screen.dart` carries about 690 fork lines inside an upstream file.**
+- **Removed 2026-10-30 (owner decision):** the Libation code below no longer exists, so M1 is moot.
 - The Libation state (about 15 fields), the scanning and picking methods (`:234-358`, `:664-923`), and the history bookkeeping inside `_submit` are interleaved with upstream code.
 - `_submit`'s indentation is scrambled (`:984-1157`), which shows earlier conflicts were resolved by hand.
 - Moving the Libation logic into a fork `part`/mixin (for example `admin_upload_libation.dart`, next to the existing `libation_import_card.dart` and picker) would leave about 30 hook lines in the upstream file.
@@ -232,7 +233,7 @@ Ranked by value ÷ (effort + merge cost). Effort: S/M/L. "Upstream" means the ed
 | 6 | **B3:** add `isLocalFilePath()` and use it in car mode, bookmarks, and the widget sites (with the widgets auditor) | new `lib/utils/local_path.dart` + about 6 upstream lines in my area | fork util + upstream hooks | S-M | Low |
 | 7 | **W1:** web-safe backup, restore and setup-file save: `withData` plus a fork download helper; hide save on web | `backup_sync_screen.dart`, `login_screen.dart`, `admin_users_screen.dart`, `podcast_edit_screen.dart` + new fork util | fork util + upstream hooks | M | Low-Med (touches the restore path: run a Windows build and a web CI build) |
 | 8 | Add smoke widget tests: server health (fake service), transcription web guard, RMAB fallback, chapter-preview race (fake player) | `test/` | fork | M | None |
-| 9 | **M1:** extract the Libation code from `admin_upload_screen.dart` into a fork part/mixin, after the next merge that touches it | `admin_upload_screen.dart` + new fork file | fork (lowers merge cost) | M | Low-Med |
+| 9 | ~~**M1:**~~ (moot: Libation removed 2026-10-30) extract the Libation code from `admin_upload_screen.dart` into a fork part/mixin, after the next merge that touches it | `admin_upload_screen.dart` + new fork file | fork (lowers merge cost) | M | Low-Med |
 | 10 | **P1:** make the downloads list lazy and stop the outer `context.watch`, only if `/perf-measure` shows cost | `downloads_screen.dart` | upstream | M | Med (downloads UI) |
 | 11 | **P3:** batch server-log lines; **P4:** pause the admin task poll when covered | `admin_server_logs_screen.dart`, `admin_screen.dart` | upstream (upstream-PR candidates) | S-M | Low |
 | 12 | Dispose the leaked dialog controllers; defer disposal past dialog close in 4 places | `admin_email`, `admin_users`, `chapter_editor`, `admin_podcasts`, `login`, `upcoming_releases` | upstream | S | Low (bundle with an upstream PR, or skip) |

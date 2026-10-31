@@ -35,6 +35,5 @@ Use scoped, imperative messages (`fix: …`, `perf: …`, `refactor: …`, `docs
 
 - Keep Absorb's normal look.
 - Performance work must be stability-first.
-- Never search for credentials or read Libation account/configuration files.
-- Libation support imports the user's exported files only. It is not an Audible login and does not download protected content.
+- Never search for credentials or read other apps' account/configuration files.
 - Uploads to Audiobookshelf happen only on an explicit user action.

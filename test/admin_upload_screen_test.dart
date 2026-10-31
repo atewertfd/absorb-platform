@@ -1,20 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
-import 'dart:ui' as ui;
+import 'dart:typed_data';
 
 import 'package:absorb/l10n/app_localizations.dart';
-import 'package:absorb/main.dart';
 import 'package:absorb/screens/admin_upload_screen.dart';
 import 'package:absorb/services/api_service.dart';
-import 'package:absorb/services/libation_import_helper.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 const _libraries = [
   {
@@ -27,10 +21,9 @@ const _libraries = [
   },
 ];
 
-MediaUploadFile _file(String name, {String? path}) => MediaUploadFile(
+MediaUploadFile _file(String name) => MediaUploadFile(
   name: name,
   size: 3,
-  path: path,
   bytes: Uint8List.fromList([1, 2, 3]),
 );
 
@@ -42,60 +35,35 @@ Future<void> _render(
   UploadPathChecker? pathChecker,
   ApiService? apiService,
   bool canUpload = true,
-  bool initialLibationExpanded = false,
   VoidCallback? onUploadComplete,
-  UploadDirectoryPicker? directoryPicker,
-  UploadExecutablePicker? executablePicker,
-  LibationDirectoryScanner? directoryScanner,
-  LibationExecutableLauncher? executableLauncher,
-  bool? showDesktopLibationControls,
-  LibrarySearcher? librarySearcher,
-  BookMetadataSearcher? metadataSearcher,
-  DateTime Function()? clock,
-  Map<String, Object> prefs = const <String, Object>{},
   Size size = const Size(1100, 900),
   double textScale = 1,
-  ThemeData? theme,
-  GlobalKey? captureKey,
 }) async {
-  SharedPreferences.setMockInitialValues(prefs);
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(
-    RepaintBoundary(
-      key: captureKey,
-      child: MaterialApp(
-        debugShowCheckedModeBanner: false,
-        localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('en'),
-        theme: theme ?? ThemeData(useMaterial3: true),
-        builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(
-            context,
-          ).copyWith(textScaler: TextScaler.linear(textScale)),
-          child: child!,
-        ),
-        home: AdminUploadScreen(
-          libraries: libraries,
-          apiService: apiService,
-          canUpload: canUpload,
-          initialLibationExpanded: initialLibationExpanded,
-          onUploadComplete: onUploadComplete,
-          filePicker: () async => files,
-          directoryPicker: directoryPicker,
-          executablePicker: executablePicker,
-          directoryScanner: directoryScanner,
-          executableLauncher: executableLauncher,
-          showDesktopLibationControls: showDesktopLibationControls,
-          librarySearcher: librarySearcher,
-          metadataSearcher: metadataSearcher,
-          clock: clock,
-          pathChecker:
-              pathChecker ??
-              (_, _) async => const UploadPathCheckResult(success: true),
-          uploader: uploader,
-        ),
+    MaterialApp(
+      debugShowCheckedModeBanner: false,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      locale: const Locale('en'),
+      theme: ThemeData(useMaterial3: true),
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(
+          context,
+        ).copyWith(textScaler: TextScaler.linear(textScale)),
+        child: child!,
+      ),
+      home: AdminUploadScreen(
+        libraries: libraries,
+        apiService: apiService,
+        canUpload: canUpload,
+        onUploadComplete: onUploadComplete,
+        filePicker: () async => files,
+        pathChecker:
+            pathChecker ??
+            (_, _) async => const UploadPathCheckResult(success: true),
+        uploader: uploader,
       ),
     ),
   );
@@ -126,126 +94,35 @@ String _author(WidgetTester tester) => tester
     .controller!
     .text;
 
-String _series(WidgetTester tester) => tester
-    .widget<TextFormField>(find.byKey(AdminUploadScreen.seriesFieldKey))
-    .controller!
-    .text;
-
-/// Taps without settling first, for when a progress indicator is spinning.
-Future<void> _tapNoSettle(WidgetTester tester, Key key) async {
-  await tester.ensureVisible(find.byKey(key));
-  await tester.pump();
-  await tester.tap(find.byKey(key));
-  await tester.pump();
-  await tester.pump();
-}
-
 void main() {
-  testWidgets('capture import screen with the production dark theme', (
-    tester,
-  ) async {
-    const fontDir = String.fromEnvironment('FLUTTER_TEST_FONTS');
-    await tester.runAsync(() async {
-      final roboto = FontLoader('Roboto');
-      for (final name in ['regular', 'medium', 'bold']) {
-        roboto.addFont(
-          File(
-            '$fontDir/roboto-$name.ttf',
-          ).readAsBytes().then(ByteData.sublistView),
-        );
-      }
-      await roboto.load();
-      final monospace = FontLoader('monospace')
-        ..addFont(
-          File(
-            '$fontDir/roboto-regular.ttf',
-          ).readAsBytes().then(ByteData.sublistView),
-        );
-      await monospace.load();
-      final icons = FontLoader('MaterialIcons')
-        ..addFont(
-          File(
-            '$fontDir/materialicons-regular.otf',
-          ).readAsBytes().then(ByteData.sublistView),
-        );
-      await icons.load();
-    });
-    late ThemeData theme;
-    await tester.pumpWidget(
-      Builder(
-        builder: (context) {
-          // Build the production theme without mounting AuthGate or starting
-          // application services. This fixture never reads accounts or settings.
-          final builder = const AbsorbApp().build(context) as ListenableBuilder;
-          final app = builder.builder(context, null) as MaterialApp;
-          theme = app.darkTheme!;
-          return const SizedBox();
-        },
-      ),
-    );
-    await tester.pumpWidget(const SizedBox());
-    final captureKey = GlobalKey();
-    await _render(
-      tester,
-      files: [_file('The Example Book.m4b'), _file('cover.jpg')],
-      uploader: (_, {onProgress}) async =>
-          const MediaUploadResult(success: true),
-      theme: theme,
-      captureKey: captureKey,
-    );
-    await _tap(tester, AdminUploadScreen.libationGuideKey);
-    await _tap(tester, AdminUploadScreen.libationFilesKey);
-    await _clearToasts(tester);
-    Future<void> capture(String name, Key target) async {
-      await tester.ensureVisible(find.byKey(target));
-      await tester.pumpAndSettle();
-      final boundary =
-          captureKey.currentContext!.findRenderObject()!
-              as RenderRepaintBoundary;
-      await tester.runAsync(() async {
-        final image = await boundary.toImage(pixelRatio: 1);
-        final data = await image.toByteData(format: ui.ImageByteFormat.png);
-        final output = File('build/verification/$name.png');
-        await output.parent.create(recursive: true);
-        await output.writeAsBytes(data!.buffer.asUint8List());
-        image.dispose();
-      });
-      expect(tester.takeException(), isNull);
-    }
-
-    await capture('import-desktop-details', AdminUploadScreen.libraryFieldKey);
-    await capture('import-desktop-files', AdminUploadScreen.submitKey);
-    await tester.binding.setSurfaceSize(const Size(400, 800));
-    await tester.pumpAndSettle();
-    await capture('import-narrow', AdminUploadScreen.libationGuideKey);
-  }, skip: !const bool.fromEnvironment('IMPORT_SCREENSHOTS'));
-
   testWidgets(
-    'export selection filters sidecars and requires explicit upload',
+    'unsupported files are skipped and nothing uploads before Upload',
     (tester) async {
       final requests = <MediaUploadRequest>[];
+      var completedCalls = 0;
       await _render(
         tester,
         files: [
           _file('A Book.m4b'),
           _file('cover.jpg'),
-          _file('AccountsSettings.json'),
           _file('protected.aax'),
         ],
+        onUploadComplete: () => completedCalls++,
         uploader: (request, {onProgress}) async {
           requests.add(request);
           return const MediaUploadResult(success: true);
         },
       );
-      await _tap(tester, AdminUploadScreen.libationGuideKey);
-      await _tap(tester, AdminUploadScreen.libationFilesKey);
+      await _tap(tester, AdminUploadScreen.chooseFilesKey);
       expect(requests, isEmpty);
-      expect(_title(tester), 'A Book');
       expect(find.text('A Book.m4b'), findsOneWidget);
       expect(find.text('cover.jpg'), findsOneWidget);
-      expect(find.text('AccountsSettings.json'), findsNothing);
       expect(find.text('protected.aax'), findsNothing);
       await _clearToasts(tester);
+      await tester.enterText(
+        find.byKey(AdminUploadScreen.titleFieldKey),
+        'A Book',
+      );
       await _tap(tester, AdminUploadScreen.submitKey);
       expect(requests, hasLength(1));
       expect(requests.single.libraryId, 'books');
@@ -255,6 +132,7 @@ void main() {
         'A Book.m4b',
         'cover.jpg',
       ]);
+      expect(completedCalls, 1);
       expect(_title(tester), isEmpty);
       await _clearToasts(tester);
       expect(tester.takeException(), isNull);
@@ -424,7 +302,7 @@ void main() {
     },
   );
 
-  testWidgets('import remains usable in a narrow window with large text', (
+  testWidgets('upload remains usable in a narrow window with large text', (
     tester,
   ) async {
     await _render(
@@ -435,8 +313,7 @@ void main() {
       uploader: (_, {onProgress}) async =>
           const MediaUploadResult(success: true),
     );
-    await _tap(tester, AdminUploadScreen.libationGuideKey);
-    await _tap(tester, AdminUploadScreen.libationFilesKey);
+    await _tap(tester, AdminUploadScreen.chooseFilesKey);
     expect(_title(tester), 'A Book');
     expect(tester.takeException(), isNull);
     await _tap(tester, AdminUploadScreen.submitKey);
@@ -451,7 +328,6 @@ void main() {
       await _render(
         tester,
         canUpload: false,
-        initialLibationExpanded: true,
         files: [_file('A Book.m4b')],
         uploader: (_, {onProgress}) async {
           uploads++;
@@ -463,7 +339,7 @@ void main() {
         find.textContaining('does not have upload permission'),
         findsOneWidget,
       );
-      await _tap(tester, AdminUploadScreen.libationFilesKey);
+      await _tap(tester, AdminUploadScreen.chooseFilesKey);
       await _tap(tester, AdminUploadScreen.submitKey);
       expect(uploads, 0);
       await _clearToasts(tester);
@@ -476,7 +352,6 @@ void main() {
       var pathForbidden = true;
       await _render(
         tester,
-        initialLibationExpanded: true,
         files: [_file('A Book.m4b')],
         pathChecker: (_, _) async => pathForbidden
             ? const UploadPathCheckResult(
@@ -491,7 +366,7 @@ void main() {
           error: 'Forbidden',
         ),
       );
-      await _tap(tester, AdminUploadScreen.libationFilesKey);
+      await _tap(tester, AdminUploadScreen.chooseFilesKey);
       await _tap(tester, AdminUploadScreen.submitKey);
       expect(
         find.textContaining('does not have upload permission'),
@@ -528,7 +403,6 @@ void main() {
         tester,
         libraries: const [],
         apiService: api,
-        initialLibationExpanded: true,
         files: [_file('A Book.m4b')],
         uploader: (_, {onProgress}) async =>
             const MediaUploadResult(success: true),
@@ -539,605 +413,70 @@ void main() {
   );
 
   testWidgets(
-    'folder import and multi-book output scan populate details and require explicit upload',
+    'adding to an existing book keeps its title and author when files are chosen',
     (tester) async {
-      final uploaded = <MediaUploadRequest>[];
-      var completedCalls = 0;
-      await _render(
-        tester,
-        initialLibationExpanded: true,
-        showDesktopLibationControls: true,
-        files: const [],
-        onUploadComplete: () => completedCalls++,
-        directoryPicker: () async => '/exports/LibationBooks',
-        directoryScanner: (dir) async {
-          expect(dir, '/exports/LibationBooks');
-          return [
-            LibationBookCandidate(
-              directoryPath: '/exports/LibationBooks/Author One/Book Alpha',
-              title: 'Book Alpha',
-              author: 'Author One',
-              files: [_file('01.mp3'), _file('02.mp3'), _file('cover.jpg')],
-              skippedFilesCount: 1,
-            ),
-            LibationBookCandidate(
-              directoryPath: '/exports/LibationBooks/Author Two/Book Beta',
-              title: 'Book Beta',
-              author: 'Author Two',
-              files: [_file('Book Beta.m4b')],
-            ),
-          ];
+      final existingItem = {
+        'id': 'existing-1',
+        'folderId': 'folder',
+        'relPath': 'Existing Author/Existing Book',
+        'media': {
+          'metadata': {
+            'title': 'Existing Book',
+            'authorName': 'Existing Author',
+          },
         },
-        uploader: (request, {onProgress}) async {
-          uploaded.add(request);
-          return const MediaUploadResult(success: true, statusCode: 200);
-        },
+      };
+      final client = MockClient((request) async {
+        final path = request.url.path;
+        if (path == '/api/libraries/books/items') {
+          return http.Response(
+            jsonEncode({
+              'results': [existingItem],
+              'total': 1,
+            }),
+            200,
+          );
+        }
+        if (path == '/api/items/existing-1') {
+          return http.Response(jsonEncode(existingItem), 200);
+        }
+        return http.Response('{}', 200);
+      });
+      addTearDown(client.close);
+      final api = ApiService(
+        baseUrl: 'https://example.invalid',
+        token: 'fake',
+        httpClient: client,
       );
-
-      await _tap(tester, AdminUploadScreen.libationFolderKey);
-      await tester.pumpAndSettle();
-      expect(find.text('Choose exported audiobook'), findsOneWidget);
-      expect(find.text('Book Alpha'), findsOneWidget);
-      expect(find.text('Book Beta'), findsOneWidget);
-
-      await tester.tap(find.text('Book Alpha'));
-      await tester.pumpAndSettle();
-      await _clearToasts(tester);
-
-      expect(uploaded, isEmpty);
-      expect(_title(tester), 'Book Alpha');
-      expect(_author(tester), 'Author One');
-      expect(find.text('01.mp3'), findsOneWidget);
-      expect(find.text('02.mp3'), findsOneWidget);
-      expect(find.text('cover.jpg'), findsOneWidget);
-
-      await _tap(tester, AdminUploadScreen.submitKey);
-      expect(uploaded, hasLength(1));
-      expect(uploaded.single.title, 'Book Alpha');
-      expect(uploaded.single.author, 'Author One');
-      expect(completedCalls, 1);
-      await _clearToasts(tester);
-    },
-  );
-
-  testWidgets(
-    'choosing another scanned book replaces the auto-filled author only',
-    (tester) async {
-      final candidates = [
-        LibationBookCandidate(
-          directoryPath: '/exports/Author One/Book Alpha',
-          title: 'Book Alpha',
-          author: 'Author One',
-          files: [_file('Book Alpha.m4b')],
-        ),
-        LibationBookCandidate(
-          directoryPath: '/exports/Book Beta',
-          title: 'Book Beta',
-          files: [_file('Book Beta.m4b')],
-        ),
-      ];
       await _render(
         tester,
-        initialLibationExpanded: true,
-        files: const [],
-        directoryPicker: () async => '/exports',
-        directoryScanner: (_) async => candidates,
+        apiService: api,
+        files: [_file('part 1.mp3'), _file('part 2.mp3')],
         uploader: (_, {onProgress}) async =>
             const MediaUploadResult(success: true),
       );
 
-      Future<void> choose(String title) async {
-        await _tap(tester, AdminUploadScreen.libationFolderKey);
-        await tester.pumpAndSettle();
-        await tester.tap(find.text(title).last);
-        await tester.pumpAndSettle();
-      }
-
-      await choose('Book Alpha');
-      expect(_author(tester), 'Author One');
-
-      await choose('Book Beta');
-      expect(_title(tester), 'Book Beta');
-      expect(_author(tester), isEmpty);
-
-      await tester.enterText(
-        find.byKey(AdminUploadScreen.authorFieldKey),
-        'Typed Author',
-      );
-      await choose('Book Alpha');
-      expect(_title(tester), 'Book Alpha');
-      expect(_author(tester), 'Typed Author');
-      await _clearToasts(tester);
-    },
-  );
-
-  testWidgets('a failing folder scan reports an error and stays usable', (
-    tester,
-  ) async {
-    final scan = Completer<List<LibationBookCandidate>>();
-    await _render(
-      tester,
-      initialLibationExpanded: true,
-      files: const [],
-      directoryPicker: () async => '/exports',
-      directoryScanner: (_) => scan.future,
-      uploader: (_, {onProgress}) async =>
-          const MediaUploadResult(success: true),
-    );
-
-    await _tap(tester, AdminUploadScreen.libationFolderKey);
-    await tester.pump();
-    expect(
-      find.byKey(AdminUploadScreen.libationScanProgressKey),
-      findsOneWidget,
-    );
-    ButtonStyleButton button(Key key) =>
-        tester.widget<ButtonStyleButton>(find.byKey(key));
-    expect(button(AdminUploadScreen.libationFolderKey).onPressed, isNull);
-    expect(button(AdminUploadScreen.submitKey).onPressed, isNull);
-
-    scan.completeError(const FileSystemException('denied'));
-    await tester.pumpAndSettle();
-    expect(find.byKey(AdminUploadScreen.libationScanProgressKey), findsNothing);
-    expect(find.text("Couldn't open the selected files."), findsWidgets);
-    expect(button(AdminUploadScreen.libationFolderKey).onPressed, isNotNull);
-    await _clearToasts(tester);
-  });
-
-  testWidgets(
-    'explicit Libation launcher configures and launches user-selected executable',
-    (tester) async {
-      final launched = <String>[];
-      await _render(
-        tester,
-        initialLibationExpanded: true,
-        showDesktopLibationControls: true,
-        files: const [],
-        executablePicker: () async => r'C:\Libation\Libation.exe',
-        executableLauncher: (path) async {
-          launched.add(path);
-          return true;
-        },
-        uploader: (_, {onProgress}) async =>
-            const MediaUploadResult(success: true),
-      );
-      expect(launched, isEmpty);
-      await _tap(tester, AdminUploadScreen.libationLaunchKey);
-      await tester.pumpAndSettle();
-      expect(launched, [r'C:\Libation\Libation.exe']);
-    },
-  );
-
-  group('Libation download tracking', () {
-    final now = DateTime(2026, 10, 29, 12);
-    LibationBookCandidate book(String title, DateTime modified) =>
-        LibationBookCandidate(
-          directoryPath: '/out/$title [B0${title.length}ABCDEFG]',
-          title: title,
-          files: [_file('$title.m4b')],
-          modified: modified,
-        );
-
-    testWidgets(
-      'offers new downloads, tags them in the picker, and records the upload',
-      (tester) async {
-        final scans = <String>[];
-        final candidates = [
-          book('Fresh Book', now.subtract(const Duration(hours: 2))),
-          book('Old Book', now.subtract(const Duration(days: 40))),
-          book('Uploaded Book', now.subtract(const Duration(hours: 5))),
-        ];
-        final uploaded = <MediaUploadRequest>[];
-        await _render(
-          tester,
-          showDesktopLibationControls: true,
-          files: const [],
-          clock: () => now,
-          prefs: {
-            kLibationOutputFolderPref: '/out',
-            kLibationImportedFoldersPref: [
-              libationFolderKey(candidates[2].directoryPath),
-            ],
-          },
-          directoryScanner: (dir) async {
-            scans.add(dir);
-            return candidates;
-          },
-          uploader: (request, {onProgress}) async {
-            uploaded.add(request);
-            return const MediaUploadResult(success: true, statusCode: 200);
-          },
-        );
-
-        // Only the recent, not-yet-imported export counts as new, and the
-        // collapsed card's subtitle says so.
-        expect(scans, ['/out']);
-        expect(
-          find.text('1 new Libation download ready to import'),
-          findsOneWidget,
-        );
-
-        await tester.tap(find.byKey(AdminUploadScreen.libationGuideKey));
-        await tester.pumpAndSettle();
-        await _tap(tester, AdminUploadScreen.libationReviewNewKey);
-        await tester.pumpAndSettle();
-        expect(find.textContaining('New · '), findsOneWidget);
-        expect(find.textContaining('Imported · '), findsOneWidget);
-
-        await tester.tap(find.text('Fresh Book'));
-        await tester.pumpAndSettle();
-        await _clearToasts(tester);
-        expect(
-          find.text('1 new Libation download ready to import'),
-          findsNothing,
-        );
-        expect(uploaded, isEmpty);
-
-        await _tap(tester, AdminUploadScreen.submitKey);
-        await tester.pumpAndSettle();
-        expect(uploaded.single.title, 'Fresh Book');
-        final prefs = await SharedPreferences.getInstance();
-        expect(
-          prefs.getStringList(kLibationImportedFoldersPref),
-          contains(libationFolderKey(candidates[0].directoryPath)),
-        );
-        expect(prefs.getInt(kLibationLastSeenExportPref), isNotNull);
-        await _clearToasts(tester);
-      },
-    );
-
-    testWidgets('picker search filters a long export list', (tester) async {
-      final candidates = [
-        for (var i = 0; i < 10; i++)
-          book('Book $i', now.subtract(Duration(days: i))),
-        book('Project Hail Mary', now.subtract(const Duration(days: 20))),
-      ];
-      await _render(
-        tester,
-        initialLibationExpanded: true,
-        files: const [],
-        clock: () => now,
-        directoryPicker: () async => '/out',
-        directoryScanner: (_) async => candidates,
-        uploader: (_, {onProgress}) async =>
-            const MediaUploadResult(success: true),
-      );
-      await _tap(tester, AdminUploadScreen.libationFolderKey);
+      await tester.tap(find.text('Add to an existing book'));
       await tester.pumpAndSettle();
       await tester.enterText(
-        find.byKey(AdminUploadScreen.libationPickerSearchKey),
-        'hail',
+        find.widgetWithText(TextField, 'Search this library'),
+        'Existing',
       );
+      await tester.pump(const Duration(milliseconds: 500));
       await tester.pumpAndSettle();
-      expect(find.text('Project Hail Mary'), findsOneWidget);
-      expect(find.text('Book 1'), findsNothing);
-
-      await tester.enterText(
-        find.byKey(AdminUploadScreen.libationPickerSearchKey),
-        'zzz',
-      );
+      await tester.tap(find.text('Existing Book'));
       await tester.pumpAndSettle();
-      expect(find.text('No exported books match your search.'), findsOneWidget);
-    });
+      expect(find.text('Adding files to "Existing Book"'), findsOneWidget);
+      expect(_title(tester), 'Existing Book');
+      expect(_author(tester), 'Existing Author');
 
-    testWidgets('warns without blocking when the library has the book', (
-      tester,
-    ) async {
-      final searches = <String>[];
-      final uploaded = <MediaUploadRequest>[];
-      await _render(
-        tester,
-        initialLibationExpanded: true,
-        files: const [],
-        directoryPicker: () async => '/out/Project Hail Mary [B08G9PRS1K]',
-        directoryScanner: (_) async => [
-          LibationBookCandidate(
-            directoryPath: '/out/Project Hail Mary [B08G9PRS1K]',
-            title: 'Project Hail Mary',
-            files: [_file('Project Hail Mary [B08G9PRS1K].m4b')],
-          ),
-        ],
-        librarySearcher: (libraryId, query) async {
-          searches.add('$libraryId:$query');
-          return {
-            'book': [
-              {
-                'libraryItem': {
-                  'media': {
-                    'metadata': {
-                      'title': 'Project Hail Mary: A Novel',
-                      'asin': 'B08G9PRS1K',
-                    },
-                  },
-                },
-              },
-            ],
-          };
-        },
-        uploader: (request, {onProgress}) async {
-          uploaded.add(request);
-          return const MediaUploadResult(success: true);
-        },
-      );
-
-      await _tap(tester, AdminUploadScreen.libationFolderKey);
+      await _tap(tester, AdminUploadScreen.chooseFilesKey);
       await tester.pumpAndSettle();
-      expect(searches, ['books:Project Hail Mary']);
-      expect(
-        find.byKey(AdminUploadScreen.libationDuplicateWarningKey),
-        findsOneWidget,
-      );
-      expect(
-        find.textContaining('"Project Hail Mary: A Novel" is already'),
-        findsOneWidget,
-      );
-
-      await _tap(tester, AdminUploadScreen.submitKey);
-      await tester.pumpAndSettle();
-      expect(uploaded, hasLength(1));
-      expect(
-        find.byKey(AdminUploadScreen.libationDuplicateWarningKey),
-        findsNothing,
-      );
-      await _clearToasts(tester);
-    });
-  });
-
-  group('choosing another Libation book', () {
-    LibationBookCandidate exported(String dir) {
-      final title = dir.split('/').last;
-      return LibationBookCandidate(
-        directoryPath: dir,
-        title: title,
-        author: 'Author of $title',
-        files: [_file('$title.m4b')],
-      );
-    }
-
-    testWidgets(
-      'a late metadata result for the previous book does not change the next',
-      (tester) async {
-        final searches = <String, Completer<List<Map<String, dynamic>>>>{};
-        final folders = ['/exports/Book Alpha', '/exports/Book Beta'];
-        var picks = 0;
-        await _render(
-          tester,
-          initialLibationExpanded: true,
-          files: const [],
-          directoryPicker: () async => folders[picks++],
-          directoryScanner: (dir) async => [exported(dir)],
-          metadataSearcher:
-              ({required title, author, required provider}) =>
-                  (searches[title] = Completer()).future,
-          uploader: (_, {onProgress}) async =>
-              const MediaUploadResult(success: true),
-        );
-        await _tap(tester, AdminUploadScreen.autoMetadataKey);
-        await tester.pumpAndSettle();
-
-        await _tapNoSettle(tester, AdminUploadScreen.libationFolderKey);
-        expect(searches.keys, ['Book Alpha']);
-        await _tapNoSettle(tester, AdminUploadScreen.libationFolderKey);
-        expect(_title(tester), 'Book Beta');
-        expect(_author(tester), 'Author of Book Beta');
-
-        // Book Alpha's search answers only now, after Book Beta was chosen.
-        searches['Book Alpha']!.complete([
-          {
-            'title': 'Alpha (Unabridged)',
-            'author': 'Alpha Metadata Author',
-            'series': 'Alpha Saga',
-          },
-        ]);
-        await tester.pump();
-        expect(_title(tester), 'Book Beta');
-        expect(_author(tester), 'Author of Book Beta');
-        expect(_series(tester), isEmpty);
-
-        // Book Beta's own search still runs and fills its details.
-        expect(searches.keys, ['Book Alpha', 'Book Beta']);
-        searches['Book Beta']!.complete([
-          {
-            'title': 'Beta (Unabridged)',
-            'author': 'Beta Metadata Author',
-            'series': [
-              {'series': 'Beta Saga'},
-            ],
-          },
-        ]);
-        await tester.pumpAndSettle();
-        expect(_title(tester), 'Beta (Unabridged)');
-        expect(_author(tester), 'Beta Metadata Author');
-        expect(_series(tester), 'Beta Saga');
-        await _clearToasts(tester);
-      },
-    );
-
-    testWidgets(
-      'a series filled by metadata is cleared for the next book, a typed one kept',
-      (tester) async {
-        final folders = [
-          '/exports/Book Alpha',
-          '/exports/Book Beta',
-          '/exports/Book Alpha',
-          '/exports/Book Beta',
-        ];
-        var picks = 0;
-        await _render(
-          tester,
-          initialLibationExpanded: true,
-          files: const [],
-          directoryPicker: () async => folders[picks++],
-          directoryScanner: (dir) async => [exported(dir)],
-          metadataSearcher: ({required title, author, required provider}) async =>
-              title == 'Book Alpha'
-              ? [
-                  {
-                    'title': 'Book Alpha',
-                    'author': 'Author of Book Alpha',
-                    'series': 'Alpha Saga',
-                  },
-                ]
-              : const [],
-          uploader: (_, {onProgress}) async =>
-              const MediaUploadResult(success: true),
-        );
-        await _tap(tester, AdminUploadScreen.autoMetadataKey);
-        await tester.pumpAndSettle();
-
-        await _tap(tester, AdminUploadScreen.libationFolderKey);
-        await tester.pumpAndSettle();
-        expect(_series(tester), 'Alpha Saga');
-
-        // Book Beta has no metadata match, so Alpha's series must not stay.
-        await _tap(tester, AdminUploadScreen.libationFolderKey);
-        await tester.pumpAndSettle();
-        await _clearToasts(tester);
-        expect(_title(tester), 'Book Beta');
-        expect(_series(tester), isEmpty);
-
-        await _tap(tester, AdminUploadScreen.libationFolderKey);
-        await tester.pumpAndSettle();
-        expect(_series(tester), 'Alpha Saga');
-        await tester.enterText(
-          find.byKey(AdminUploadScreen.seriesFieldKey),
-          'Typed Series',
-        );
-        await tester.pumpAndSettle();
-
-        await _tap(tester, AdminUploadScreen.libationFolderKey);
-        await tester.pumpAndSettle();
-        await _clearToasts(tester);
-        expect(_title(tester), 'Book Beta');
-        expect(_series(tester), 'Typed Series');
-      },
-    );
-
-    testWidgets(
-      'adding to an existing book keeps its title and author, swaps the files',
-      (tester) async {
-        final existingItem = {
-          'id': 'existing-1',
-          'folderId': 'folder',
-          'relPath': 'Existing Author/Existing Book',
-          'media': {
-            'metadata': {
-              'title': 'Existing Book',
-              'authorName': 'Existing Author',
-            },
-          },
-        };
-        final client = MockClient((request) async {
-          final path = request.url.path;
-          if (path == '/api/libraries/books/items') {
-            return http.Response(
-              jsonEncode({
-                'results': [existingItem],
-                'total': 1,
-              }),
-              200,
-            );
-          }
-          if (path == '/api/items/existing-1') {
-            return http.Response(jsonEncode(existingItem), 200);
-          }
-          return http.Response('{}', 200);
-        });
-        addTearDown(client.close);
-        final api = ApiService(
-          baseUrl: 'https://example.invalid',
-          token: 'fake',
-          httpClient: client,
-        );
-        await _render(
-          tester,
-          apiService: api,
-          initialLibationExpanded: true,
-          files: const [],
-          directoryPicker: () async => '/exports/Libation Title',
-          directoryScanner: (dir) async => [
-            LibationBookCandidate(
-              directoryPath: dir,
-              title: 'Libation Title',
-              author: 'Libation Author',
-              files: [_file('part 1.mp3'), _file('part 2.mp3')],
-            ),
-          ],
-          uploader: (_, {onProgress}) async =>
-              const MediaUploadResult(success: true),
-        );
-
-        await tester.tap(find.text('Add to an existing book'));
-        await tester.pumpAndSettle();
-        await tester.enterText(
-          find.widgetWithText(TextField, 'Search this library'),
-          'Existing',
-        );
-        await tester.pump(const Duration(milliseconds: 500));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Existing Book'));
-        await tester.pumpAndSettle();
-        expect(find.text('Adding files to "Existing Book"'), findsOneWidget);
-        expect(_title(tester), 'Existing Book');
-        expect(_author(tester), 'Existing Author');
-
-        await _tap(tester, AdminUploadScreen.libationFolderKey);
-        await tester.pumpAndSettle();
-        expect(find.text('part 1.mp3'), findsOneWidget);
-        expect(find.text('part 2.mp3'), findsOneWidget);
-        expect(_title(tester), 'Existing Book');
-        expect(_author(tester), 'Existing Author');
-        expect(find.text('Adding files to "Existing Book"'), findsOneWidget);
-        await _clearToasts(tester);
-      },
-    );
-  });
-
-  testWidgets(
-    'only scanning the saved output folder marks Libation exports as seen',
-    (tester) async {
-      final now = DateTime(2026, 10, 29, 12);
-      final modified = now.subtract(const Duration(hours: 1));
-      final scans = <String>[];
-      await _render(
-        tester,
-        initialLibationExpanded: true,
-        showDesktopLibationControls: true,
-        files: const [],
-        clock: () => now,
-        prefs: {kLibationOutputFolderPref: '/out'},
-        directoryPicker: () async => '/elsewhere',
-        directoryScanner: (dir) async {
-          scans.add(dir);
-          return [
-            LibationBookCandidate(
-              directoryPath: '$dir/Some Book',
-              title: 'Some Book',
-              files: [_file('Some Book.m4b')],
-              modified: modified,
-            ),
-          ];
-        },
-        uploader: (_, {onProgress}) async =>
-            const MediaUploadResult(success: true),
-      );
-      final prefs = await SharedPreferences.getInstance();
-      expect(scans, ['/out']); // the quiet startup check marks nothing
-      expect(prefs.getInt(kLibationLastSeenExportPref), isNull);
-
-      await _tap(tester, AdminUploadScreen.libationFolderKey);
-      await tester.pumpAndSettle();
-      expect(scans.last, '/elsewhere');
-      expect(_title(tester), 'Some Book');
-      expect(prefs.getInt(kLibationLastSeenExportPref), isNull);
-
-      await _tap(tester, AdminUploadScreen.libationScanOutputFolderKey);
-      await tester.pumpAndSettle();
-      expect(scans.last, '/out');
-      expect(
-        prefs.getInt(kLibationLastSeenExportPref),
-        modified.millisecondsSinceEpoch,
-      );
+      expect(find.text('part 1.mp3'), findsOneWidget);
+      expect(find.text('part 2.mp3'), findsOneWidget);
+      expect(_title(tester), 'Existing Book');
+      expect(_author(tester), 'Existing Author');
+      expect(find.text('Adding files to "Existing Book"'), findsOneWidget);
       await _clearToasts(tester);
     },
   );

@@ -35,7 +35,6 @@ Releases marked **pre-release** are betas. The app checks for updates and tells 
 - **Choose your look.** Standard (today's look), Frosted (soft frosted-glass panels, in three glass strengths) or Midnight (true black with thin outlines). *Look details* switches bring back touches of the first Windows version. Every choice shows a live preview of the real app, and **Try it** lets you walk around in a look before keeping it. Pick in *Settings › Appearance › UI theme*.
 - **Keyboard first on desktop.** Play, seek, speed, search and navigation all have shortcuts (below), and the header controls work with Tab and Enter.
 - **Smooth scrolling** with a mouse wheel, without changing how touch scrolling feels.
-- **Libation import.** Upload books you exported with [Libation](https://github.com/rmcrackan/Libation) straight to your server (details below).
 - **Fewer surprises.** Crash fixes after leaving a screen mid-load; offline listening time that waits for the server instead of being dropped; multi-disc books that download every track; download names that work on Windows; and failures in sync, downloads and sign-in written to the log (without passwords or tokens) so problems can be tracked down.
 - **Lighter when idle.** The app no longer redraws non-stop while nothing is happening.
 - **Updates from this project.** Settings › *Check for update*, with an optional beta channel.
@@ -70,16 +69,6 @@ Shortcuts without <kbd>Ctrl</kbd> only act when you're not typing in a text fiel
   &nbsp;
   <img src="screenshots/details.png" width="200" alt="Book details">
 </p>
-
-## Libation import
-
-If you already have audiobooks exported with Libation, Absorb Plus can upload them to your Audiobookshelf server: *Settings › Advanced › Import Libation exports* (also under *Manage › Upload*).
-
-- Scan your Libation folder (newest first, with **New** and **Imported** tags), or pick a book folder or files directly.
-- Check the title and destination, then press **Upload**. Nothing is uploaded without that.
-- The app warns when a book is already in your library and tells you when the server has finished indexing it.
-
-Absorb Plus does **not** sign in to Audible, store Audible credentials, remove DRM or download protected content. It only uploads files you already exported. Books are uploaded one at a time; see [import verification](docs/IMPORT-VERIFICATION.md) for details and limits.
 
 ## Building from source
 
