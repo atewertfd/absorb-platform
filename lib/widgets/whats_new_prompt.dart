@@ -2,18 +2,17 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../build_info.dart';
-import '../l10n/app_localizations.dart';
+import '../services/whats_new_notes.dart';
 import 'welcome_sheet.dart';
+import 'whats_new_sheet.dart';
 
 /// The release tag of a build. Fork releases, stable ones included, are
 /// always tagged `vX.Y.Z-N` (see .github/workflows/release.yml).
-@visibleForTesting
 String whatsNewReleaseTag(String version, int build) => 'v$version-$build';
 
-/// After an update, offers the GitHub release notes for the new build.
+/// After an update, shows the new build's release notes ([WhatsNewSheet]).
 class WhatsNewPrompt {
   static const _lastBuildKey = 'whats_new_last_build';
   static const _enabledKey = 'whats_new_enabled';
@@ -38,58 +37,16 @@ class WhatsNewPrompt {
     if (build == null) return;
     final lastBuild = prefs.getInt(_lastBuildKey);
     await prefs.setInt(_lastBuildKey, build);
+    final previous = await WhatsNewHistory.record(prefs,
+        version: info.version, build: build,
+        beta: betaNumberFor(info.version), lastBuild: lastBuild);
     if (freshInstall || (lastBuild != null && build <= lastBuild)) return;
     if (prefs.getBool(_enabledKey) == false) return;
-
-    final beta = betaNumberFor(info.version);
-    final tag = whatsNewReleaseTag(info.version, build);
-    final url = Uri.parse('https://github.com/atewertfd/absorb-platform/releases/tag/$tag');
 
     // Let launch settle so this doesn't land on top of the first frames.
     await Future.delayed(const Duration(milliseconds: 1200));
     if (!context.mounted) return;
-    final l = AppLocalizations.of(context)!;
-    final version =
-        beta == null ? info.version : '${info.version} (${l.betaLabel(beta)})';
-    var keepShowing = true;
-    final open = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l.whatsNewTitle),
-        content: StatefulBuilder(
-          builder: (ctx, setDialogState) => Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(l.whatsNewContent(version)),
-              const SizedBox(height: 12),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(l.whatsNewKeepShowing),
-                subtitle: Text(l.whatsNewKeepShowingHint),
-                value: keepShowing,
-                onChanged: (v) {
-                  setDialogState(() => keepShowing = v);
-                  setEnabled(v);
-                },
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(l.later),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(l.whatsNewButton),
-          ),
-        ],
-      ),
-    );
-    if (open == true) {
-      await launchUrl(url, mode: LaunchMode.externalApplication);
-    }
+    await WhatsNewSheet.show(context,
+        version: info.version, build: build, previous: previous);
   }
 }

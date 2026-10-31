@@ -64,6 +64,7 @@ import '../widgets/tips_sheet.dart';
 import '../widgets/feature_hint.dart';
 import '../widgets/welcome_sheet.dart';
 import '../widgets/whats_new_prompt.dart';
+import '../widgets/whats_new_sheet.dart';
 import '../ui_themes/ui_theme_picker.dart';
 import '../ui_themes/ui_theme_hooks.dart';
 import '../widgets/rmab_config_sheet.dart';
@@ -4559,6 +4560,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         // restart. resetAll() already cleared the flag.
                         WelcomeSheet.showIfNeeded(context);
                       },
+                    ),
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                    ListTile(
+                      leading: Icon(Icons.auto_awesome_outlined, color: cs.onSurfaceVariant),
+                      title: Text(l.settingsSeeWhatsNew),
+                      subtitle: Text(l.settingsSeeWhatsNewSubtitle,
+                          style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () => WhatsNewSheet.showForInstalledVersion(context),
                     ),
                     const Divider(height: 1, indent: 16, endIndent: 16),
                     SwitchListTile(

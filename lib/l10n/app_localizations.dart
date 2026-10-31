@@ -307,7 +307,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsWhatsNewSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'After Absorb updates, a popup links to the release notes'**
+  /// **'After an update, show what\'s new in the app'**
   String get settingsWhatsNewSubtitle;
 
   /// No description provided for @gotIt.
@@ -21980,6 +21980,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Strong'**
   String get uiThemeGlassStrong;
+
+  /// Title of the in-app release notes; name is e.g. 'Beta 11' or a version
+  ///
+  /// In en, this message translates to:
+  /// **'What\'s new in {name}'**
+  String whatsNewSheetTitle(String name);
+
+  /// Under the release notes title; name is the previous build, e.g. 'Beta 10'
+  ///
+  /// In en, this message translates to:
+  /// **'Updated from {name}'**
+  String whatsNewUpdatedFrom(String name);
+
+  /// Names a previous build when only its build number is known
+  ///
+  /// In en, this message translates to:
+  /// **'build {number}'**
+  String whatsNewBuildLabel(int number);
+
+  /// No description provided for @whatsNewFullNotes.
+  ///
+  /// In en, this message translates to:
+  /// **'Full notes on GitHub'**
+  String get whatsNewFullNotes;
+
+  /// No description provided for @whatsNewLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading what\'s new'**
+  String get whatsNewLoading;
+
+  /// No description provided for @whatsNewLoadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load the notes'**
+  String get whatsNewLoadFailed;
+
+  /// No description provided for @whatsNewLoadFailedHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Check your connection, or read them on GitHub.'**
+  String get whatsNewLoadFailedHint;
+
+  /// No description provided for @whatsNewOpenGitHub.
+  ///
+  /// In en, this message translates to:
+  /// **'Open on GitHub'**
+  String get whatsNewOpenGitHub;
+
+  /// No description provided for @settingsSeeWhatsNew.
+  ///
+  /// In en, this message translates to:
+  /// **'See what\'s new'**
+  String get settingsSeeWhatsNew;
+
+  /// No description provided for @settingsSeeWhatsNewSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'The release notes for this version'**
+  String get settingsSeeWhatsNewSubtitle;
 }
 
 class _AppLocalizationsDelegate

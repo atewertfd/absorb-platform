@@ -36,7 +36,7 @@
   "whatsNewKeepShowing": "Show this after every update",
   "whatsNewKeepShowingHint": "You can turn it back on in Settings",
   "settingsWhatsNew": "Show what's new after updates",
-  "settingsWhatsNewSubtitle": "After Absorb updates, a popup links to the release notes",
+  "settingsWhatsNewSubtitle": "After an update, show what's new in the app",
   "gotIt": "Got it",
   "betaLoggingTitle": "Logs are on",
   "betaLoggingContent": "Since this is a beta, Absorb now keeps logs to help track down problems. They stay on this device unless you share them.\n\nYou can send them or turn them off in Settings, under Issues & Support. If you turn them off, later betas leave them off.",
@@ -7101,5 +7101,39 @@
   "uiThemeGlassStrong": "Strong",
   "@uiThemeGlassStrong": {
     "description": "Glass strength: more see-through, more blur"
-  }
+  },
+  "whatsNewSheetTitle": "What's new in {name}",
+  "@whatsNewSheetTitle": {
+    "description": "Title of the in-app release notes; name is e.g. 'Beta 11' or a version",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "whatsNewUpdatedFrom": "Updated from {name}",
+  "@whatsNewUpdatedFrom": {
+    "description": "Under the release notes title; name is the previous build, e.g. 'Beta 10'",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "whatsNewBuildLabel": "build {number}",
+  "@whatsNewBuildLabel": {
+    "description": "Names a previous build when only its build number is known",
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "whatsNewFullNotes": "Full notes on GitHub",
+  "whatsNewLoading": "Loading what's new",
+  "whatsNewLoadFailed": "Couldn't load the notes",
+  "whatsNewLoadFailedHint": "Check your connection, or read them on GitHub.",
+  "whatsNewOpenGitHub": "Open on GitHub",
+  "settingsSeeWhatsNew": "See what's new",
+  "settingsSeeWhatsNewSubtitle": "The release notes for this version"
 }

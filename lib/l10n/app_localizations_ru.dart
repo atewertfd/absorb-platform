@@ -110,7 +110,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get settingsWhatsNewSubtitle =>
-      'After Absorb updates, a popup links to the release notes';
+      'After an update, show what\'s new in the app';
 
   @override
   String get gotIt => 'Got it';
@@ -12948,4 +12948,42 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get uiThemeGlassStrong => 'Strong';
+
+  @override
+  String whatsNewSheetTitle(String name) {
+    return 'What\'s new in $name';
+  }
+
+  @override
+  String whatsNewUpdatedFrom(String name) {
+    return 'Updated from $name';
+  }
+
+  @override
+  String whatsNewBuildLabel(int number) {
+    return 'build $number';
+  }
+
+  @override
+  String get whatsNewFullNotes => 'Full notes on GitHub';
+
+  @override
+  String get whatsNewLoading => 'Loading what\'s new';
+
+  @override
+  String get whatsNewLoadFailed => 'Couldn\'t load the notes';
+
+  @override
+  String get whatsNewLoadFailedHint =>
+      'Check your connection, or read them on GitHub.';
+
+  @override
+  String get whatsNewOpenGitHub => 'Open on GitHub';
+
+  @override
+  String get settingsSeeWhatsNew => 'See what\'s new';
+
+  @override
+  String get settingsSeeWhatsNewSubtitle =>
+      'The release notes for this version';
 }
