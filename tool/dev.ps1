@@ -168,6 +168,12 @@ function Update-BetaFolder {
   robocopy $src $dst /E /R:1 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null
   if ($LASTEXITCODE -ge 8) { throw "Copy to the beta folder failed (robocopy $LASTEXITCODE)" }
   $global:LASTEXITCODE = 0
+  # A debug build leaves a ~120 MB kernel_blob.bin that release builds never
+  # use; the copy above never deletes, so drop it from both folders.
+  foreach ($dir in @($src, $dst)) {
+    $blob = Join-Path $dir 'data\flutter_assets\kernel_blob.bin'
+    if (Test-Path -LiteralPath $blob -PathType Leaf) { Remove-Item -LiteralPath $blob -Force }
+  }
   Write-BetaNotes
   Write-Host "beta folder: $dst ($((Get-Item $dstExe).VersionInfo.ProductVersion))" -ForegroundColor Green
 }
@@ -234,11 +240,11 @@ switch ($Command) {
   'apk' {
     # A signed phone-test APK into the beta folder. -Local builds it on this
     # PC (needs the Android SDK and android\key.properties, made once by the
-    # owner with toolndroid-signing-setup.ps1); otherwise CI builds it for
+    # owner with tool\android-signing-setup.ps1); otherwise CI builds it for
     # the current branch (~9 minutes). Run either in the background.
     if ($Local) {
       if (-not (Test-Path 'android\key.properties')) {
-        throw 'No signing setup on this PC: the owner runs toolndroid-signing-setup.ps1 once.'
+        throw 'No signing setup on this PC: the owner runs tool\android-signing-setup.ps1 once.'
       }
       Invoke-Step -Name 'flutter-pub-get' -Run { & $flutter pub get }
       try {
@@ -248,7 +254,7 @@ switch ($Command) {
       } finally {
         Restore-Generated
       }
-      $apk = Get-ChildItem 'buildpp\outputslutter-apk' -Filter '*github-release*.apk' |
+      $apk = Get-ChildItem 'build\app\outputs\flutter-apk' -Filter '*github-release*.apk' |
         Sort-Object LastWriteTime -Descending | Select-Object -First 1
       if (-not $apk) { throw 'The build produced no APK.' }
       Invoke-Step -Name 'apk-signature' -Run { python tool/ci/verify_apk_signature.py $apk.FullName }
