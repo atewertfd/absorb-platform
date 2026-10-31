@@ -10,7 +10,7 @@ abstract final class ForkBranding {
   /// 2026-10-30): Absorb Plus reports must not reach the upstream developer,
   /// who doesn't ship this build.
   static const String issuesUrl =
-      'https://github.com/atewertfd/absorb-platform/issues';
+      'https://github.com/atewertfd/absorb-plus/issues';
 
   /// Upstream's Discord is for the original Absorb, so it's hidden.
   static const bool showUpstreamDiscord = false;

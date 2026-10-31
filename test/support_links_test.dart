@@ -95,7 +95,7 @@ void main() {
     await tester.tap(contact);
     await tester.pump();
     expect(opened.single.toString(), ForkBranding.issuesUrl);
-    expect(ForkBranding.issuesUrl, contains('atewertfd/absorb-platform'));
+    expect(ForkBranding.issuesUrl, contains('atewertfd/absorb-plus'));
   });
 
   testWidgets('Transcription settings are hidden on Windows',

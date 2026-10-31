@@ -1,6 +1,6 @@
 ---
 name: release
-description: Publish an Absorb Plus beta (or prepare a stable release) on the fork atewertfd/absorb-platform — version bump, checks, build, tag, CI release, asset verification. Use when a batch of work is ready to ship or the owner asks to publish.
+description: Publish an Absorb Plus beta (or prepare a stable release) on the fork atewertfd/absorb-plus — version bump, checks, build, tag, CI release, asset verification. Use when a batch of work is ready to ship or the owner asks to publish.
 ---
 
 # Release
@@ -16,14 +16,14 @@ description: Publish an Absorb Plus beta (or prepare a stable release) on the fo
 
 Those betas need the owner's OK, and so does **every stable release** (an even patch number). The pre-shell hook enforces the stable rule and that the tag matches pubspec.
 
-Never touch other releases: no deleting, renaming, or changing which one is Latest without the owner's OK. Inspect first with `gh release list --repo atewertfd/absorb-platform`.
+Never touch other releases: no deleting, renaming, or changing which one is Latest without the owner's OK. Inspect first with `gh release list --repo atewertfd/absorb-plus`.
 
 ## Steps
 
 0. **Is a release due?** Releases are batched; see CLAUDE.md. Publish only for something broken or unusable, or for a medium batch of changes, roughly at most every 1–2 weeks. Otherwise just push and rebuild the owner's test folder.
 1. **Preflight.**
    - The worktree is clean, and the branch is pushed to `fork`.
-   - CI is green on that commit: `gh run list --repo atewertfd/absorb-platform --branch <branch> --limit 3`. Doc-only commits don't run CI; look at the last code commit.
+   - CI is green on that commit: `gh run list --repo atewertfd/absorb-plus --branch <branch> --limit 3`. Doc-only commits don't run CI; look at the last code commit.
    - `.\tool\dev.ps1 check` passes.
 2. **Version.** Run `.\tool\dev.ps1 bump` (build number only) and commit it as `chore: bump build identifier to X.Y.Z+N (Beta K)`. `K` is the current `kBetaNumber`, the beta being published. Odd patch means beta; even patch means stable.
    - **After the release is published and verified,** run `.\tool\dev.ps1 bump -NextBeta` so local builds name the next beta.

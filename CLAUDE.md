@@ -2,7 +2,7 @@
 
 # Claude Code: rules for Absorb Plus
 
-Claude is the main and only developer of Absorb Plus, a fork of [pounat/absorb](https://github.com/pounat/absorb) published at [atewertfd/absorb-platform](https://github.com/atewertfd/absorb-platform). The shared conventions are in AGENTS.md (imported above), the code map is `docs/ARCHITECTURE.md`, and procedures are skills (below).
+Claude is the main and only developer of Absorb Plus, a fork of [pounat/absorb](https://github.com/pounat/absorb) published at [atewertfd/absorb-plus](https://github.com/atewertfd/absorb-plus). The shared conventions are in AGENTS.md (imported above), the code map is `docs/ARCHITECTURE.md`, and procedures are skills (below).
 
 **Platforms:** Windows, Android and web are the main focus, with Linux slightly behind. Apple support is removed.
 

@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="../../releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/atewertfd/absorb-platform?include_prereleases&filter=!*pixel*&label=latest&color=5fd0c0"></a>
+  <a href="../../releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/atewertfd/absorb-plus?include_prereleases&filter=!*pixel*&label=latest&color=5fd0c0"></a>
   <img alt="Platforms" src="https://img.shields.io/badge/platforms-Windows%20%7C%20Android%20%7C%20Linux%20%7C%20Web-101014">
   <a href="LICENSE"><img alt="License: GPL v3" src="https://img.shields.io/badge/license-GPLv3-101014"></a>
 </p>
@@ -24,7 +24,7 @@ Absorb Plus is an unofficial edition of [Absorb](https://github.com/pounat/absor
 | **Windows** (x64) | [Installer or portable ZIP](../../releases) | The installer updates in place and keeps your data. |
 | **Android** | [APK](../../releases) | Pick `arm64-v8a` for any recent phone, or `universal` if unsure. Updates install over the previous version. |
 | **Linux** (x64) | [`.deb` or `.tar.gz`](../../releases) | Needs libmpv (`libmpv2` on Ubuntu 24.04, `libmpv1` on 22.04). |
-| **Web** | [Open in your browser](https://atewertfd.github.io/absorb-platform/) | Nothing to install. Your server must allow requests from this site. |
+| **Web** | [Open in your browser](https://atewertfd.github.io/absorb-plus/) | Nothing to install. Your server must allow requests from this site. |
 
 Releases marked **pre-release** are betas. The app checks for updates and tells you when one is ready; it never installs anything on its own.
 

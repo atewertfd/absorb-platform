@@ -224,7 +224,7 @@ void main() {
       final ok = await service.load('v1.12.1-318');
       expect(ok.source, WhatsNewSource.network);
       expect(requests.single.url.toString(),
-          'https://api.github.com/repos/atewertfd/absorb-platform/releases/tags/v1.12.1-318');
+          'https://api.github.com/repos/atewertfd/absorb-plus/releases/tags/v1.12.1-318');
       expect(requests.single.headers['Accept'], 'application/vnd.github.v3+json');
 
       status = 404;

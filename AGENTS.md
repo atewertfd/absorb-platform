@@ -29,7 +29,7 @@ Add or update tests with every behavior change. Inject fakes for network, upload
 
 ## Commits
 
-Use scoped, imperative messages (`fix: …`, `perf: …`, `refactor: …`, `docs: …`). Push only to `atewertfd/absorb-platform`, never upstream.
+Use scoped, imperative messages (`fix: …`, `perf: …`, `refactor: …`, `docs: …`). Push only to `atewertfd/absorb-plus`, never upstream.
 
 ## Product and safety
 

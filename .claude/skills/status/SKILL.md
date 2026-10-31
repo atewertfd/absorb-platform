@@ -13,8 +13,8 @@ git fetch origin --quiet && git fetch fork --quiet
 git rev-list --left-right --count HEAD...fork/$(git rev-parse --abbrev-ref HEAD)   # unpushed / behind
 git rev-list --count HEAD..origin/main                                            # upstream commits not merged
 git log --oneline HEAD..origin/main | head -15
-gh run list --repo atewertfd/absorb-platform --limit 6
-gh release list --repo atewertfd/absorb-platform --limit 5
+gh run list --repo atewertfd/absorb-plus --limit 6
+gh release list --repo atewertfd/absorb-plus --limit 5
 ```
 
 ```powershell

@@ -73,7 +73,7 @@ int? betaNumberFromReleaseNotes(String notes) {
 class UpdateCheckerService {
   // Keep the fork updater on the fork's releases. The distinct application ID
   // prevents Android from offering these APKs as updates to official Absorb.
-  static const _repo = 'atewertfd/absorb-platform';
+  static const _repo = 'atewertfd/absorb-plus';
   static const _checkInterval = Duration(hours: 12);
   static const _dismissedKey = 'update_dismissed_version';
   static const _lastCheckKey = 'update_last_check';

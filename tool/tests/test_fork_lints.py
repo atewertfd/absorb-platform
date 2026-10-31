@@ -115,11 +115,11 @@ class MirrorTests(unittest.TestCase):
 
 class UpstreamTests(unittest.TestCase):
     def test_upstream_remote_is_found_by_url(self):
-        remotes = ("fork\thttps://github.com/atewertfd/absorb-platform.git (fetch)\n"
+        remotes = ("fork\thttps://github.com/atewertfd/absorb-plus.git (fetch)\n"
                    "origin\thttps://github.com/pounat/absorb.git (fetch)\n")
         self.assertEqual(fl.upstream_remote(remotes), "origin")
         self.assertIsNone(fl.upstream_remote(
-            "origin\thttps://github.com/atewertfd/absorb-platform.git (fetch)\n"))
+            "origin\thttps://github.com/atewertfd/absorb-plus.git (fetch)\n"))
         self.assertIsNone(fl.upstream_remote(
             "x\thttps://github.com/pounat/absorb-extras.git (fetch)\n"))
 

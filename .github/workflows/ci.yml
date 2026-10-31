@@ -47,7 +47,7 @@ jobs:
           flutter-version-file: .flutter-version
           cache: true
       - run: flutter pub get
-      - run: flutter build web --release --no-pub --base-href /absorb-platform/
+      - run: flutter build web --release --no-pub --base-href /absorb-plus/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: build/web

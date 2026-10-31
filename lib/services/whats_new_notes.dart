@@ -10,7 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// a small model the What's new sheet renders.
 
 /// The fork's GitHub repo. Same repo as [UpdateCheckerService] uses.
-const whatsNewRepo = 'atewertfd/absorb-platform';
+const whatsNewRepo = 'atewertfd/absorb-plus';
 
 /// The release page for [tag], for "Full notes on GitHub".
 Uri whatsNewReleasePage(String tag) =>

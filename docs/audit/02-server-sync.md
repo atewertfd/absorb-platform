@@ -218,7 +218,7 @@ Line numbers are from this checkout and will drift.
 - **Used by:** `screens/server_health_screen.dart`.
 
 #### `lib/services/update_checker_service.dart`: upstream (+358/-59), 587 lines (mostly fork code)
-- **Purpose:** GitHub release check on `atewertfd/absorb-platform`.
+- **Purpose:** GitHub release check on `atewertfd/absorb-plus`.
   - `releases/latest`, or `releases?per_page=10` when betas are included.
   - In-flight dedupe for automatic and forced checks separately.
   - The cooldown only starts after GitHub answers.

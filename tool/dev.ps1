@@ -272,7 +272,7 @@ switch ($Command) {
       break
     }
     $branch = (git rev-parse --abbrev-ref HEAD).Trim()
-    $repo = 'atewertfd/absorb-platform'
+    $repo = 'atewertfd/absorb-plus'
     $before = (gh run list --repo $repo --workflow ci.yml --branch $branch --limit 1 --json databaseId --jq '.[0].databaseId')
     gh workflow run ci.yml --repo $repo --ref $branch | Out-Null
     $runId = $null

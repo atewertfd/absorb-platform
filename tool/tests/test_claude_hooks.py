@@ -136,7 +136,7 @@ class ShellTests(unittest.TestCase):
         self.assertEqual(self.v("gh release delete v1.0.0 --yes"), h.ASK)
         self.assertEqual(self.v("gh release edit v1 --latest"), h.ASK)
         self.assertEqual(self.v("gh release view v1"), h.ALLOW)
-        self.assertEqual(self.v("gh repo delete atewertfd/absorb-platform"), h.DENY)
+        self.assertEqual(self.v("gh repo delete atewertfd/absorb-plus"), h.DENY)
         self.assertEqual(self.v("git tag -d v1.0.0"), h.ASK)
 
     def test_harmless_commands(self):

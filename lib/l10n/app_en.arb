@@ -7186,5 +7186,11 @@
   "@supportLogsSaveFailed": {"placeholders": {"error": {"type": "String"}}},
   "supportOpenLogsFolder": "Open logs folder",
   "supportOpenLogsFolderSubtitle": "Show the log file in your file manager",
-  "supportOpenLogsFolderFailed": "Couldn't open the logs folder"
+  "supportOpenLogsFolderFailed": "Couldn't open the logs folder",
+  "desktopDownloadFolderOpen": "Open in Explorer",
+  "desktopDownloadFolderOpenLinux": "Open folder",
+  "desktopDownloadFolderOpenFailed": "Couldn't open the folder",
+  "desktopDownloadFolderNotWritable": "Absorb can't save files in that folder. Choose another one.",
+  "desktopDownloadFolderPickFailed": "Couldn't show the folder picker",
+  "desktopDownloadFolderDefault": "Default folder"
 }

@@ -161,7 +161,7 @@ void main() {
       expect(find.text('1.12.1+318'), findsOneWidget);
       await tester.tap(find.text('Open on GitHub'));
       expect(opened, [
-        Uri.parse('https://github.com/atewertfd/absorb-platform/releases/tag/v1.12.1-318'),
+        Uri.parse('https://github.com/atewertfd/absorb-plus/releases/tag/v1.12.1-318'),
       ]);
     });
 
@@ -187,7 +187,7 @@ void main() {
       await tester.tap(find.text('Full notes on GitHub'));
       expect(opened, [
         Uri.parse('https://example.com/guide'),
-        Uri.parse('https://github.com/atewertfd/absorb-platform/releases/tag/v1.12.1-318'),
+        Uri.parse('https://github.com/atewertfd/absorb-plus/releases/tag/v1.12.1-318'),
       ]);
     });
   });
