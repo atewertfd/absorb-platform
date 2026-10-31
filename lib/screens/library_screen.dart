@@ -48,6 +48,7 @@ import '../services/user_account_service.dart';
 import '../l10n/app_localizations.dart';
 import 'smart_scope_editor_screen.dart';
 import '../widgets/new_list_flow.dart';
+import '../widgets/text_scale_room.dart';
 
 /// Responsive grid column count based on available width and the cover size
 /// setting; scales up on tablets/iPads.
@@ -3072,12 +3073,12 @@ class LibraryScreenState extends State<LibraryScreen>
       // (we already wrap the whole NestedScrollView in
       // SafeArea above).
       primary: false,
-      toolbarHeight: _isInSearchMode
+      toolbarHeight: (_isInSearchMode
           ? 156
           : ((_filter != LibraryFilter.none ||
                     _seriesFilter != SeriesFilter.none)
                 ? 204
-                : 192),
+                : 192)) + textScaleRoom(context, 48),
       backgroundColor: scaffoldBg,
       surfaceTintColor: Colors.transparent,
       elevation: 0,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../screens/library_screen.dart';
 import 'library_grid_tiles.dart';
+import 'text_scale_room.dart';
 
 class LibrarySeriesTab extends StatelessWidget {
   final List<Map<String, dynamic>> seriesItems;
@@ -80,7 +81,8 @@ class LibrarySeriesTab extends StatelessWidget {
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, libraryGridBottomPadding),
             sliver: SliverGrid(
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              gridDelegate: LabelRoomGridDelegate(
+                labelRoom: textScaleRoom(context, 30),
                 crossAxisCount: responsiveGridCount(context),
                 childAspectRatio: rectangleCovers ? 0.48 : 0.68,
                 crossAxisSpacing: 10,

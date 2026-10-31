@@ -27,6 +27,7 @@ import '../services/chromecast_service.dart';
 import 'expanded_card.dart';
 import '../main.dart' show colorSourceNotifier, useColorEverywhereNotifier, manualSeedNotifier, manualColorScheme;
 import 'stable_cached_network_image.dart';
+import 'text_scale_room.dart';
 
 class AbsorbingCard extends StatefulWidget {
   final Map<String, dynamic> item;
@@ -863,7 +864,7 @@ class AbsorbingCardState extends State<AbsorbingCard> with AutomaticKeepAliveCli
                     builder: (context, constraints) {
                       final maxW = constraints.maxWidth * 0.85;
                       final rawH = constraints.maxHeight.isFinite ? constraints.maxHeight : maxW;
-                      final maxH = rawH - 24;
+                      final maxH = rawH - 24 - textScaleRoom(context, 14);
                       double coverW, coverH;
                       if (_rectangleCovers) {
                         coverW = maxW;

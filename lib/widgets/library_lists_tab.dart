@@ -3,6 +3,7 @@ import '../l10n/app_localizations.dart';
 import '../screens/library_screen.dart';
 import '../services/server_backend.dart';
 import 'library_grid_tiles.dart';
+import 'text_scale_room.dart';
 
 /// Library "Lists" tab: a stacked-cover grid of all collections and playlists
 /// together (sorted by the screen). Each [entry] carries an injected
@@ -135,7 +136,8 @@ class LibraryListsTab extends StatelessWidget {
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, libraryGridBottomPadding),
             sliver: SliverGrid(
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              gridDelegate: LabelRoomGridDelegate(
+                labelRoom: textScaleRoom(context, 30),
                 crossAxisCount: responsiveGridCount(context),
                 childAspectRatio: coverAspectRatio < 1 ? 0.48 : 0.68,
                 crossAxisSpacing: 10,

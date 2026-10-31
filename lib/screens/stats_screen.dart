@@ -839,12 +839,12 @@ class _StatsScreenState extends State<StatsScreen>
                         if (values[i] > 0)
                           Padding(
                               padding: const EdgeInsets.only(bottom: 4),
-                              child: Text(_formatDuration(values[i]),
+                              child: FittedBox(fit: BoxFit.scaleDown, child: Text(_formatDuration(values[i]),
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                       color: cs.onSurface.withValues(alpha: 0.35),
                                       fontSize: 8,
-                                      fontWeight: FontWeight.w600))),
+                                      fontWeight: FontWeight.w600)))),
                         Container(
                           height: max(
                               (values[i] / barMax * anim).clamp(0.0, 1.0) * 72,
@@ -1641,7 +1641,8 @@ class _StatsScreenState extends State<StatsScreen>
               fontSize: 10,
             )),
         const SizedBox(height: 14),
-        Row(
+        FittedBox(fit: BoxFit.scaleDown, child: Row(
+          mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.baseline,
           textBaseline: TextBaseline.alphabetic,
@@ -1670,7 +1671,7 @@ class _StatsScreenState extends State<StatsScreen>
                     color: cs.onSurface.withValues(alpha: 0.3),
                     fontWeight: FontWeight.w300)),
           ],
-        ),
+        )),
         const SizedBox(height: 10),
         Text(_daysEquivalent(totalSeconds, l, audio: audioOnly),
             style: tt.bodySmall

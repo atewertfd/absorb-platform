@@ -7,6 +7,7 @@ import '../services/audio_player_service.dart';
 import '../services/chapter_lookup.dart';
 import '../services/chromecast_service.dart';
 import 'absorb_slider.dart';
+import 'text_scale_room.dart';
 
 // ─── DUAL PROGRESS BAR (card version) ───────────────────────
 
@@ -415,7 +416,7 @@ class _CardDualProgressBarState extends State<CardDualProgressBar> with WidgetsB
             // Chapter bar
             if (widget.showChapterBar) ...[
             // ── Chapter pill-scrubber ──
-            SizedBox(height: widget.compact ? 22 : 30, child: LayoutBuilder(builder: (_, cons) {
+            SizedBox(height: (widget.compact ? 22 : 30) + textScaleRoom(context, 14), child: LayoutBuilder(builder: (_, cons) {
               final w = cons.maxWidth;
               final p = _chapterDragValue ?? chapterProgress;
               final isDragging = _chapterDragValue != null;

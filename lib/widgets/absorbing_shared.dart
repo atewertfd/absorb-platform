@@ -9,6 +9,7 @@ import '../services/playback_history_service.dart';
 import '../services/player_settings.dart';
 import 'absorb_plus_logo.dart';
 import 'overlay_toast.dart';
+import 'text_scale_room.dart';
 
 String dateLabel(DateTime dt, [AppLocalizations? l]) {
   final now = DateTime.now();
@@ -149,22 +150,24 @@ class CoverPlaceholder extends StatelessWidget {
                           SizedBox(height: pad * 0.6),
                         ],
                         Flexible(
-                          child: Text(title!, textAlign: TextAlign.center,
-                              maxLines: h < 90 ? 2 : 4,
+                          child: LayoutBuilder(builder: (context, c) => Text(title!, textAlign: TextAlign.center,
+                              maxLines: linesThatFit(context, c.maxHeight,
+                                  fontSize: titleSize, lineHeight: 1.15, max: h < 90 ? 2 : 4),
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(fontSize: titleSize,
                                   fontWeight: FontWeight.w600,
-                                  height: 1.15, color: cs.onPrimaryContainer)),
+                                  height: 1.15, color: cs.onPrimaryContainer))),
                         ),
                         if (author != null && author!.isNotEmpty && h > 70) ...[
                           SizedBox(height: pad * 0.35),
                           Flexible(
-                            child: Text(author!, textAlign: TextAlign.center,
-                                maxLines: 2,
+                            child: LayoutBuilder(builder: (context, c) => Text(author!, textAlign: TextAlign.center,
+                                maxLines: linesThatFit(context, c.maxHeight,
+                                    fontSize: authorSize, lineHeight: 1.15, max: 2),
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(fontSize: authorSize,
                                     height: 1.15,
-                                    color: cs.onPrimaryContainer.withValues(alpha: 0.7))),
+                                    color: cs.onPrimaryContainer.withValues(alpha: 0.7)))),
                           ),
                         ],
                       ],

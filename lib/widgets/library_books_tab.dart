@@ -3,6 +3,7 @@ import '../l10n/app_localizations.dart';
 import '../screens/library_screen.dart';
 import 'books_sheet_shared.dart';
 import 'library_grid_tiles.dart';
+import 'text_scale_room.dart';
 
 class LibraryBooksTab extends StatelessWidget {
   final List<Map<String, dynamic>> items;
@@ -213,7 +214,8 @@ class LibraryBooksTab extends StatelessWidget {
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, libraryGridBottomPadding),
             sliver: SliverGrid(
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              gridDelegate: LabelRoomGridDelegate(
+                labelRoom: textScaleRoom(context, 30),
                 crossAxisCount: cols,
                 childAspectRatio: rectangleCovers ? 0.48 : 0.68,
                 // Subtitles add a line under every title, and how much room

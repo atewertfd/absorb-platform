@@ -858,11 +858,12 @@ class _BookDetailSheetContentState extends State<_BookDetailSheetContent> {
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
                     Icon(Icons.auto_stories_rounded, size: 14, color: accent),
                     const SizedBox(width: 6),
-                    Text(
+                    Flexible(child: Text(
                       '${s['name'] as String? ?? ''}'
                       '${(s['sequence'] as String? ?? '').isNotEmpty ? ' #${s['sequence']}' : ''}',
+                      maxLines: 2, overflow: TextOverflow.ellipsis,
                       style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: accent),
-                    ),
+                    )),
                     const SizedBox(width: 2),
                     Icon(Icons.chevron_right_rounded, size: 16, color: accent.withValues(alpha: 0.6)),
                   ]),
@@ -1278,13 +1279,14 @@ class _BookDetailSheetContentState extends State<_BookDetailSheetContent> {
                 color: isFinished ? Colors.green : cs.onSurfaceVariant,
               ),
               const SizedBox(width: 6),
-              Text(
+              Flexible(child: Text(
                 isFinished ? Wording.of(context).fullyAbsorbed : Wording.of(context).fullyAbsorbAction,
+                maxLines: 1, overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: isFinished ? Colors.green : cs.onSurfaceVariant,
                   fontSize: 12, fontWeight: FontWeight.w500,
                 ),
-              ),
+              )),
             ]),
           ),
         )),
@@ -3618,7 +3620,9 @@ class _BookDetailSheetContentState extends State<_BookDetailSheetContent> {
     final isCurrent = pos >= start && pos < end;
     final done = pos >= end;
     final pct = duration > 0 ? (end / duration * 100).round() : 0;
-    return ListTile(
+    // Own Material: the sheet's background would hide the current
+    // chapter's highlight and the tap ripple.
+    return Material(type: MaterialType.transparency, child: ListTile(
       dense: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 4),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -3646,7 +3650,7 @@ class _BookDetailSheetContentState extends State<_BookDetailSheetContent> {
         Text(formatHm((end - start) / _displaySpeed), style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant)),
       ]),
       onTap: () => _jumpToChapter(context, auth, chTitle, start, isActive, title, author, duration, chapters),
-    );
+    ));
   }
 
   /// Confirm, then seek the live session or start the book at [start].

@@ -39,6 +39,7 @@ import 'app_shell.dart';
 import '../l10n/app_localizations.dart';
 import '../utils/duration_format.dart';
 import '../ui_themes/ui_theme_hooks.dart';
+import '../widgets/text_scale_room.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -397,7 +398,7 @@ class HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMi
           child: SizedBox(
             // Taller row when 2:3 covers are on; the card's
             // cover alone is ~225 with rectangle covers.
-            height: _rectangleCovers ? 320 : 250,
+            height: (_rectangleCovers ? 320 : 250) + textScaleRoom(context, 58),
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -1212,7 +1213,7 @@ class _ContinueListeningCardState extends State<_ContinueListeningCard> {
                       // stays in a consistent position whether the title
                       // wraps or not.
                       SizedBox(
-                        height: 30,
+                        height: 30 + textScaleRoom(context, 30),
                         child: Text(title, maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: tt.bodySmall?.copyWith(

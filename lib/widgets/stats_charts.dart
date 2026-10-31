@@ -286,11 +286,12 @@ class StatsHeatmap extends StatelessWidget {
                 SizedBox(
                   height: _cell + (d < 6 ? _gap : 0),
                   child: d.isEven
-                      ? Text(dayLabels[d],
+                      // Tiny chart labels in fixed rows: cap the zoom.
+                      ? MediaQuery.withClampedTextScaling(maxScaleFactor: 1.3, child: Text(dayLabels[d],
                           style: TextStyle(
                               fontSize: 7,
                               height: 1.2,
-                              color: labelColor.withValues(alpha: 0.35)))
+                              color: labelColor.withValues(alpha: 0.35))))
                       : null,
                 ),
             ]),
