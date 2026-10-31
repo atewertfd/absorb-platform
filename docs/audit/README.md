@@ -88,7 +88,14 @@ Ranked by value for the effort and merge cost. Items marked **(engine)** touch p
   - unused dev dependencies (09 #14);
   - the Siri files, replaced by a stub like CarPlay (03 #10).
 
-### Needs an owner decision
+### Owner decisions (2026-10-30)
+
+- Batches A and C approved; Batch B waits for the owner's test of a Windows build.
+- Support links: "Report a bug" and "Contact" go to the Absorb Plus GitHub issues, Discord is hidden, and "Send logs" saves a file.
+- Logging stays on by default in betas, with secrets masked.
+- App link scheme stays `absorb://` for now.
+
+### Still open
 
 1. **Where support links go.** "Report a bug", "Contact", "Discord" and "Send logs" point at the original Absorb developer. Options: the fork's GitHub issues, an address of the owner's, or hidden.
 2. **Logging in betas.** Logs are on by default in every Absorb Plus build. After the privacy fixes above, keep them on, or off by default?
