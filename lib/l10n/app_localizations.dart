@@ -21870,26 +21870,26 @@ abstract class AppLocalizations {
   /// No description provided for @uiThemePlusName.
   ///
   /// In en, this message translates to:
-  /// **'Absorb Plus'**
+  /// **'Standard'**
   String get uiThemePlusName;
 
   /// No description provided for @uiThemePlusDescription.
   ///
   /// In en, this message translates to:
-  /// **'Today\'s look, with ebook and saved badges and memory-saving covers.'**
+  /// **'The usual Absorb Plus look, with filled panels and a soft glow from your cover colors.'**
   String get uiThemePlusDescription;
 
-  /// No description provided for @uiThemeClassicName.
+  /// No description provided for @uiThemeMidnightName.
   ///
   /// In en, this message translates to:
-  /// **'Classic'**
-  String get uiThemeClassicName;
+  /// **'Midnight'**
+  String get uiThemeMidnightName;
 
-  /// No description provided for @uiThemeClassicDescription.
+  /// No description provided for @uiThemeMidnightDescription.
   ///
   /// In en, this message translates to:
-  /// **'The first Windows version\'s look: full-quality covers, fewer badges, compact buttons.'**
-  String get uiThemeClassicDescription;
+  /// **'Pure black with thin outlines and no glow, made for OLED screens.'**
+  String get uiThemeMidnightDescription;
 
   /// No description provided for @uiThemeContinue.
   ///
@@ -21906,7 +21906,7 @@ abstract class AppLocalizations {
   /// No description provided for @uiThemeFrostedDescription.
   ///
   /// In en, this message translates to:
-  /// **'Absorb Plus with soft frosted-glass panels and your cover colors glowing through.'**
+  /// **'Soft frosted-glass panels with your cover colors glowing through.'**
   String get uiThemeFrostedDescription;
 
   /// No description provided for @uiThemeColorTitle.
@@ -21980,6 +21980,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Strong'**
   String get uiThemeGlassStrong;
+
+  /// Heading of the switches under UI theme that work with any look
+  ///
+  /// In en, this message translates to:
+  /// **'Look details'**
+  String get uiThemeDetails;
+
+  /// No description provided for @uiThemeFullCovers.
+  ///
+  /// In en, this message translates to:
+  /// **'Full-quality covers'**
+  String get uiThemeFullCovers;
+
+  /// No description provided for @uiThemeFullCoversSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sharper covers that use more memory'**
+  String get uiThemeFullCoversSubtitle;
+
+  /// No description provided for @uiThemeExtraBadges.
+  ///
+  /// In en, this message translates to:
+  /// **'Extra cover badges'**
+  String get uiThemeExtraBadges;
+
+  /// No description provided for @uiThemeExtraBadgesSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Ebook badge and the saved strip on Continue Listening'**
+  String get uiThemeExtraBadgesSubtitle;
+
+  /// No description provided for @uiThemeReadingShelf.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue Reading as a shelf'**
+  String get uiThemeReadingShelf;
+
+  /// No description provided for @uiThemeReadingShelfSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'A normal Home shelf instead of big cards'**
+  String get uiThemeReadingShelfSubtitle;
+
+  /// No description provided for @uiThemeCompactHeader.
+  ///
+  /// In en, this message translates to:
+  /// **'Compact header buttons'**
+  String get uiThemeCompactHeader;
+
+  /// No description provided for @uiThemeCompactHeaderSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Page header buttons keep their small size'**
+  String get uiThemeCompactHeaderSubtitle;
+
+  /// No description provided for @uiThemePlainWording.
+  ///
+  /// In en, this message translates to:
+  /// **'Plain wording'**
+  String get uiThemePlainWording;
+
+  /// No description provided for @uiThemePlainWordingOnSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Using \"Play\", \"Now Playing\", \"Finished\"'**
+  String get uiThemePlainWordingOnSubtitle;
+
+  /// No description provided for @uiThemePlainWordingOffSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Using \"Absorb\", \"Absorbing\", \"Fully Absorbed\"'**
+  String get uiThemePlainWordingOffSubtitle;
+
+  /// Hidden settings search keyword, so people who used the retired Classic look or Classic wording find where those settings went
+  ///
+  /// In en, this message translates to:
+  /// **'Classic'**
+  String get uiThemeSearchClassic;
 
   /// Title of the in-app release notes; name is e.g. 'Beta 11' or a version
   ///

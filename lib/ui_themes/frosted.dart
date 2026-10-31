@@ -6,10 +6,10 @@ import 'package:flutter/material.dart';
 import 'ui_theme.dart';
 import 'ui_theme_try.dart';
 
-/// The Frosted look's theme-level pieces: [frostedThemeData] (cards, sheets,
-/// dialogs, nav bar colors), [absorbLookBuilder] (applies it app-wide), and
-/// the two blur wrappers used by single hooks ([FrostedNavBar],
-/// [FrostedSurface]).
+/// The looks' theme-level pieces: [frostedThemeData] (cards, sheets,
+/// dialogs, nav bar colors for Frosted's glass and Midnight's outlines),
+/// [absorbLookBuilder] (applies it app-wide), and the two wrappers used by
+/// single hooks ([FrostedNavBar], [FrostedSurface]).
 ///
 /// Performance rules: blur only behind a few large surfaces (nav bar, desktop
 /// dialogs), never per list item, and never on web (tint only there: web
@@ -23,7 +23,7 @@ bool? debugFrostIsWebOverride;
 bool frostBlurSupported() => !(debugFrostIsWebOverride ?? kIsWeb);
 
 /// [base] with the look's surface tokens applied. Returns [base] unchanged
-/// when the look keeps upstream's surfaces (Absorb Plus, Classic, e-ink).
+/// when the look keeps upstream's surfaces (Standard, e-ink).
 ///
 /// Only theme defaults change, so widgets that pass their own colors keep
 /// them. Menus, popups, snack bars and the ColorScheme surfaces stay opaque:
@@ -44,16 +44,57 @@ ThemeData frostedThemeData(ThemeData base) {
         color: panel,
         elevation: 0,
         shadowColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16 + boost),
           side: edge,
         ),
       ),
-      // Search bars (Library) are glass panels too, keeping their own shape.
+      // Search bars (Library) are glass (or outlined) panels too, keeping
+      // their own shape.
       searchBarTheme: base.searchBarTheme.copyWith(
         backgroundColor: WidgetStatePropertyAll(panel),
         elevation: const WidgetStatePropertyAll(0),
         shadowColor: const WidgetStatePropertyAll(Colors.transparent),
+        side: look.outlinedPanels ? WidgetStatePropertyAll(edge) : null,
+      ),
+    );
+  }
+
+  // Midnight: one flat canvas (true black / paper white) behind everything.
+  final canvas = look.canvasColor;
+  if (canvas != null) {
+    data = data.copyWith(
+      scaffoldBackgroundColor: canvas,
+      canvasColor: canvas,
+      colorScheme: data.colorScheme.copyWith(surface: canvas),
+      appBarTheme: data.appBarTheme.copyWith(backgroundColor: canvas),
+      navigationBarTheme: data.navigationBarTheme.copyWith(
+        backgroundColor: canvas,
+      ),
+    );
+  }
+
+  // Midnight: opaque sheets and dialogs with the hairline edge.
+  final sheetColor = look.sheetColor;
+  if (sheetColor != null) {
+    data = data.copyWith(
+      bottomSheetTheme: data.bottomSheetTheme.copyWith(
+        backgroundColor: sheetColor,
+        modalBackgroundColor: sheetColor,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24 + boost)),
+          side: edge,
+        ),
+      ),
+      dialogTheme: data.dialogTheme.copyWith(
+        backgroundColor: sheetColor,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(28 + boost),
+          side: edge,
+        ),
       ),
     );
   }
@@ -162,8 +203,9 @@ ThemeData themeForLook(ThemeData base, AbsorbLook look, {ColorScheme? scheme}) {
 }
 
 /// Wraps the bottom nav bar: in Frosted, a light top edge over the bar's
-/// translucent tint (the color comes from [frostedThemeData]); otherwise it
-/// paints nothing extra. No blur: pages don't extend under the bar, so there
+/// translucent tint (the color comes from [frostedThemeData]); in Midnight,
+/// the hairline top edge over the black bar; otherwise it paints nothing
+/// extra. No blur: pages don't extend under the bar, so there
 /// is nothing behind it to frost, and blurring it every frame would cost
 /// rendering time for no visible change.
 class FrostedNavBar extends StatelessWidget {
@@ -174,10 +216,10 @@ class FrostedNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final look = AbsorbLook.of(context);
-    final frosted = look.frostedNavBar;
+    final edged = look.navBarEdge;
     // Same widget shape in every look, so switching never remounts the bar.
     return DecoratedBox(
-      decoration: frosted
+      decoration: edged
           ? BoxDecoration(
               border: Border(
                 top: BorderSide(
@@ -212,9 +254,12 @@ class FrostedSurface extends StatelessWidget {
 }
 
 /// A sheet or dialog background: translucent in looks with frosted sheets
-/// (pair it with [FrostedSurface] inside a clipped surface), else [opaque].
+/// (pair it with [FrostedSurface] inside a clipped surface), the look's own
+/// sheet color in Midnight, else [opaque].
 Color lookSheetColor(BuildContext context, Color opaque) {
   final look = AbsorbLook.of(context);
+  final own = look.sheetColor;
+  if (own != null) return own;
   final alpha = look.sheetFillAlpha;
   if (!look.frostedSheets || alpha == null) return opaque;
   return opaque.withValues(alpha: alpha * opaque.a);

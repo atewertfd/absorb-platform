@@ -17,7 +17,13 @@ List<SettingSearchEntry> settingsSearchEntries(BuildContext context) {
   return [
     // ── Appearance ──
     SettingSearchEntry('Appearance', l.sectionAppearance, l.languageLabel, [l.languageSystemDefault]),
-    SettingSearchEntry('Appearance', l.sectionAppearance, l.uiThemeLabel, [l.uiThemePlusName, l.uiThemeClassicName, l.uiThemeFrostedName, l.uiThemeGlass]),
+    SettingSearchEntry('Appearance', l.sectionAppearance, l.uiThemeLabel, [l.uiThemePlusName, l.uiThemeFrostedName, l.uiThemeMidnightName, l.uiThemeGlass]),
+    SettingSearchEntry('Appearance', l.sectionAppearance, l.uiThemeDetails, [l.uiThemeFullCovers, l.uiThemeExtraBadges, l.uiThemeReadingShelf, l.uiThemeCompactHeader, l.uiThemeSearchClassic]),
+    SettingSearchEntry('Appearance', l.sectionAppearance, l.uiThemeFullCovers, [l.uiThemeFullCoversSubtitle]),
+    SettingSearchEntry('Appearance', l.sectionAppearance, l.uiThemeExtraBadges, [l.uiThemeExtraBadgesSubtitle]),
+    SettingSearchEntry('Appearance', l.sectionAppearance, l.uiThemeReadingShelf, [l.uiThemeReadingShelfSubtitle]),
+    SettingSearchEntry('Appearance', l.sectionAppearance, l.uiThemeCompactHeader, [l.uiThemeCompactHeaderSubtitle]),
+    SettingSearchEntry('Appearance', l.sectionAppearance, l.uiThemePlainWording, [l.uiThemePlainWordingOnSubtitle, l.uiThemePlainWordingOffSubtitle, l.uiThemeSearchClassic]),
     SettingSearchEntry('Appearance', l.sectionAppearance, l.themeLabel, [l.themeDark, l.themeLight, l.themeAuto]),
     SettingSearchEntry('Appearance', l.sectionAppearance, l.flatBackgroundLabel, [l.flatBackgroundSubtitle]),
     SettingSearchEntry('Appearance', l.sectionAppearance, l.einkModeLabel, [l.einkModeSubtitle]),
@@ -31,7 +37,6 @@ List<SettingSearchEntry> settingsSearchEntries(BuildContext context) {
     SettingSearchEntry('Appearance', l.sectionAppearance, l.rectangleBookCovers, [l.rectangleBookCoversOnSubtitle, l.rectangleBookCoversOffSubtitle]),
     SettingSearchEntry('Appearance', l.sectionAppearance, l.coverSize, [l.coverSizeSubtitle, l.coverSizeSmall, l.coverSizeMedium, l.coverSizeLarge]),
     SettingSearchEntry('Appearance', l.sectionAppearance, l.cardButtonFill, [l.cardButtonFillSubtitle, l.cardButtonFillClear, l.cardButtonFillSubtle, l.cardButtonFillSolid]),
-    SettingSearchEntry('Appearance', l.sectionAppearance, 'Classic wording', const ['Using "Play", "Now Playing", "Finished"', 'Using "Absorb", "Absorbing", "Fully Absorbed"']),
     if (!(Platform.isIOS && MediaQuery.sizeOf(context).shortestSide >= 600))
       SettingSearchEntry('Appearance', l.sectionAppearance, 'Lock rotation', const ['Screen stays in portrait', 'Screen can rotate with the device']),
 

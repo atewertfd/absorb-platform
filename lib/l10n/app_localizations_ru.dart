@@ -12887,18 +12887,18 @@ class AppLocalizationsRu extends AppLocalizations {
       'You can change this any time in Settings > Appearance > UI theme.';
 
   @override
-  String get uiThemePlusName => 'Absorb Plus';
+  String get uiThemePlusName => 'Standard';
 
   @override
   String get uiThemePlusDescription =>
-      'Today\'s look, with ebook and saved badges and memory-saving covers.';
+      'The usual Absorb Plus look, with filled panels and a soft glow from your cover colors.';
 
   @override
-  String get uiThemeClassicName => 'Classic';
+  String get uiThemeMidnightName => 'Midnight';
 
   @override
-  String get uiThemeClassicDescription =>
-      'The first Windows version\'s look: full-quality covers, fewer badges, compact buttons.';
+  String get uiThemeMidnightDescription =>
+      'Pure black with thin outlines and no glow, made for OLED screens.';
 
   @override
   String get uiThemeContinue => 'Continue';
@@ -12908,7 +12908,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get uiThemeFrostedDescription =>
-      'Absorb Plus with soft frosted-glass panels and your cover colors glowing through.';
+      'Soft frosted-glass panels with your cover colors glowing through.';
 
   @override
   String get uiThemeColorTitle => 'Choose a color';
@@ -12948,6 +12948,50 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get uiThemeGlassStrong => 'Strong';
+
+  @override
+  String get uiThemeDetails => 'Look details';
+
+  @override
+  String get uiThemeFullCovers => 'Full-quality covers';
+
+  @override
+  String get uiThemeFullCoversSubtitle => 'Sharper covers that use more memory';
+
+  @override
+  String get uiThemeExtraBadges => 'Extra cover badges';
+
+  @override
+  String get uiThemeExtraBadgesSubtitle =>
+      'Ebook badge and the saved strip on Continue Listening';
+
+  @override
+  String get uiThemeReadingShelf => 'Continue Reading as a shelf';
+
+  @override
+  String get uiThemeReadingShelfSubtitle =>
+      'A normal Home shelf instead of big cards';
+
+  @override
+  String get uiThemeCompactHeader => 'Compact header buttons';
+
+  @override
+  String get uiThemeCompactHeaderSubtitle =>
+      'Page header buttons keep their small size';
+
+  @override
+  String get uiThemePlainWording => 'Plain wording';
+
+  @override
+  String get uiThemePlainWordingOnSubtitle =>
+      'Using \"Play\", \"Now Playing\", \"Finished\"';
+
+  @override
+  String get uiThemePlainWordingOffSubtitle =>
+      'Using \"Absorb\", \"Absorbing\", \"Fully Absorbed\"';
+
+  @override
+  String get uiThemeSearchClassic => 'Classic';
 
   @override
   String whatsNewSheetTitle(String name) {

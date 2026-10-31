@@ -112,6 +112,7 @@ void main() {
   setUp(() {
     uiThemeNotifier.value = null;
     uiThemePreviewNotifier.value = null;
+    lookDetailsNotifier.value = LookDetails.standard;
     colorSourceNotifier.value = 'dynamic';
     manualSeedNotifier.value = const Color(0xFF7C6FBF);
     SharedPreferences.setMockInitialValues({});
@@ -145,20 +146,39 @@ void main() {
       expect(find.text('Go back'), findsOneWidget);
     });
 
+    testWidgets('Midnight can be tried live: black canvas app-wide', (
+      tester,
+    ) async {
+      final home = await _pumpApp(tester);
+      await _tryLook(tester, home, 'Midnight');
+      expect(uiThemePreviewNotifier.value, AppUiTheme.midnight);
+      expect(_lookIn(tester), AbsorbLook.midnightLight);
+      final page = tester.element(find.byType(Scaffold).first);
+      // The test app is light: Midnight's paper white, outlined.
+      expect(Theme.of(page).scaffoldBackgroundColor, const Color(0xFFFFFFFF));
+      expect(Theme.of(page).cardTheme.color, Colors.transparent);
+      final navTheme = NavigationBarTheme.of(
+        tester.element(find.byKey(const ValueKey('app-nav'))),
+      );
+      expect(navTheme.backgroundColor, const Color(0xFFFFFFFF));
+      expect(find.text('Previewing Midnight'), findsOneWidget);
+      expect((await _prefs()).getString(UiThemeStore.prefKey), isNull);
+    });
+
     testWidgets('Keep saves the look through the store', (tester) async {
       final home = await _pumpApp(tester);
-      final result = await _tryLook(tester, home, 'Classic');
+      final result = await _tryLook(tester, home, 'Midnight');
 
       await tester.tap(find.text('Keep'));
       await tester.pumpAndSettle();
 
-      expect(uiThemeNotifier.value, AppUiTheme.classic);
-      expect((await _prefs()).getString(UiThemeStore.prefKey), 'classic');
+      expect(uiThemeNotifier.value, AppUiTheme.midnight);
+      expect((await _prefs()).getString(UiThemeStore.prefKey), 'midnight');
       expect(uiThemePreviewNotifier.value, isNull);
       expect(find.byKey(const ValueKey('ui-try-bar')), findsNothing);
-      expect(_lookIn(tester), AbsorbLook.classic);
+      expect(_lookIn(tester), AbsorbLook.midnightLight);
       final picked = await result;
-      expect(picked?.theme, AppUiTheme.classic);
+      expect(picked?.theme, AppUiTheme.midnight);
       expect(picked?.tryLive, isFalse);
       // Color untouched.
       expect(colorSourceNotifier.value, 'dynamic');
@@ -167,7 +187,9 @@ void main() {
     testWidgets('Go back restores the saved look and reopens the picker', (
       tester,
     ) async {
-      SharedPreferences.setMockInitialValues({UiThemeStore.prefKey: 'classic'});
+      SharedPreferences.setMockInitialValues({
+        UiThemeStore.prefKey: 'midnight',
+      });
       await UiThemeStore.load();
       final home = await _pumpApp(tester);
       final result = await _tryLook(tester, home, 'Frosted');
@@ -177,9 +199,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(uiThemePreviewNotifier.value, isNull);
-      expect(uiThemeNotifier.value, AppUiTheme.classic);
-      expect(_lookIn(tester), AbsorbLook.classic);
-      expect((await _prefs()).getString(UiThemeStore.prefKey), 'classic');
+      expect(uiThemeNotifier.value, AppUiTheme.midnight);
+      expect(_lookIn(tester), AbsorbLook.midnightLight);
+      expect((await _prefs()).getString(UiThemeStore.prefKey), 'midnight');
       expect(find.byKey(const ValueKey('ui-try-bar')), findsNothing);
       // Back in the picker, on the look that was tried.
       expect(find.text('Choose a look'), findsOneWidget);
@@ -188,7 +210,7 @@ void main() {
       await tester.tapAt(const Offset(5, 5)); // dismiss
       await tester.pumpAndSettle();
       expect(await result, isNull);
-      expect(uiThemeNotifier.value, AppUiTheme.classic);
+      expect(uiThemeNotifier.value, AppUiTheme.midnight);
     });
 
     testWidgets('settings flow: Keep reports the change', (tester) async {
@@ -211,19 +233,19 @@ void main() {
     });
 
     test('a preview is never persisted', () async {
-      await UiThemeStore.choose(AppUiTheme.classic);
+      await UiThemeStore.choose(AppUiTheme.midnight);
       final ended = UiThemeTryOut.start(AppUiTheme.frosted);
       expect(currentUiTheme, AppUiTheme.frosted);
-      expect(savedUiTheme, AppUiTheme.classic);
+      expect(savedUiTheme, AppUiTheme.midnight);
       // Image cache policy follows saved choices only.
-      expect(currentAbsorbLook, AbsorbLook.classic);
-      expect((await _prefs()).getString(UiThemeStore.prefKey), 'classic');
+      expect(currentAbsorbLook, AbsorbLook.midnightDark);
+      expect((await _prefs()).getString(UiThemeStore.prefKey), 'midnight');
 
       // A restart: memory is gone, the store gives the saved look back.
       uiThemePreviewNotifier.value = null;
       uiThemeNotifier.value = null;
-      expect(await UiThemeStore.load(), AppUiTheme.classic);
-      expect(currentUiTheme, AppUiTheme.classic);
+      expect(await UiThemeStore.load(), AppUiTheme.midnight);
+      expect(currentUiTheme, AppUiTheme.midnight);
       expect(await ended, UiThemeTryOutOutcome.ended);
     });
 
@@ -261,7 +283,7 @@ void main() {
 
     testWidgets('bar stays readable in every look', (tester) async {
       final home = await _pumpApp(tester);
-      for (final look in ['Absorb Plus', 'Classic', 'Frosted']) {
+      for (final look in ['Standard', 'Frosted', 'Midnight']) {
         await _tryLook(tester, home, look);
         final bar = tester.widget<Material>(
           find.byKey(const ValueKey('ui-try-bar')),
@@ -316,12 +338,36 @@ void main() {
       expect(panel(AppUiTheme.frosted), isNot(panel(AppUiTheme.plus)));
       expect(panel(AppUiTheme.frosted).a, lessThan(1));
       expect(panel(AppUiTheme.plus).a, 1);
+      // Midnight's preview shows outlines, not fills.
+      expect(panel(AppUiTheme.midnight), Colors.transparent);
+      final midnightShape =
+          tester
+                  .widget<Card>(
+                    find.descendant(
+                      of: inCard(
+                        AppUiTheme.midnight,
+                        find.byType(CollapsibleSection),
+                      ).first,
+                      matching: find.byType(Card),
+                    ),
+                  )
+                  .shape!
+              as RoundedRectangleBorder;
+      expect(midnightShape.side.color.a, greaterThan(0));
+      final midnightPage = tester.element(
+        inCard(AppUiTheme.midnight, find.byType(NavigationBar)),
+      );
+      expect(
+        Theme.of(midnightPage).scaffoldBackgroundColor,
+        AbsorbLook.midnightLight.canvasColor,
+      );
 
       Color? navBg(AppUiTheme theme) => NavigationBarTheme.of(
         tester.element(inCard(theme, find.byType(NavigationBar))),
       ).backgroundColor;
       expect(navBg(AppUiTheme.frosted)!.a, lessThan(1));
       expect(navBg(AppUiTheme.plus), isNot(navBg(AppUiTheme.frosted)));
+      expect(navBg(AppUiTheme.midnight), AbsorbLook.midnightLight.canvasColor);
     });
 
     testWidgets('a Plus card stays Plus while the app is Frosted', (

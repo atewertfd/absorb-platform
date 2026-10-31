@@ -79,12 +79,17 @@ final _frostedVariants = [
 
 void main() {
   late ValueNotifier<AppUiTheme?> look;
-  setUp(() => look = ValueNotifier<AppUiTheme?>(null));
-  tearDown(() => look.dispose());
+  setUp(() {
+    look = ValueNotifier<AppUiTheme?>(null);
+    lookDetailsNotifier.value = LookDetails.standard;
+  });
+  tearDown(() {
+    look.dispose();
+    lookDetailsNotifier.value = LookDetails.standard;
+  });
 
-  testWidgets('header actions: 44x44 in Absorb Plus, drawn size in Classic', (
-    tester,
-  ) async {
+  testWidgets('header actions: 44x44 by default, drawn size with compact '
+      'header buttons in every look', (tester) async {
     final action = AccessibleHeaderAction(
       label: 'Refresh',
       onPressed: () {},
@@ -96,37 +101,43 @@ void main() {
       const Size(44, 44),
     );
 
-    look.value = AppUiTheme.classic;
-    await tester.pump();
-    expect(
-      tester.getSize(find.byType(AccessibleHeaderAction)),
-      const Size(30, 30),
-    );
+    lookDetailsNotifier.value = const LookDetails(compactHeaderButtons: true);
+    for (final theme in AppUiTheme.values) {
+      look.value = theme;
+      await tester.pump();
+      expect(
+        tester.getSize(find.byType(AccessibleHeaderAction)),
+        const Size(30, 30),
+        reason: '$theme',
+      );
+    }
 
     // Still labelled and tappable when compact.
     expect(find.bySemanticsLabel('Refresh'), findsOneWidget);
   });
 
-  testWidgets('ebook badge is hidden in Classic and follows look changes', (
+  testWidgets('ebook badge follows the extra badges setting in every look', (
     tester,
   ) async {
     await _pump(tester, look, const EbookCoverBadge(readAlong: true));
     expect(find.byIcon(Icons.menu_book_rounded), findsOneWidget);
     expect(find.byIcon(Icons.headphones_rounded), findsOneWidget);
 
-    look.value = AppUiTheme.classic;
-    await tester.pump();
-    expect(find.byIcon(Icons.menu_book_rounded), findsNothing);
-    expect(find.byIcon(Icons.headphones_rounded), findsNothing);
+    lookDetailsNotifier.value = const LookDetails(extraCoverBadges: false);
+    for (final theme in AppUiTheme.values) {
+      look.value = theme;
+      await tester.pump();
+      expect(find.byIcon(Icons.menu_book_rounded), findsNothing);
+      expect(find.byIcon(Icons.headphones_rounded), findsNothing);
+    }
 
-    look.value = AppUiTheme.plus;
+    lookDetailsNotifier.value = LookDetails.standard;
     await tester.pump();
     expect(find.byIcon(Icons.menu_book_rounded), findsOneWidget);
   });
 
-  testWidgets('cover decode width is bounded in Absorb Plus, full in Classic', (
-    tester,
-  ) async {
+  testWidgets('cover decode width is bounded by default, full with '
+      'full-quality covers', (tester) async {
     final seen = <int?>[];
     final probe = Builder(
       builder: (context) {
@@ -140,7 +151,12 @@ void main() {
     expect(seen, [280, 32]);
 
     seen.clear();
-    look.value = AppUiTheme.classic;
+    lookDetailsNotifier.value = const LookDetails(fullQualityCovers: true);
+    await tester.pump();
+    expect(seen, [null, null]);
+
+    seen.clear();
+    look.value = AppUiTheme.midnight;
     await tester.pump();
     expect(seen, [null, null]);
   });
@@ -164,11 +180,20 @@ void main() {
     expect(shelves.last, isFalse);
     expect(badges.last, isTrue);
 
-    look.value = AppUiTheme.classic;
+    lookDetailsNotifier.value = LookDetails.classic;
+    for (final theme in AppUiTheme.values) {
+      look.value = theme;
+      await tester.pump();
+      expect(heights.last, 200, reason: '$theme');
+      expect(shelves.last, isTrue);
+      expect(badges.last, isFalse);
+    }
+
+    // Each switch on its own.
+    lookDetailsNotifier.value = const LookDetails(continueReadingShelf: true);
     await tester.pump();
-    expect(heights.last, 200);
     expect(shelves.last, isTrue);
-    expect(badges.last, isFalse);
+    expect(badges.last, isTrue);
   });
 
   test('classic cover card height matches the first Windows port formula', () {
@@ -204,12 +229,12 @@ void main() {
       }
     });
 
-    test('Absorb Plus and Classic leave the theme untouched', () {
-      for (final theme in [AppUiTheme.plus, AppUiTheme.classic]) {
+    test('Standard leaves the theme untouched, with any look details', () {
+      for (final details in [LookDetails.standard, LookDetails.classic]) {
         for (final b in Brightness.values) {
           final base = ThemeData(
             brightness: b,
-            extensions: [theme.lookFor(b)],
+            extensions: [AppUiTheme.plus.lookFor(b, details: details)],
           );
           expect(identical(frostedThemeData(base), base), isTrue);
         }
@@ -240,6 +265,114 @@ void main() {
       expect(t.colorScheme.surfaceContainerHigh.a, 1);
     });
 
+    testWidgets('Midnight: true black canvas, outlined cards, near-black '
+        'sheets with a hairline, black nav bar', (tester) async {
+      final context = await _pumpThemedApp(tester, AppUiTheme.midnight);
+      final t = Theme.of(context);
+      const black = Color(0xFF000000);
+      final edge = Colors.white.withValues(
+        alpha: AbsorbLook.midnightDark.panelBorderAlpha,
+      );
+      expect(t.scaffoldBackgroundColor, black);
+      expect(t.canvasColor, black);
+      expect(t.colorScheme.surface, black);
+      expect(t.appBarTheme.backgroundColor, black);
+      expect(t.navigationBarTheme.backgroundColor, black);
+      // Cards: no grey fill, a 1 px outline at the usual radius.
+      expect(t.cardTheme.color, Colors.transparent);
+      expect(t.cardTheme.elevation, 0);
+      final card = t.cardTheme.shape! as RoundedRectangleBorder;
+      expect(card.borderRadius, BorderRadius.circular(16));
+      expect(card.side.color, edge);
+      expect(card.side.width, 1);
+      expect(t.searchBarTheme.side!.resolve({})!.color, edge);
+      // Sheets and dialogs: opaque near-black with the hairline.
+      expect(t.bottomSheetTheme.backgroundColor, const Color(0xFF0A0A0A));
+      expect(t.bottomSheetTheme.modalBackgroundColor, const Color(0xFF0A0A0A));
+      expect(
+        (t.bottomSheetTheme.shape! as RoundedRectangleBorder).side.color,
+        edge,
+      );
+      expect(t.dialogTheme.backgroundColor, const Color(0xFF0A0A0A));
+      expect((t.dialogTheme.shape! as RoundedRectangleBorder).side.color, edge);
+      // The accent and the other scheme surfaces stay as they were.
+      final base = ThemeData(brightness: Brightness.dark).colorScheme;
+      expect(t.colorScheme.primary, base.primary);
+      expect(t.colorScheme.surfaceContainerHigh, base.surfaceContainerHigh);
+    });
+
+    testWidgets('Midnight in light mode: paper white, outlined panels', (
+      tester,
+    ) async {
+      final context = await _pumpThemedApp(
+        tester,
+        AppUiTheme.midnight,
+        brightness: Brightness.light,
+      );
+      final t = Theme.of(context);
+      const white = Color(0xFFFFFFFF);
+      expect(t.scaffoldBackgroundColor, white);
+      expect(t.colorScheme.surface, white);
+      expect(t.navigationBarTheme.backgroundColor, white);
+      expect(t.bottomSheetTheme.backgroundColor, white);
+      expect(t.dialogTheme.backgroundColor, white);
+      expect(t.cardTheme.color, Colors.transparent);
+      expect(
+        (t.cardTheme.shape! as RoundedRectangleBorder).side.color,
+        Colors.black.withValues(
+          alpha: AbsorbLook.midnightLight.panelBorderAlpha,
+        ),
+      );
+    });
+
+    testWidgets('e-ink overrides Midnight like every look', (tester) async {
+      final base = ThemeData(
+        extensions: [AppUiTheme.midnight.lookFor(Brightness.dark, eink: true)],
+      );
+      expect(identical(frostedThemeData(base), base), isTrue);
+    });
+
+    test('text keeps contrast on Midnight\'s canvas and sheets', () {
+      final seeds = [
+        for (final p in kThemePresets) p.color,
+        const Color(0xFFFFEB3B), // bright yellow cover
+        const Color(0xFFFFFFFF), // white cover
+        const Color(0xFF00E5FF), // neon cyan cover
+        const Color(0xFF1A237E), // deep navy cover
+      ];
+      for (final b in Brightness.values) {
+        final look = AppUiTheme.midnight.lookFor(b);
+        for (final seed in seeds) {
+          final cs = _appScheme(seed, b);
+          for (final (what, bg) in [
+            ('canvas', look.canvasColor!),
+            ('sheet', look.sheetColor!),
+          ]) {
+            final reason = '$b seed=$seed $what';
+            expect(
+              _contrast(cs.onSurface, bg),
+              greaterThanOrEqualTo(7.0),
+              reason: 'onSurface $reason',
+            );
+            expect(
+              _contrast(cs.onSurfaceVariant, bg),
+              greaterThanOrEqualTo(4.5),
+              reason: 'onSurfaceVariant $reason',
+            );
+            // Accent text, icons and progress on the background.
+            expect(
+              _contrast(cs.primary, bg),
+              greaterThanOrEqualTo(3.0),
+              reason: 'primary $reason',
+            );
+          }
+          // The hairline is visible against the canvas.
+          final edge = Color.alphaBlend(look.panelEdge(b), look.canvasColor!);
+          expect(edge, isNot(look.canvasColor));
+        }
+      }
+    });
+
     testWidgets('nav bar wrapper adds a glass edge only in Frosted, no blur', (
       tester,
     ) async {
@@ -247,28 +380,41 @@ void main() {
       addTearDown(look.dispose);
       const bar = SizedBox(height: 80, width: 400);
       await _pump(tester, look, const FrostedNavBar(child: bar));
-      BoxDecoration deco() => tester
-          .widget<DecoratedBox>(find
-              .descendant(
-                  of: find.byType(FrostedNavBar),
-                  matching: find.byType(DecoratedBox))
-              .first)
-          .decoration as BoxDecoration;
+      BoxDecoration deco() =>
+          tester
+                  .widget<DecoratedBox>(
+                    find
+                        .descendant(
+                          of: find.byType(FrostedNavBar),
+                          matching: find.byType(DecoratedBox),
+                        )
+                        .first,
+                  )
+                  .decoration
+              as BoxDecoration;
       expect(deco().border, isNull);
 
-      look.value = AppUiTheme.classic;
+      // Midnight: the hairline top edge, no blur either.
+      look.value = AppUiTheme.midnight;
       await tester.pump();
-      expect(deco().border, isNull);
+      expect(
+        (deco().border! as Border).top.color,
+        Colors.black.withValues(
+          alpha: AbsorbLook.midnightLight.panelBorderAlpha,
+        ),
+      );
 
       look.value = AppUiTheme.frosted;
       await tester.pump();
       expect(deco().border, isNotNull);
       // Nothing scrolls under the bar, so it is never blurred.
       expect(
-          find.descendant(
-              of: find.byType(FrostedNavBar),
-              matching: find.byType(BackdropFilter)),
-          findsNothing);
+        find.descendant(
+          of: find.byType(FrostedNavBar),
+          matching: find.byType(BackdropFilter),
+        ),
+        findsNothing,
+      );
     });
 
     testWidgets('desktop dialog blur follows the same rules', (tester) async {
@@ -320,6 +466,20 @@ void main() {
       expect(lookRadius(ctx, 16), 20);
       expect(lookSheetColor(ctx, Colors.red).a, closeTo(0.9, 0.01));
       expect(lookPlayerCardEdge(ctx, Colors.red), isNot(Colors.red));
+
+      // Midnight: no glow, outlines instead of fills, the usual radius.
+      look.value = AppUiTheme.midnight;
+      await tester.pump();
+      expect(lookGlow(ctx, 0.06), 0);
+      expect(lookPanelColor(ctx, Colors.red), Colors.transparent);
+      expect(lookPanelElevation(ctx, 2), 0);
+      expect(
+        lookPanelSide(ctx, BorderSide.none).color,
+        Colors.black.withValues(alpha: 0.12),
+      );
+      expect(lookRadius(ctx, 16), 16);
+      expect(lookSheetColor(ctx, Colors.red), const Color(0xFFFFFFFF));
+      expect(lookPlayerCardEdge(ctx, Colors.red), Colors.red);
     });
 
     testWidgets('settings sections become glass panels in Frosted', (
@@ -343,6 +503,15 @@ void main() {
       await tester.pump();
       expect(card().color, Colors.white.withValues(alpha: 0.5));
       expect(card().elevation, 0);
+
+      // Midnight: an outline, not a grey panel.
+      look.value = AppUiTheme.midnight;
+      await tester.pump();
+      expect(card().color, Colors.transparent);
+      expect(card().elevation, 0);
+      final shape = card().shape! as RoundedRectangleBorder;
+      expect(shape.side.color, Colors.black.withValues(alpha: 0.12));
+      expect(shape.borderRadius, BorderRadius.circular(16));
     });
 
     test('text on frosted panels keeps contrast over the brightest glow', () {
@@ -401,34 +570,44 @@ void main() {
     });
   });
 
-  testWidgets('Frosted carries color down the screen and makes cards see-through',
-      (tester) async {
-    final look = ValueNotifier<AppUiTheme?>(AppUiTheme.plus);
-    addTearDown(look.dispose);
-    late BuildContext ctx;
-    await _pump(tester, look, Builder(builder: (c) {
-      ctx = c;
-      return const SizedBox();
-    }));
-    const stops = [Color(0x33FF0000), Color(0xFF111111), Color(0xFF0E0E0E)];
-    const card = [Color(0xFF303040), Color(0xFF202030)];
+  testWidgets(
+    'Frosted carries color down the screen and makes cards see-through',
+    (tester) async {
+      final look = ValueNotifier<AppUiTheme?>(AppUiTheme.plus);
+      addTearDown(look.dispose);
+      late BuildContext ctx;
+      await _pump(
+        tester,
+        look,
+        Builder(
+          builder: (c) {
+            ctx = c;
+            return const SizedBox();
+          },
+        ),
+      );
+      const stops = [Color(0x33FF0000), Color(0xFF111111), Color(0xFF0E0E0E)];
+      const card = [Color(0xFF303040), Color(0xFF202030)];
 
-    // Absorb Plus and Classic: exactly what upstream paints.
-    expect(lookBackdrop(ctx, stops), stops);
-    expect(lookCardColors(ctx, card), card);
-    look.value = AppUiTheme.classic;
-    await tester.pump();
-    expect(lookBackdrop(ctx, stops), stops);
-    expect(lookCardColors(ctx, card), card);
+      // Standard: exactly what upstream paints.
+      expect(lookBackdrop(ctx, stops), stops);
+      expect(lookCardColors(ctx, card), card);
 
-    // Frosted: the glow stays, the solid stops pick up the accent, and cards
-    // keep their tint but let the background through.
-    look.value = AppUiTheme.frosted;
-    await tester.pump();
-    final tinted = lookBackdrop(ctx, stops);
-    expect(tinted.first, stops.first);
-    expect(tinted.skip(1), everyElement(isNot(anyOf(stops))));
-    final glass = lookCardColors(ctx, card);
-    expect(glass.every((c) => c.a < 1), isTrue);
-  });
+      // Midnight: not even a faint glow; the solid stops stay.
+      look.value = AppUiTheme.midnight;
+      await tester.pump();
+      expect(lookBackdrop(ctx, stops), [stops[1], stops[1], stops[2]]);
+      expect(lookCardColors(ctx, card), card);
+
+      // Frosted: the glow stays, the solid stops pick up the accent, and cards
+      // keep their tint but let the background through.
+      look.value = AppUiTheme.frosted;
+      await tester.pump();
+      final tinted = lookBackdrop(ctx, stops);
+      expect(tinted.first, stops.first);
+      expect(tinted.skip(1), everyElement(isNot(anyOf(stops))));
+      final glass = lookCardColors(ctx, card);
+      expect(glass.every((c) => c.a < 1), isTrue);
+    },
+  );
 }

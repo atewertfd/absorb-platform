@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:absorb/l10n/app_localizations.dart';
 import 'package:absorb/main.dart' show colorSourceNotifier, manualSeedNotifier;
 import 'package:absorb/services/player_settings.dart';
+import 'package:absorb/services/wording.dart';
 import 'package:absorb/ui_themes/ui_theme.dart';
 import 'package:absorb/ui_themes/ui_theme_picker.dart';
 import 'package:absorb/ui_themes/ui_theme_preview.dart';
@@ -62,14 +65,20 @@ int _presetArgb(String id) =>
 void main() {
   setUp(() {
     uiThemeNotifier.value = null;
+    lookDetailsNotifier.value = LookDetails.standard;
+    classicWordingNotifier.value = false;
     colorSourceNotifier.value = 'dynamic';
     manualSeedNotifier.value = const Color(0xFF7C6FBF);
     SharedPreferences.setMockInitialValues({});
   });
-  tearDown(() => uiThemeNotifier.value = null);
+  tearDown(() {
+    uiThemeNotifier.value = null;
+    lookDetailsNotifier.value = LookDetails.standard;
+    classicWordingNotifier.value = false;
+  });
 
   group('presets', () {
-    test('Absorb Plus changes nothing', () {
+    test('Standard changes nothing', () {
       expect(AppUiTheme.plus.spec, const AbsorbLook());
       final spec = AppUiTheme.plus.spec;
       expect(spec.fullQualityCovers, isFalse);
@@ -79,8 +88,11 @@ void main() {
       expect(spec.compactHeaderActions, isFalse);
     });
 
-    test('Classic restores the first Windows port look', () {
-      final spec = AppUiTheme.classic.spec;
+    test('Classic look details restore the first Windows port behavior', () {
+      final spec = AppUiTheme.plus.lookFor(
+        Brightness.dark,
+        details: LookDetails.classic,
+      );
       expect(spec.fullQualityCovers, isTrue);
       expect(spec.defaultImageCache, isTrue);
       expect(spec.showExtraCoverBadges, isFalse);
@@ -88,11 +100,19 @@ void main() {
       expect(spec.compactHeaderActions, isTrue);
     });
 
-    test('Absorb Plus and Classic keep neutral surface tokens', () {
-      for (final theme in [AppUiTheme.plus, AppUiTheme.classic]) {
+    test('the looks are Standard, Frosted and Midnight, in that order', () {
+      expect(AppUiTheme.values, [
+        AppUiTheme.plus,
+        AppUiTheme.frosted,
+        AppUiTheme.midnight,
+      ]);
+    });
+
+    test('Standard keeps neutral surface tokens, with any look details', () {
+      for (final details in [LookDetails.standard, LookDetails.classic]) {
         for (final b in Brightness.values) {
-          final look = theme.lookFor(b);
-          expect(look.glowStrength, isNull, reason: '$theme $b');
+          final look = AppUiTheme.plus.lookFor(b, details: details);
+          expect(look.glowStrength, isNull, reason: '$details $b');
           expect(look.panelFillAlpha, isNull);
           expect(look.sheetFillAlpha, isNull);
           expect(look.panelBlurSigma, 0);
@@ -103,8 +123,56 @@ void main() {
           expect(look.frostedPlayerCard, isFalse);
           expect(look.changesSurfaces, isFalse);
           expect(look.panelFill(), isNull);
+          expect(look.canvasColor, isNull);
+          expect(look.sheetColor, isNull);
+          expect(look.outlinedPanels, isFalse);
         }
       }
+    });
+
+    test('Midnight: true black, hairline outlines, no glow (dark)', () {
+      final dark = AppUiTheme.midnight.lookFor(Brightness.dark);
+      expect(dark, AbsorbLook.midnightDark);
+      expect(dark.canvasColor, const Color(0xFF000000));
+      expect(dark.sheetColor, const Color(0xFF0A0A0A));
+      expect(dark.glowStrength, 0);
+      expect(dark.backdropTint, 0);
+      expect(dark.outlinedPanels, isTrue);
+      expect(dark.themedPanels, isTrue);
+      expect(dark.navBarEdge, isTrue);
+      expect(dark.panelBorderAlpha, inInclusiveRange(0.12, 0.16));
+      expect(
+        dark.panelEdge(Brightness.dark),
+        Colors.white.withValues(alpha: dark.panelBorderAlpha),
+      );
+      // Outlines, not fills: the background shows inside the panels.
+      expect(dark.panelFill(), Colors.transparent);
+      expect(dark.frostedPanels, isFalse);
+      // No glass anywhere, and the usual radius.
+      expect(dark.panelBlurSigma, 0);
+      expect(dark.cornerRadiusBoost, 0);
+      expect(dark.frostedNavBar, isFalse);
+      expect(dark.frostedSheets, isFalse);
+      expect(dark.frostedPlayerCard, isFalse);
+      expect(dark.changesSurfaces, isTrue);
+      // Behavior flags are Standard's.
+      expect(dark.withNeutralSurfaces(), AbsorbLook.plus);
+    });
+
+    test('Midnight in light mode is its paper counterpart', () {
+      final light = AppUiTheme.midnight.lookFor(Brightness.light);
+      expect(light, AbsorbLook.midnightLight);
+      expect(light.canvasColor, const Color(0xFFFFFFFF));
+      expect(light.sheetColor, const Color(0xFFFFFFFF));
+      expect(light.glowStrength, 0);
+      expect(light.outlinedPanels, isTrue);
+      expect(light.panelFill(), Colors.transparent);
+      // A dark hairline: a white one would vanish on white.
+      expect(
+        light.panelEdge(Brightness.light),
+        Colors.black.withValues(alpha: light.panelBorderAlpha),
+      );
+      expect(light.panelBorderAlpha, greaterThan(0.06));
     });
 
     test('Frosted: subtle glass tokens, Absorb Plus behavior flags', () {
@@ -135,14 +203,15 @@ void main() {
     });
 
     test('e-ink keeps the flags but drops every surface effect', () {
-      expect(
-        AppUiTheme.frosted.lookFor(Brightness.light, eink: true),
-        AbsorbLook.plus,
-      );
-      expect(
-        AppUiTheme.classic.lookFor(Brightness.light, eink: true),
-        AbsorbLook.classic,
-      );
+      for (final theme in AppUiTheme.values) {
+        for (final b in Brightness.values) {
+          expect(theme.lookFor(b, eink: true), AbsorbLook.plus);
+          expect(
+            theme.lookFor(b, eink: true, details: LookDetails.classic),
+            AbsorbLook.plus.withDetails(LookDetails.classic),
+          );
+        }
+      }
     });
 
     test('lerp blends numbers and switches flags halfway', () {
@@ -154,12 +223,23 @@ void main() {
       expect(a.lerp(AbsorbLook.plus, 0.75).frostedNavBar, isFalse);
       expect(a.lerp(AbsorbLook.plus, 0.75).panelFillAlpha, isNull);
       expect(a.lerp(null, 0.5), a);
+
+      const m = AbsorbLook.midnightDark;
+      expect(
+        m.lerp(AbsorbLook.midnightLight, 0.5).canvasColor!.r,
+        closeTo(0.5, 0.01),
+      );
+      expect(m.lerp(AbsorbLook.plus, 0.25).canvasColor, m.canvasColor);
+      expect(m.lerp(AbsorbLook.plus, 0.75).canvasColor, isNull);
+      expect(m.lerp(AbsorbLook.plus, 0.75).outlinedPanels, isFalse);
     });
 
     test('ids are stable and round-trip', () {
       expect(AppUiTheme.plus.id, 'plus');
-      expect(AppUiTheme.classic.id, 'classic');
       expect(AppUiTheme.frosted.id, 'frosted');
+      expect(AppUiTheme.midnight.id, 'midnight');
+      // The retired Classic id is no look of its own any more.
+      expect(AppUiTheme.fromId('classic'), isNull);
       for (final theme in AppUiTheme.values) {
         expect(AppUiTheme.fromId(theme.id), theme);
       }
@@ -169,7 +249,7 @@ void main() {
       );
     });
 
-    test('unknown or missing ids are null and fall back to Absorb Plus', () {
+    test('unknown or missing ids are null and fall back to Standard', () {
       expect(AppUiTheme.fromId(null), isNull);
       expect(AppUiTheme.fromId(''), isNull);
       expect(AppUiTheme.fromId('neon'), isNull);
@@ -183,15 +263,76 @@ void main() {
       expect(absorbLookFor(Brightness.dark), AbsorbLook.frostedDark);
       expect(absorbLookFor(Brightness.light), AbsorbLook.frostedLight);
       expect(absorbLookFor(Brightness.light, eink: true), AbsorbLook.plus);
+      uiThemeNotifier.value = AppUiTheme.midnight;
+      expect(absorbLookFor(Brightness.dark), AbsorbLook.midnightDark);
+      expect(absorbLookFor(Brightness.light), AbsorbLook.midnightLight);
+    });
+
+    test('look details are layered on top of every look', () {
+      const details = LookDetails(
+        fullQualityCovers: true,
+        extraCoverBadges: false,
+        continueReadingShelf: true,
+        compactHeaderButtons: true,
+      );
+      lookDetailsNotifier.value = details;
+      for (final theme in AppUiTheme.values) {
+        uiThemeNotifier.value = theme;
+        for (final b in Brightness.values) {
+          final look = absorbLookFor(b);
+          expect(look.fullQualityCovers, isTrue, reason: '$theme $b');
+          expect(look.defaultImageCache, isTrue);
+          expect(look.showExtraCoverBadges, isFalse);
+          expect(look.classicHomeShelves, isTrue);
+          expect(look.compactHeaderActions, isTrue);
+          // The look's own surfaces are untouched.
+          expect(
+            look.withNeutralSurfaces(),
+            AbsorbLook.plus.withDetails(details),
+          );
+          expect(
+            look.copyWith(
+              fullQualityCovers: false,
+              defaultImageCache: false,
+              showExtraCoverBadges: true,
+              classicHomeShelves: false,
+              compactHeaderActions: false,
+            ),
+            theme.lookFor(b),
+          );
+        }
+      }
+      expect(currentAbsorbLook.defaultImageCache, isTrue);
+    });
+
+    test('each look detail maps to its own flag', () {
+      final base = AbsorbLook.plus;
+      expect(
+        base.withDetails(const LookDetails(fullQualityCovers: true)),
+        base.copyWith(fullQualityCovers: true, defaultImageCache: true),
+      );
+      expect(
+        base.withDetails(const LookDetails(extraCoverBadges: false)),
+        base.copyWith(showExtraCoverBadges: false),
+      );
+      expect(
+        base.withDetails(const LookDetails(continueReadingShelf: true)),
+        base.copyWith(classicHomeShelves: true),
+      );
+      expect(
+        base.withDetails(const LookDetails(compactHeaderButtons: true)),
+        base.copyWith(compactHeaderActions: true),
+      );
+      expect(base.withDetails(LookDetails.standard), base);
     });
   });
 
   group('persistence', () {
     test('choosing a look saves it and applies it', () async {
-      await UiThemeStore.choose(AppUiTheme.classic);
-      expect(uiThemeNotifier.value, AppUiTheme.classic);
+      await UiThemeStore.choose(AppUiTheme.midnight);
+      expect(uiThemeNotifier.value, AppUiTheme.midnight);
       final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getString(UiThemeStore.prefKey), 'classic');
+      expect(prefs.getString(UiThemeStore.prefKey), 'midnight');
     });
 
     test('Frosted round-trips through storage', () async {
@@ -204,10 +345,64 @@ void main() {
     });
 
     test('load reads the saved look into the notifier', () async {
-      SharedPreferences.setMockInitialValues({UiThemeStore.prefKey: 'classic'});
-      expect(await UiThemeStore.load(), AppUiTheme.classic);
-      expect(uiThemeNotifier.value, AppUiTheme.classic);
+      SharedPreferences.setMockInitialValues({
+        UiThemeStore.prefKey: 'midnight',
+      });
+      expect(await UiThemeStore.load(), AppUiTheme.midnight);
+      expect(uiThemeNotifier.value, AppUiTheme.midnight);
+      expect(lookDetailsNotifier.value, LookDetails.standard);
       expect(await UiThemeStore.needsChoice(), isFalse);
+    });
+
+    test('a saved Classic look becomes Standard with Classic details, '
+        'once', () async {
+      SharedPreferences.setMockInitialValues({UiThemeStore.prefKey: 'classic'});
+      expect(await UiThemeStore.load(), AppUiTheme.plus);
+      expect(uiThemeNotifier.value, AppUiTheme.plus);
+      expect(lookDetailsNotifier.value, LookDetails.classic);
+      expect(await UiThemeStore.needsChoice(), isFalse);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString(UiThemeStore.prefKey), 'plus');
+      expect(prefs.getBool(LookDetailsStore.fullQualityCoversKey), isTrue);
+      expect(prefs.getBool(LookDetailsStore.extraCoverBadgesKey), isFalse);
+      expect(prefs.getBool(LookDetailsStore.continueReadingShelfKey), isTrue);
+      expect(prefs.getBool(LookDetailsStore.compactHeaderButtonsKey), isTrue);
+      // Nothing changes visually for that device.
+      expect(
+        absorbLookFor(Brightness.dark),
+        AbsorbLook.plus.withDetails(LookDetails.classic),
+      );
+
+      // The user changes a detail; the next launch keeps it.
+      await LookDetailsStore.save(
+        LookDetails.classic.copyWith(extraCoverBadges: true),
+      );
+      lookDetailsNotifier.value = LookDetails.standard;
+      expect(await UiThemeStore.load(), AppUiTheme.plus);
+      expect(lookDetailsNotifier.value.extraCoverBadges, isTrue);
+      expect(lookDetailsNotifier.value.fullQualityCovers, isTrue);
+    });
+
+    test('look details persist device-wide and default to Standard', () async {
+      expect(await LookDetailsStore.load(), LookDetails.standard);
+      const details = LookDetails(
+        fullQualityCovers: true,
+        continueReadingShelf: true,
+      );
+      await LookDetailsStore.save(details);
+      expect(lookDetailsNotifier.value, details);
+      lookDetailsNotifier.value = LookDetails.standard;
+      expect(await LookDetailsStore.load(), details);
+      expect(lookDetailsNotifier.value, details);
+    });
+
+    test('look detail changes re-notify the look listeners', () {
+      var calls = 0;
+      void listener() => calls++;
+      uiThemeNotifier.addListener(listener);
+      addTearDown(() => uiThemeNotifier.removeListener(listener));
+      lookDetailsNotifier.value = LookDetails.classic;
+      expect(calls, 1);
     });
 
     test('nothing saved (fresh install or update) needs a choice', () async {
@@ -233,9 +428,18 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Choose a look'), findsOneWidget);
-      expect(find.text('Absorb Plus'), findsOneWidget);
-      expect(find.text('Classic'), findsOneWidget);
+      expect(find.text('Standard'), findsOneWidget);
       expect(find.text('Frosted'), findsOneWidget);
+      expect(find.text('Midnight'), findsOneWidget);
+      expect(find.text('Absorb Plus'), findsNothing);
+      expect(find.text('Classic'), findsNothing);
+      // Cards in the picker order: Standard, Frosted, Midnight.
+      final xs = [
+        for (final id in ['plus', 'frosted', 'midnight'])
+          tester.getCenter(find.byKey(ValueKey('ui-look-$id'))).dx,
+      ];
+      expect(xs[0], lessThan(xs[1]));
+      expect(xs[1], lessThan(xs[2]));
       expect(
         find.byType(UiThemePreview),
         // One card per look; a short window has no room for the large one.
@@ -265,11 +469,16 @@ void main() {
       final context = await _pumpHost(tester);
       UiThemePicker.show(context);
       await tester.pumpAndSettle();
-      expect(find.textContaining("Today's look"), findsOneWidget);
+      expect(find.textContaining('usual Absorb Plus look'), findsOneWidget);
       await tester.tap(find.text('Frosted'));
       await tester.pump();
       expect(find.textContaining('frosted-glass'), findsOneWidget);
-      expect(find.textContaining("Today's look"), findsNothing);
+      expect(find.textContaining('usual Absorb Plus look'), findsNothing);
+      await tester.tap(find.text('Midnight'));
+      await tester.pump();
+      expect(find.textContaining('thin outlines'), findsOneWidget);
+      // Glass strength is Frosted's alone.
+      expect(find.byKey(const ValueKey('ui-picker-glass')), findsNothing);
     });
 
     for (final size in const [Size(1280, 800), Size(390, 844)]) {
@@ -293,6 +502,9 @@ void main() {
         await tester.tap(find.text('Frosted'));
         await tester.pump();
         expect(large().look, AppUiTheme.frosted.lookFor(Brightness.light));
+        await tester.tap(find.text('Midnight'));
+        await tester.pump();
+        expect(large().look, AppUiTheme.midnight.lookFor(Brightness.light));
         // It keeps the window's shape, and the whole dialog fits on screen.
         final frame = tester.getSize(
           find.descendant(
@@ -380,14 +592,14 @@ void main() {
       final context = await _pumpHost(tester);
       UiThemePicker.show(context);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Classic'));
+      await tester.tap(find.text('Midnight'));
       await tester.pump();
       await tester.tap(find.text('Continue'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Back'));
       await tester.pumpAndSettle();
       expect(find.text('Choose a look'), findsOneWidget);
-      expect(find.textContaining('first Windows version'), findsOneWidget);
+      expect(find.textContaining('OLED'), findsOneWidget);
     });
 
     testWidgets('both steps fit a small phone without overflow', (
@@ -415,7 +627,7 @@ void main() {
       expect(find.text('Choose a look'), findsNothing);
     });
 
-    testWidgets('dismissing keeps Absorb Plus and marks it chosen', (
+    testWidgets('dismissing keeps Standard and marks it chosen', (
       tester,
     ) async {
       final context = await _pumpHost(tester);
@@ -449,17 +661,175 @@ void main() {
         ),
       );
       expect(find.text('UI theme'), findsOneWidget);
-      expect(find.text('Absorb Plus'), findsOneWidget);
+      expect(find.text('Standard'), findsOneWidget);
 
-      await tester.tap(find.byType(UiThemeSettingsTile));
+      await tester.tap(find.text('UI theme'));
       await tester.pumpAndSettle();
-      await _pickLookAndFinish(tester, 'Classic');
+      await _pickLookAndFinish(tester, 'Midnight');
 
-      expect(uiThemeNotifier.value, AppUiTheme.classic);
-      expect(find.text('Classic'), findsOneWidget);
-      expect(find.text('Absorb Plus'), findsNothing);
+      expect(uiThemeNotifier.value, AppUiTheme.midnight);
+      expect(find.text('Midnight'), findsOneWidget);
+      expect(find.text('Standard'), findsNothing);
       expect(changed, 1);
     });
+
+    testWidgets('look detail switches save and apply over the active look', (
+      tester,
+    ) async {
+      final saved = <LookDetails>[];
+      uiThemeNotifier.value = AppUiTheme.midnight;
+      await tester.pumpWidget(
+        _app(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: UiThemeSettingsTile(
+                saveDetails: (d) async {
+                  saved.add(d);
+                  lookDetailsNotifier.value = d;
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(find.text('Look details'), findsOneWidget);
+      bool on(String id) => tester
+          .widget<SwitchListTile>(find.byKey(ValueKey('ui-detail-$id')))
+          .value;
+      // Defaults are Standard's behavior.
+      expect(on('full-covers'), isFalse);
+      expect(on('extra-badges'), isTrue);
+      expect(on('reading-shelf'), isFalse);
+      expect(on('compact-header'), isFalse);
+
+      for (final id in [
+        'full-covers',
+        'extra-badges',
+        'reading-shelf',
+        'compact-header',
+      ]) {
+        await tester.ensureVisible(find.byKey(ValueKey('ui-detail-$id')));
+        await tester.tap(find.byKey(ValueKey('ui-detail-$id')));
+        await tester.pump();
+      }
+      expect(saved.last, LookDetails.classic);
+      expect(on('full-covers'), isTrue);
+      expect(on('extra-badges'), isFalse);
+      // The look stays Midnight, with the details on top.
+      expect(uiThemeNotifier.value, AppUiTheme.midnight);
+      expect(
+        absorbLookFor(Brightness.dark),
+        AbsorbLook.midnightDark.withDetails(LookDetails.classic),
+      );
+    });
+
+    testWidgets('look detail switches persist through the real store', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _app(
+          home: const Scaffold(
+            body: SingleChildScrollView(child: UiThemeSettingsTile()),
+          ),
+        ),
+      );
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('ui-detail-compact-header')),
+      );
+      await tester.tap(find.byKey(const ValueKey('ui-detail-compact-header')));
+      await tester.pumpAndSettle();
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool(LookDetailsStore.compactHeaderButtonsKey), isTrue);
+      expect(lookDetailsNotifier.value.compactHeaderButtons, isTrue);
+    });
+
+    testWidgets('Plain wording drives the classic wording setting', (
+      tester,
+    ) async {
+      final saved = <bool>[];
+      await tester.pumpWidget(
+        _app(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: UiThemeSettingsTile(
+                savePlainWording: (v) async => saved.add(v),
+              ),
+            ),
+          ),
+        ),
+      );
+      final plain = find.byKey(const ValueKey('ui-plain-wording'));
+      expect(find.text('Plain wording'), findsOneWidget);
+      expect(
+        find.text('Using "Absorb", "Absorbing", "Fully Absorbed"'),
+        findsOneWidget,
+      );
+      await tester.ensureVisible(plain);
+      await tester.tap(plain);
+      await tester.pump();
+      expect(classicWordingNotifier.value, isTrue);
+      expect(saved, [true]);
+      expect(
+        find.text('Using "Play", "Now Playing", "Finished"'),
+        findsOneWidget,
+      );
+      // Follows changes made elsewhere too.
+      classicWordingNotifier.value = false;
+      await tester.pump();
+      expect(tester.widget<SwitchListTile>(plain).value, isFalse);
+    });
+
+    test('the old Classic wording switch is gone from Settings', () {
+      // Settings shows Plain wording through UiThemeSettingsTile, in
+      // Appearance; an upstream merge must not bring the old switch back.
+      final settings = File(
+        'lib/screens/settings_screen.dart',
+      ).readAsStringSync();
+      expect(settings, isNot(contains("'Classic wording'")));
+      expect(settings, isNot(contains('setClassicWording')));
+      expect(RegExp(r'UiThemeSettingsTile\(').allMatches(settings).length, 1);
+    });
+
+    testWidgets('Plain wording saves to the existing preference', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _app(
+          home: const Scaffold(
+            body: SingleChildScrollView(child: UiThemeSettingsTile()),
+          ),
+        ),
+      );
+      final plain = find.byKey(const ValueKey('ui-plain-wording'));
+      await tester.ensureVisible(plain);
+      await tester.tap(plain);
+      await tester.pumpAndSettle();
+      expect(await PlayerSettings.getClassicWording(), isTrue);
+    });
+
+    for (final size in const [Size(390, 844), Size(1280, 800)]) {
+      testWidgets('the tile fits without overflow at $size', (tester) async {
+        tester.view.physicalSize = size;
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        for (final theme in AppUiTheme.values) {
+          uiThemeNotifier.value = theme;
+          await tester.pumpWidget(
+            _app(
+              home: const Scaffold(
+                body: SingleChildScrollView(child: UiThemeSettingsTile()),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull, reason: '$theme');
+          expect(
+            find.byKey(const ValueKey('ui-settings-glass')),
+            theme == AppUiTheme.frosted ? findsOneWidget : findsNothing,
+          );
+        }
+      });
+    }
 
     testWidgets('dismissing from settings changes nothing', (tester) async {
       var changed = 0;
@@ -468,7 +838,7 @@ void main() {
           home: Scaffold(body: UiThemeSettingsTile(onChanged: () => changed++)),
         ),
       );
-      await tester.tap(find.byType(UiThemeSettingsTile));
+      await tester.tap(find.text('UI theme'));
       await tester.pumpAndSettle();
       await tester.tapAt(const Offset(5, 5));
       await tester.pumpAndSettle();
@@ -479,7 +849,7 @@ void main() {
   });
 
   group('image cache policy', () {
-    test('Absorb Plus keeps the small cache and trims it in background', () {
+    test('Standard keeps the small cache and trims it in background', () {
       final cache = _RecordingImageCache();
       configureImageCache(cache);
       expect(cache.maximumSizeBytes, kAbsorbImageCacheMaximumBytes);
@@ -488,19 +858,25 @@ void main() {
       expect(cache.clearCalls, 1);
     });
 
-    test('Frosted keeps the Absorb Plus cache policy', () {
+    test('Frosted and Midnight keep the Standard cache policy', () {
       final cache = _RecordingImageCache();
       configureImageCache(cache);
       uiThemeNotifier.value = AppUiTheme.frosted;
       expect(cache.maximumSizeBytes, kAbsorbImageCacheMaximumBytes);
       trimDecodedImageCacheForBackground(cache);
       expect(cache.clearCalls, 1);
+      uiThemeNotifier.value = AppUiTheme.midnight;
+      expect(cache.maximumSizeBytes, kAbsorbImageCacheMaximumBytes);
+      trimDecodedImageCacheForBackground(cache);
+      expect(cache.clearCalls, 2);
     });
 
-    test('Classic uses Flutter defaults and keeps the cache in background', () {
+    test('Full-quality covers use Flutter defaults and keep the cache in '
+        'background, in any look', () {
       final cache = _RecordingImageCache();
       configureImageCache(cache);
-      uiThemeNotifier.value = AppUiTheme.classic;
+      uiThemeNotifier.value = AppUiTheme.midnight;
+      lookDetailsNotifier.value = const LookDetails(fullQualityCovers: true);
       expect(cache.maximumSizeBytes, kFlutterDefaultImageCacheMaximumBytes);
       expect(cache.maximumSize, kFlutterDefaultImageCacheMaximumEntries);
       expect(
@@ -511,8 +887,8 @@ void main() {
       trimDecodedImageCacheForBackground(cache);
       expect(cache.clearCalls, 0);
 
-      // Switching back re-applies the Absorb Plus limits.
-      uiThemeNotifier.value = AppUiTheme.plus;
+      // Turning it off re-applies the Standard limits.
+      lookDetailsNotifier.value = LookDetails.standard;
       expect(cache.maximumSizeBytes, kAbsorbImageCacheMaximumBytes);
       expect(cache.maximumSize, kAbsorbImageCacheMaximumEntries);
     });

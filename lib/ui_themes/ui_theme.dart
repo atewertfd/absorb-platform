@@ -3,13 +3,18 @@ import 'dart:ui' show lerpDouble;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'look_details.dart';
+
+export 'look_details.dart';
+
 /// Absorb Plus "UI themes": whole-app looks the user picks once on first
 /// launch and can change in Settings > Appearance > UI theme.
 ///
 /// This is separate from the light/dark/OLED "Theme" setting and from the
-/// color source. A UI theme only changes graphics (cover quality, badges,
-/// shelf sizes, header buttons, surface style); motion and animation timing
-/// are never part of it.
+/// color source. A UI theme only changes graphics (surface style, glow,
+/// outlines); motion and animation timing are never part of it. The old
+/// Classic look's behaviors (cover quality, badges, shelves, header buttons)
+/// are [LookDetails] settings now, layered on top of every look.
 ///
 /// Themes are values: each look is an [AbsorbLook] preset, attached to the
 /// app's [ThemeData] as a [ThemeExtension] (see `absorbLookFor` in main.dart's
@@ -19,21 +24,28 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// [AbsorbLook] preset in [AppUiTheme.lookFor], and add its name and
 /// description strings in `ui_theme_picker.dart` (the switches there are
 /// exhaustive, so the analyzer points at every place that needs it).
+/// The enum order is the picker's order.
 enum AppUiTheme {
-  /// Today's Absorb Plus look. Its preset changes nothing.
+  /// "Standard": today's Absorb Plus look. Its preset changes nothing. The
+  /// id stays 'plus' so saved choices keep working.
   plus('plus'),
-
-  /// The look of the first Windows port (windows-experimental-0.1.0).
-  classic('classic'),
 
   /// Absorb Plus with lightly frosted, translucent surfaces over a stronger
   /// cover-colored glow.
-  frosted('frosted');
+  frosted('frosted'),
+
+  /// True black (paper white in light mode), no glow, and thin outlines
+  /// instead of filled panels.
+  midnight('midnight');
 
   const AppUiTheme(this.id);
 
   /// Stable id stored in preferences. Never rename an existing id.
   final String id;
+
+  /// The id the retired Classic look was stored under. [UiThemeStore.load]
+  /// moves it to Standard plus [LookDetails.classic].
+  static const String retiredClassicId = 'classic';
 
   /// The theme stored under [id], or null for a missing or unknown id.
   static AppUiTheme? fromId(String? id) {
@@ -44,22 +56,25 @@ enum AppUiTheme {
     return null;
   }
 
-  /// The look's dark-mode preset (the app's default mode).
+  /// The look's dark-mode preset (the app's default mode), with the default
+  /// [LookDetails].
   AbsorbLook get spec => lookFor(Brightness.dark);
 
-  /// The look's preset for [brightness]. E-ink always gets neutral surfaces
-  /// (translucency and glow dither into noise there), but keeps the look's
-  /// behavior flags. [glass] picks Frosted's strength; other looks ignore it.
+  /// The look's preset for [brightness], with [details] layered on top.
+  /// E-ink always gets neutral surfaces (translucency, outlines and glow
+  /// dither into noise there), but keeps the behavior flags. [glass] picks
+  /// Frosted's strength; other looks ignore it.
   AbsorbLook lookFor(
     Brightness brightness, {
     bool eink = false,
     GlassStrength glass = kDefaultGlassStrength,
+    LookDetails details = LookDetails.standard,
   }) {
     final look = switch (this) {
       AppUiTheme.plus => AbsorbLook.plus,
-      AppUiTheme.classic => AbsorbLook.classic,
       AppUiTheme.frosted => AbsorbLook.frosted(brightness, glass),
-    };
+      AppUiTheme.midnight => AbsorbLook.midnight(brightness),
+    }.withDetails(details);
     return eink ? look.withNeutralSurfaces() : look;
   }
 }
@@ -96,9 +111,11 @@ const GlassStrength kDefaultGlassStrength = GlassStrength.medium;
 /// What a UI theme changes, as a [ThemeExtension] on the app's [ThemeData].
 ///
 /// Every field's default is today's Absorb Plus behavior, so
-/// [AbsorbLook.plus] is simply the default constructor. The visual tokens
-/// (glow, panels, sheets, radius) are "neutral" by default: null alphas and
-/// false flags mean "paint exactly what upstream paints".
+/// [AbsorbLook.plus] is simply the default constructor. The behavior flags
+/// come from the user's [LookDetails] ([withDetails]); the presets only set
+/// visual tokens. The visual tokens (glow, panels, sheets, radius, canvas)
+/// are "neutral" by default: null values and false flags mean "paint exactly
+/// what upstream paints".
 @immutable
 class AbsorbLook extends ThemeExtension<AbsorbLook> {
   const AbsorbLook({
@@ -118,6 +135,9 @@ class AbsorbLook extends ThemeExtension<AbsorbLook> {
     this.frostedNavBar = false,
     this.frostedSheets = false,
     this.frostedPlayerCard = false,
+    this.canvasColor,
+    this.sheetColor,
+    this.outlinedPanels = false,
   });
 
   // ── Behavior flags ──
@@ -189,22 +209,66 @@ class AbsorbLook extends ThemeExtension<AbsorbLook> {
   /// already a pre-blurred cover, so no extra blur is added.
   final bool frostedPlayerCard;
 
+  /// The screens' background (scaffold, ColorScheme.surface, nav bar) in
+  /// place of upstream's. Null keeps upstream's (Midnight: true black, or
+  /// paper white in light mode).
+  final Color? canvasColor;
+
+  /// An opaque background for bottom sheets and dialogs, drawn with the 1 px
+  /// panel edge. Null keeps upstream's.
+  final Color? sheetColor;
+
+  /// Cards and panels are a thin outline (the 1 px panel edge, see
+  /// [panelBorderAlpha]) over the background instead of a filled panel, and
+  /// the nav bar gets the same edge on top.
+  final bool outlinedPanels;
+
   /// Whether cards and panels are frosted glass.
   bool get frostedPanels => panelFillAlpha != null;
 
+  /// Whether cards and panels differ from upstream's filled panels (frosted
+  /// glass or outlines): no elevation, the panel edge as their outline.
+  bool get themedPanels => frostedPanels || outlinedPanels;
+
+  /// Whether the nav bar gets a top edge.
+  bool get navBarEdge => frostedNavBar || outlinedPanels;
+
   /// Whether any surface differs from the upstream look.
   bool get changesSurfaces =>
-      frostedPanels || frostedNavBar || frostedSheets || frostedPlayerCard;
+      frostedPanels ||
+      frostedNavBar ||
+      frostedSheets ||
+      frostedPlayerCard ||
+      outlinedPanels ||
+      canvasColor != null ||
+      sheetColor != null;
 
   static const AbsorbLook plus = AbsorbLook();
 
-  static const AbsorbLook classic = AbsorbLook(
-    fullQualityCovers: true,
-    defaultImageCache: true,
-    showExtraCoverBadges: false,
-    classicHomeShelves: true,
-    compactHeaderActions: true,
+  /// Midnight in dark mode: true black for OLED, no glow or tint, panels as
+  /// a white 14% hairline (about onSurface at 14%) instead of a grey fill,
+  /// near-black sheets and dialogs with the same edge, and the usual radius.
+  static const AbsorbLook midnightDark = AbsorbLook(
+    glowStrength: 0,
+    panelBorderAlpha: 0.14,
+    canvasColor: Color(0xFF000000),
+    sheetColor: Color(0xFF0A0A0A),
+    outlinedPanels: true,
   );
+
+  /// Midnight in light mode, its paper counterpart: white backgrounds and
+  /// sheets, a black 12% hairline around panels, no glow.
+  static const AbsorbLook midnightLight = AbsorbLook(
+    glowStrength: 0,
+    panelBorderAlpha: 0.12,
+    canvasColor: Color(0xFFFFFFFF),
+    sheetColor: Color(0xFFFFFFFF),
+    outlinedPanels: true,
+  );
+
+  /// The Midnight preset for [brightness].
+  static AbsorbLook midnight(Brightness brightness) =>
+      brightness == Brightness.dark ? midnightDark : midnightLight;
 
   /// Frosted in dark mode, medium glass: the owner-approved demo's values
   /// (white 7% glass, 12% light edge, blur 18, radius +4) over a ~0.24 glow.
@@ -320,10 +384,22 @@ class AbsorbLook extends ThemeExtension<AbsorbLook> {
   static AbsorbLook of(BuildContext context) {
     final theme = Theme.of(context);
     return theme.extension<AbsorbLook>() ??
-        UiThemeScope.themeOf(
-          context,
-        ).lookFor(theme.brightness, glass: currentGlassStrength);
+        UiThemeScope.themeOf(context).lookFor(
+          theme.brightness,
+          glass: currentGlassStrength,
+          details: lookDetailsNotifier.value,
+        );
   }
+
+  /// This look with [details]'s behavior flags. Full-quality covers also
+  /// keep Flutter's default image cache, as the retired Classic look did.
+  AbsorbLook withDetails(LookDetails details) => copyWith(
+    fullQualityCovers: details.fullQualityCovers,
+    defaultImageCache: details.fullQualityCovers,
+    showExtraCoverBadges: details.extraCoverBadges,
+    classicHomeShelves: details.continueReadingShelf,
+    compactHeaderActions: details.compactHeaderButtons,
+  );
 
   /// The same behavior flags with every visual token neutral.
   AbsorbLook withNeutralSurfaces() => AbsorbLook(
@@ -334,10 +410,13 @@ class AbsorbLook extends ThemeExtension<AbsorbLook> {
     compactHeaderActions: compactHeaderActions,
   );
 
-  /// The glass fill for cards and panels, or null when panels aren't frosted.
+  /// The fill for cards and panels: white glass when frosted, transparent
+  /// (the background shows, inside the outline) when outlined, or null to
+  /// keep upstream's opaque fills.
   Color? panelFill() {
     final alpha = panelFillAlpha;
-    return alpha == null ? null : Colors.white.withValues(alpha: alpha);
+    if (alpha != null) return Colors.white.withValues(alpha: alpha);
+    return outlinedPanels ? Colors.transparent : null;
   }
 
   /// The 1 px panel edge for a scheme of [brightness].
@@ -364,6 +443,9 @@ class AbsorbLook extends ThemeExtension<AbsorbLook> {
     bool? frostedNavBar,
     bool? frostedSheets,
     bool? frostedPlayerCard,
+    Color? canvasColor,
+    Color? sheetColor,
+    bool? outlinedPanels,
   }) => AbsorbLook(
     fullQualityCovers: fullQualityCovers ?? this.fullQualityCovers,
     defaultImageCache: defaultImageCache ?? this.defaultImageCache,
@@ -381,6 +463,9 @@ class AbsorbLook extends ThemeExtension<AbsorbLook> {
     frostedNavBar: frostedNavBar ?? this.frostedNavBar,
     frostedSheets: frostedSheets ?? this.frostedSheets,
     frostedPlayerCard: frostedPlayerCard ?? this.frostedPlayerCard,
+    canvasColor: canvasColor ?? this.canvasColor,
+    sheetColor: sheetColor ?? this.sheetColor,
+    outlinedPanels: outlinedPanels ?? this.outlinedPanels,
   );
 
   /// Used by [AnimatedTheme] (light/dark switches): numbers blend, flags and
@@ -391,6 +476,8 @@ class AbsorbLook extends ThemeExtension<AbsorbLook> {
     final near = t < 0.5 ? this : other;
     double? nullable(double? a, double? b) =>
         a == null || b == null ? (t < 0.5 ? a : b) : lerpDouble(a, b, t);
+    Color? color(Color? a, Color? b) =>
+        a == null || b == null ? (t < 0.5 ? a : b) : Color.lerp(a, b, t);
     return AbsorbLook(
       fullQualityCovers: near.fullQualityCovers,
       defaultImageCache: near.defaultImageCache,
@@ -416,6 +503,9 @@ class AbsorbLook extends ThemeExtension<AbsorbLook> {
       frostedNavBar: near.frostedNavBar,
       frostedSheets: near.frostedSheets,
       frostedPlayerCard: near.frostedPlayerCard,
+      canvasColor: color(canvasColor, other.canvasColor),
+      sheetColor: color(sheetColor, other.sheetColor),
+      outlinedPanels: near.outlinedPanels,
     );
   }
 
@@ -437,7 +527,10 @@ class AbsorbLook extends ThemeExtension<AbsorbLook> {
       other.cardFillOpacity == cardFillOpacity &&
       other.frostedNavBar == frostedNavBar &&
       other.frostedSheets == frostedSheets &&
-      other.frostedPlayerCard == frostedPlayerCard;
+      other.frostedPlayerCard == frostedPlayerCard &&
+      other.canvasColor == canvasColor &&
+      other.sheetColor == sheetColor &&
+      other.outlinedPanels == outlinedPanels;
 
   @override
   int get hashCode => Object.hash(
@@ -457,13 +550,22 @@ class AbsorbLook extends ThemeExtension<AbsorbLook> {
     frostedNavBar,
     frostedSheets,
     frostedPlayerCard,
+    canvasColor,
+    sheetColor,
+    outlinedPanels,
   );
 }
 
 /// The [AbsorbLook] to attach to the app's [ThemeData] of [brightness]: the
-/// active look's preset. One-line hook in main.dart's `extensions:`.
+/// active look's preset with the saved [LookDetails] on top. One-line hook in
+/// main.dart's `extensions:`.
 AbsorbLook absorbLookFor(Brightness brightness, {bool eink = false}) =>
-    currentUiTheme.lookFor(brightness, eink: eink, glass: currentGlassStrength);
+    currentUiTheme.lookFor(
+      brightness,
+      eink: eink,
+      glass: currentGlassStrength,
+      details: lookDetailsNotifier.value,
+    );
 
 /// The look used while none has been chosen.
 const AppUiTheme kDefaultUiTheme = AppUiTheme.plus;
@@ -479,11 +581,11 @@ final ValueNotifier<GlassStrength?> glassStrengthPreviewNotifier =
     ValueNotifier(null);
 
 /// The chosen UI theme for this device; null means it was never chosen.
-/// It also notifies when the saved glass strength changes, so everything that
-/// follows the look (the app theme in main.dart, [UiThemeScope]) follows the
-/// glass too.
+/// It also notifies when the saved glass strength or [LookDetails] change, so
+/// everything that follows the look (the app theme in main.dart,
+/// [UiThemeScope], the image cache policy) follows them too.
 final ValueNotifier<AppUiTheme?> uiThemeNotifier = _LookNotifier(
-  glassStrengthNotifier,
+  Listenable.merge([glassStrengthNotifier, lookDetailsNotifier]),
 );
 
 /// A look being tried live ("Try it" in the picker), shown app-wide ahead of
@@ -494,10 +596,10 @@ final ValueNotifier<AppUiTheme?> uiThemePreviewNotifier = _LookNotifier(
   glassStrengthPreviewNotifier,
 );
 
-/// A look notifier that also notifies its listeners when [glass] changes.
+/// A look notifier that also notifies its listeners when [also] changes.
 class _LookNotifier extends ValueNotifier<AppUiTheme?> {
-  _LookNotifier(Listenable glass) : super(null) {
-    glass.addListener(notifyListeners);
+  _LookNotifier(Listenable also) : super(null) {
+    also.addListener(notifyListeners);
   }
 }
 
@@ -515,10 +617,12 @@ AppUiTheme get savedUiTheme => uiThemeNotifier.value ?? kDefaultUiTheme;
 /// The active theme: the look being tried live, else the saved one.
 AppUiTheme get currentUiTheme => uiThemePreviewNotifier.value ?? savedUiTheme;
 
-/// The saved look's behavior flags, read without a [BuildContext] (image
-/// cache policy, which follows saved choices only, not live previews).
-/// Widgets should use [AbsorbLook.of] so they rebuild when the look changes.
-AbsorbLook get currentAbsorbLook => savedUiTheme.spec;
+/// The saved look with the saved [LookDetails], read without a
+/// [BuildContext] (image cache policy, which follows saved choices only, not
+/// live previews). Widgets should use [AbsorbLook.of] so they rebuild when
+/// the look changes.
+AbsorbLook get currentAbsorbLook =>
+    savedUiTheme.lookFor(Brightness.dark, details: lookDetailsNotifier.value);
 
 /// Device-wide storage for the chosen look. It is deliberately not a
 /// per-account (scoped) setting: the look belongs to the device, like the
@@ -530,10 +634,20 @@ abstract final class UiThemeStore {
   static const glassPrefKey = 'fork_ui_glass';
 
   /// Loads the saved look into [uiThemeNotifier] (null when never chosen, or
-  /// when the stored id is unknown, e.g. from a newer build) and the saved
-  /// glass strength into [glassStrengthNotifier] (medium when unset).
+  /// when the stored id is unknown, e.g. from a newer build), the saved
+  /// glass strength into [glassStrengthNotifier] (medium when unset) and the
+  /// saved [LookDetails] into [lookDetailsNotifier].
+  ///
+  /// A device that had the retired Classic look saved moves to Standard with
+  /// [LookDetails.classic], once: the new id replaces 'classic', so nothing
+  /// changes for it visually and later loads keep the user's own details.
   static Future<AppUiTheme?> load() async {
     final prefs = await SharedPreferences.getInstance();
+    await LookDetailsStore.load();
+    if (prefs.getString(prefKey) == AppUiTheme.retiredClassicId) {
+      await LookDetailsStore.save(LookDetails.classic);
+      await prefs.setString(prefKey, AppUiTheme.plus.id);
+    }
     final theme = AppUiTheme.fromId(prefs.getString(prefKey));
     glassStrengthNotifier.value =
         GlassStrength.fromId(prefs.getString(glassPrefKey)) ??
@@ -607,6 +721,7 @@ class UiThemeScope extends InheritedNotifier<Listenable> {
         saved,
         uiThemePreviewNotifier,
         glassStrengthNotifier,
+        lookDetailsNotifier,
       ]);
 
   /// The active look, a live preview first. Subscribes [context] to changes

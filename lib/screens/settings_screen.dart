@@ -259,7 +259,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _autoSeriesDownloadDefault = false;
   // card button layout is now managed in the edit sheet (more menu)
   bool _snappyTransitions = false;
-  bool _classicWording = false;
   bool _rectangleCovers = false;
   bool _showSubtitles = false;
   String _coverSize = 'medium';
@@ -1312,7 +1311,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final chimeVol = results[44] as double;
     final shakeSens = results[45] as String;
     final language = results[46] as String;
-    final classicWording = results[47] as bool;
     final qpId = results[48] as String?;
     final notifSpeedBookmark = results[49] as bool;
     final lockSeek = results[50] as bool;
@@ -1381,7 +1379,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _loggingEnabled = logging;
       _fullScreenPlayer = fullScreen;
       _snappyTransitions = snappyTrans;
-      _classicWording = classicWording;
       _mp3IndexSeeking = mp3IndexSeek;
       _themeMode = theme == 'oled' ? 'dark' : theme;
       _flatBackground = flatBackground;
@@ -2516,21 +2513,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                         ],
                       ),
-                    ),
-                    const Divider(height: 1, indent: 16, endIndent: 16),
-                    SwitchListTile(
-                      title: const Text('Classic wording'),
-                      subtitle: Text(
-                        _classicWording
-                            ? 'Using "Play", "Now Playing", "Finished"'
-                            : 'Using "Absorb", "Absorbing", "Fully Absorbed"',
-                        style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
-                      value: _classicWording,
-                      onChanged: _loaded ? (v) {
-                        setState(() => _classicWording = v);
-                        PlayerSettings.setClassicWording(v);
-                        classicWordingNotifier.value = v;
-                      } : null,
                     ),
                     // iPadOS ignores orientation preferences for multitasking
                     // apps, so the lock can't work there - hide it on iPad.

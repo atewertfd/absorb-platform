@@ -7064,13 +7064,13 @@
   "uiThemeLabel": "UI theme",
   "uiThemePickerTitle": "Choose a look",
   "uiThemePickerIntro": "You can change this any time in Settings > Appearance > UI theme.",
-  "uiThemePlusName": "Absorb Plus",
-  "uiThemePlusDescription": "Today's look, with ebook and saved badges and memory-saving covers.",
-  "uiThemeClassicName": "Classic",
-  "uiThemeClassicDescription": "The first Windows version's look: full-quality covers, fewer badges, compact buttons.",
+  "uiThemePlusName": "Standard",
+  "uiThemePlusDescription": "The usual Absorb Plus look, with filled panels and a soft glow from your cover colors.",
+  "uiThemeMidnightName": "Midnight",
+  "uiThemeMidnightDescription": "Pure black with thin outlines and no glow, made for OLED screens.",
   "uiThemeContinue": "Continue",
   "uiThemeFrostedName": "Frosted",
-  "uiThemeFrostedDescription": "Absorb Plus with soft frosted-glass panels and your cover colors glowing through.",
+  "uiThemeFrostedDescription": "Soft frosted-glass panels with your cover colors glowing through.",
   "uiThemeColorTitle": "Choose a color",
   "uiThemeColorIntro": "This is the same setting as Settings > Appearance > Color source.",
   "uiThemeColorFromCover": "From cover",
@@ -7101,6 +7101,25 @@
   "uiThemeGlassStrong": "Strong",
   "@uiThemeGlassStrong": {
     "description": "Glass strength: more see-through, more blur"
+  },
+  "uiThemeDetails": "Look details",
+  "@uiThemeDetails": {
+    "description": "Heading of the switches under UI theme that work with any look"
+  },
+  "uiThemeFullCovers": "Full-quality covers",
+  "uiThemeFullCoversSubtitle": "Sharper covers that use more memory",
+  "uiThemeExtraBadges": "Extra cover badges",
+  "uiThemeExtraBadgesSubtitle": "Ebook badge and the saved strip on Continue Listening",
+  "uiThemeReadingShelf": "Continue Reading as a shelf",
+  "uiThemeReadingShelfSubtitle": "A normal Home shelf instead of big cards",
+  "uiThemeCompactHeader": "Compact header buttons",
+  "uiThemeCompactHeaderSubtitle": "Page header buttons keep their small size",
+  "uiThemePlainWording": "Plain wording",
+  "uiThemePlainWordingOnSubtitle": "Using \"Play\", \"Now Playing\", \"Finished\"",
+  "uiThemePlainWordingOffSubtitle": "Using \"Absorb\", \"Absorbing\", \"Fully Absorbed\"",
+  "uiThemeSearchClassic": "Classic",
+  "@uiThemeSearchClassic": {
+    "description": "Hidden settings search keyword, so people who used the retired Classic look or Classic wording find where those settings went"
   },
   "whatsNewSheetTitle": "What's new in {name}",
   "@whatsNewSheetTitle": {

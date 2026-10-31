@@ -57,7 +57,7 @@ BoxConstraints? headerActionConstraints(BuildContext context) =>
     ? null
     : const BoxConstraints(minWidth: 44, minHeight: 44);
 
-// ── Surface hooks (Frosted) ──
+// ── Surface hooks (Frosted, Midnight) ──
 
 /// The top alpha of the screens' cover-colored background glow: the look's
 /// own strength, or [userIntensity] (the gradient intensity setting) when the
@@ -68,10 +68,15 @@ double lookGlow(BuildContext context, double userIntensity) =>
 /// A screen background's gradient [colors] (glow first, then the solid
 /// surface stops). In Frosted the accent color tints the stops below the
 /// glow too, fading a little toward the bottom, so the translucent panels
-/// have color behind them. Other looks get [colors] back unchanged.
+/// have color behind them. A look with no glow at all (Midnight) gets the
+/// first solid stop in place of the glow, so not even a faint fade of the
+/// accent shows. Other looks get [colors] back unchanged.
 List<Color> lookBackdrop(BuildContext context, List<Color> colors) {
-  final tint = AbsorbLook.of(context).backdropTint;
-  if (tint <= 0 || colors.length < 2) return colors;
+  final look = AbsorbLook.of(context);
+  if (colors.length < 2) return colors;
+  if (look.glowStrength == 0) return [colors[1], ...colors.skip(1)];
+  final tint = look.backdropTint;
+  if (tint <= 0) return colors;
   final accent = Theme.of(context).colorScheme.primary;
   final last = colors.length - 1;
   return [
@@ -95,19 +100,21 @@ List<Color> lookCardColors(BuildContext context, List<Color> colors) {
   return [for (final c in colors) c.withValues(alpha: c.a * opacity)];
 }
 
-/// A panel's fill: frosted glass when the look frosts panels, else [opaque].
+/// A panel's fill: frosted glass when the look frosts panels, transparent
+/// when it outlines them (Midnight), else [opaque].
 Color lookPanelColor(BuildContext context, Color opaque) =>
     AbsorbLook.of(context).panelFill() ?? opaque;
 
 /// A panel's elevation: 0 for frosted glass (a shadow would show through
-/// the translucent fill), else [elevation].
+/// the translucent fill) and outlined panels, else [elevation].
 double lookPanelElevation(BuildContext context, double elevation) =>
-    AbsorbLook.of(context).frostedPanels ? 0 : elevation;
+    AbsorbLook.of(context).themedPanels ? 0 : elevation;
 
-/// A panel's outline: the thin glass edge when frosted, else [side].
+/// A panel's outline: the thin glass edge when frosted, the hairline when
+/// outlined (Midnight), else [side].
 BorderSide lookPanelSide(BuildContext context, BorderSide side) {
   final look = AbsorbLook.of(context);
-  if (!look.frostedPanels) return side;
+  if (!look.themedPanels) return side;
   return BorderSide(color: look.panelEdge(Theme.of(context).brightness));
 }
 

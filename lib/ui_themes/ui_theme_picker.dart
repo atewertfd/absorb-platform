@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 
 import '../l10n/app_localizations.dart';
 import '../providers/library_provider.dart';
+import '../services/player_settings.dart';
+import '../services/wording.dart';
 import '../widgets/theme_presets.dart';
 import 'ui_theme.dart';
 import 'ui_theme_appearance.dart';
@@ -14,16 +16,16 @@ import 'ui_theme_try.dart';
 /// The display name of a look.
 String uiThemeName(AppLocalizations l, AppUiTheme theme) => switch (theme) {
   AppUiTheme.plus => l.uiThemePlusName,
-  AppUiTheme.classic => l.uiThemeClassicName,
   AppUiTheme.frosted => l.uiThemeFrostedName,
+  AppUiTheme.midnight => l.uiThemeMidnightName,
 };
 
 /// The one-line description of a look.
 String uiThemeDescription(AppLocalizations l, AppUiTheme theme) =>
     switch (theme) {
       AppUiTheme.plus => l.uiThemePlusDescription,
-      AppUiTheme.classic => l.uiThemeClassicDescription,
       AppUiTheme.frosted => l.uiThemeFrostedDescription,
+      AppUiTheme.midnight => l.uiThemeMidnightDescription,
     };
 
 /// The fixed colors offered in the picker's color step: a spread of the
@@ -239,6 +241,7 @@ class _UiThemePickerDialogState extends State<UiThemePickerDialog> {
       Theme.of(context).brightness,
       eink: widget.appearance.eink,
       glass: _glass,
+      details: lookDetailsNotifier.value,
     );
     final scheme = _scheme(context);
     if (_previews.length > 12) _previews.clear();
@@ -638,8 +641,9 @@ class GlassStrengthControl extends StatelessWidget {
   }
 }
 
-/// The Settings > Appearance row: the active look's name, tap to change it.
-/// In Frosted it also offers the glass strength, applied and saved right
+/// The Settings > Appearance rows: the active look's name (tap to change
+/// it), Frosted's glass strength, the [LookDetails] switches that work with
+/// any look, and Plain wording. Everything here is applied and saved right
 /// away. [onChanged] runs after the picker saved a change, so Settings can
 /// reload the color controls it shows.
 class UiThemeSettingsTile extends StatelessWidget {
@@ -647,61 +651,149 @@ class UiThemeSettingsTile extends StatelessWidget {
     super.key,
     this.onChanged,
     this.appearance = const AppUiThemeAppearance(),
+    this.saveDetails = LookDetailsStore.save,
+    this.savePlainWording = PlayerSettings.setClassicWording,
   });
 
   final VoidCallback? onChanged;
   final UiThemeAppearance appearance;
+
+  /// Saves the look details (tests inject a fake).
+  final Future<void> Function(LookDetails details) saveDetails;
+
+  /// Saves Plain wording: upstream's "classic wording" setting.
+  final Future<void> Function(bool plain) savePlainWording;
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
-    // uiThemeNotifier also notifies on saved glass changes.
+    final subtitle = tt.bodySmall?.copyWith(color: cs.onSurfaceVariant);
+    // uiThemeNotifier also notifies on saved glass and look detail changes.
     return ValueListenableBuilder<AppUiTheme?>(
       valueListenable: uiThemeNotifier,
-      builder: (context, theme, _) => Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          InkWell(
-            onTap: () => UiThemePicker.changeFromSettings(
-              context,
-              appearance: appearance,
-              onChanged: onChanged,
-            ),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-              child: Row(
-                children: [
-                  Expanded(child: Text(l.uiThemeLabel, style: tt.titleSmall)),
-                  Text(
-                    uiThemeName(l, theme ?? kDefaultUiTheme),
-                    style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
-                  ),
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    color: cs.onSurfaceVariant.withValues(alpha: 0.5),
-                  ),
-                ],
+      builder: (context, theme, _) {
+        final details = lookDetailsNotifier.value;
+        Widget detail(
+          String id,
+          String title,
+          String sub,
+          bool value,
+          LookDetails Function(bool v) change,
+        ) => SwitchListTile(
+          key: ValueKey('ui-detail-$id'),
+          title: Text(title),
+          subtitle: Text(sub, style: subtitle),
+          value: value,
+          onChanged: (v) {
+            saveDetails(change(v)).catchError((Object e) {
+              debugPrint('[UiTheme] saving look details failed: $e');
+            });
+          },
+        );
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            InkWell(
+              onTap: () => UiThemePicker.changeFromSettings(
+                context,
+                appearance: appearance,
+                onChanged: onChanged,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                child: Row(
+                  children: [
+                    Expanded(child: Text(l.uiThemeLabel, style: tt.titleSmall)),
+                    Text(
+                      uiThemeName(l, theme ?? kDefaultUiTheme),
+                      style: tt.bodyMedium?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          if (theme == AppUiTheme.frosted)
+            if (theme == AppUiTheme.frosted)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                child: GlassStrengthControl(
+                  key: const ValueKey('ui-settings-glass'),
+                  value: savedGlassStrength,
+                  onChanged: (glass) {
+                    UiThemeStore.chooseGlass(glass).catchError((Object e) {
+                      debugPrint('[UiTheme] saving glass failed: $e');
+                    });
+                  },
+                ),
+              ),
+            const Divider(height: 1, indent: 16, endIndent: 16),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              child: GlassStrengthControl(
-                key: const ValueKey('ui-settings-glass'),
-                value: savedGlassStrength,
-                onChanged: (glass) {
-                  UiThemeStore.chooseGlass(glass).catchError((Object e) {
-                    debugPrint('[UiTheme] saving glass failed: $e');
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Text(
+                l.uiThemeDetails,
+                style: tt.titleSmall?.copyWith(color: cs.onSurfaceVariant),
+              ),
+            ),
+            detail(
+              'full-covers',
+              l.uiThemeFullCovers,
+              l.uiThemeFullCoversSubtitle,
+              details.fullQualityCovers,
+              (v) => details.copyWith(fullQualityCovers: v),
+            ),
+            detail(
+              'extra-badges',
+              l.uiThemeExtraBadges,
+              l.uiThemeExtraBadgesSubtitle,
+              details.extraCoverBadges,
+              (v) => details.copyWith(extraCoverBadges: v),
+            ),
+            detail(
+              'reading-shelf',
+              l.uiThemeReadingShelf,
+              l.uiThemeReadingShelfSubtitle,
+              details.continueReadingShelf,
+              (v) => details.copyWith(continueReadingShelf: v),
+            ),
+            detail(
+              'compact-header',
+              l.uiThemeCompactHeader,
+              l.uiThemeCompactHeaderSubtitle,
+              details.compactHeaderButtons,
+              (v) => details.copyWith(compactHeaderButtons: v),
+            ),
+            const Divider(height: 1, indent: 16, endIndent: 16),
+            ValueListenableBuilder<bool>(
+              valueListenable: classicWordingNotifier,
+              builder: (context, plain, _) => SwitchListTile(
+                key: const ValueKey('ui-plain-wording'),
+                title: Text(l.uiThemePlainWording),
+                subtitle: Text(
+                  plain
+                      ? l.uiThemePlainWordingOnSubtitle
+                      : l.uiThemePlainWordingOffSubtitle,
+                  style: subtitle,
+                ),
+                value: plain,
+                onChanged: (v) {
+                  classicWordingNotifier.value = v;
+                  savePlainWording(v).catchError((Object e) {
+                    debugPrint('[UiTheme] saving plain wording failed: $e');
                   });
                 },
               ),
             ),
-        ],
-      ),
+          ],
+        );
+      },
     );
   }
 }

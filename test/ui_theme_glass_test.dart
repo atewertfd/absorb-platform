@@ -9,6 +9,7 @@ import 'package:absorb/ui_themes/ui_theme_picker.dart';
 import 'package:absorb/ui_themes/ui_theme_preview.dart';
 import 'package:absorb/ui_themes/ui_theme_try.dart';
 import 'package:absorb/widgets/cover_decode.dart';
+import 'package:absorb/widgets/settings_search.dart';
 import 'package:absorb/widgets/theme_presets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -89,6 +90,7 @@ void main() {
     uiThemePreviewNotifier.value = null;
     glassStrengthNotifier.value = kDefaultGlassStrength;
     glassStrengthPreviewNotifier.value = null;
+    lookDetailsNotifier.value = LookDetails.standard;
     einkModeNotifier.value = false;
     colorSourceNotifier.value = 'dynamic';
     manualSeedNotifier.value = const Color(0xFF7C6FBF);
@@ -149,8 +151,8 @@ void main() {
           AbsorbLook.plus,
         );
         expect(
-          AppUiTheme.classic.lookFor(Brightness.light, glass: glass),
-          AbsorbLook.classic,
+          AppUiTheme.midnight.lookFor(Brightness.light, glass: glass),
+          AbsorbLook.midnightLight,
         );
       }
     });
@@ -340,9 +342,10 @@ void main() {
         final glassRow = find.byKey(const ValueKey('ui-picker-glass'));
         expect(glassRow, findsNothing);
 
-        await tester.tap(find.text('Classic'));
+        await tester.tap(find.text('Midnight'));
         await tester.pump();
         expect(glassRow, findsNothing);
+        expect(_largePreview(tester).look, AbsorbLook.midnightLight);
 
         await tester.tap(find.text('Frosted'));
         await tester.pump();
@@ -444,7 +447,7 @@ void main() {
       UiThemePicker.show(home);
       await tester.pumpAndSettle();
       expect(_cardPreview(tester, AppUiTheme.frosted).look, AbsorbLook.plus);
-      expect(_cardPreview(tester, AppUiTheme.classic).look, AbsorbLook.classic);
+      expect(_cardPreview(tester, AppUiTheme.midnight).look, AbsorbLook.plus);
     });
 
     testWidgets('previews never take keyboard focus', (tester) async {
@@ -484,7 +487,7 @@ void main() {
       final glass = find.byKey(const ValueKey('ui-settings-glass'));
       await pumpTile(tester);
       expect(glass, findsNothing);
-      uiThemeNotifier.value = AppUiTheme.classic;
+      uiThemeNotifier.value = AppUiTheme.midnight;
       await tester.pump();
       expect(glass, findsNothing);
 
@@ -529,6 +532,58 @@ void main() {
       ).firstWhere((e) => e.title == 'UI theme');
       expect(entry.extras, containsAll(['Frosted', 'Glass']));
     });
+
+    testWidgets('search finds the looks, look details and Plain wording', (
+      tester,
+    ) async {
+      late BuildContext ctx;
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Builder(
+            builder: (c) {
+              ctx = c;
+              return const SizedBox();
+            },
+          ),
+        ),
+      );
+      final entries = settingsSearchEntries(ctx);
+      List<String> titles(String query) => [
+        for (final e in filterSettingEntries(entries, query)) e.title,
+      ];
+      expect(titles('Midnight'), contains('UI theme'));
+      expect(titles('Standard'), contains('UI theme'));
+      expect(titles('wording').first, 'Plain wording');
+      expect(titles('plain').first, 'Plain wording');
+      expect(titles('classic'), containsAll(['Plain wording', 'Look details']));
+      expect(titles('Classic wording'), contains('Plain wording'));
+      expect(titles('full-quality'), contains('Full-quality covers'));
+      expect(titles('badges'), contains('Extra cover badges'));
+      expect(
+        titles('continue reading'),
+        contains('Continue Reading as a shelf'),
+      );
+      expect(titles('compact'), contains('Compact header buttons'));
+      // All of them open the Appearance section, where the tile lives.
+      for (final title in [
+        'UI theme',
+        'Look details',
+        'Full-quality covers',
+        'Extra cover badges',
+        'Continue Reading as a shelf',
+        'Compact header buttons',
+        'Plain wording',
+      ]) {
+        expect(
+          entries.where((e) => e.title == title).single.sectionId,
+          'Appearance',
+          reason: title,
+        );
+      }
+      expect(entries.where((e) => e.title == 'Classic wording'), isEmpty);
+    });
   });
 
   group('Try it', () {
@@ -551,7 +606,9 @@ void main() {
     testWidgets('previews the strength; Go back restores look and strength', (
       tester,
     ) async {
-      SharedPreferences.setMockInitialValues({UiThemeStore.prefKey: 'classic'});
+      SharedPreferences.setMockInitialValues({
+        UiThemeStore.prefKey: 'midnight',
+      });
       await UiThemeStore.load();
       final home = await _pumpApp(tester);
       final result = await tryFrosted(tester, () => UiThemePicker.show(home));
@@ -562,7 +619,7 @@ void main() {
 
       await tester.tap(find.text('Go back'));
       await tester.pumpAndSettle();
-      expect(_lookIn(tester), AbsorbLook.classic);
+      expect(_lookIn(tester), AbsorbLook.midnightLight);
       expect(currentGlassStrength, GlassStrength.medium);
       expect(glassStrengthPreviewNotifier.value, isNull);
       // Back in the picker on the tried look and strength.
@@ -571,7 +628,7 @@ void main() {
       await tester.tapAt(const Offset(5, 5));
       await tester.pumpAndSettle();
       expect(await result, isNull);
-      expect(savedUiTheme, AppUiTheme.classic);
+      expect(savedUiTheme, AppUiTheme.midnight);
       expect(savedGlassStrength, GlassStrength.medium);
     });
 
@@ -660,12 +717,12 @@ void main() {
       await tester.pumpAndSettle();
 
       // Settings > UI theme > Try it, while the first preview is up.
-      final again = UiThemeTryOut.start(AppUiTheme.classic);
+      final again = UiThemeTryOut.start(AppUiTheme.midnight);
       await firstLaunch;
       await tester.pumpAndSettle();
 
-      expect(uiThemePreviewNotifier.value, AppUiTheme.classic);
-      expect(_lookIn(tester), AbsorbLook.classic);
+      expect(uiThemePreviewNotifier.value, AppUiTheme.midnight);
+      expect(_lookIn(tester), AbsorbLook.midnightLight);
       expect(await UiThemeStore.needsChoice(), isFalse);
       expect(savedUiTheme, AppUiTheme.plus);
 
