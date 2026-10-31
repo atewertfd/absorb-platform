@@ -1,31 +1,17 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/api_service.dart';
 import '../services/book_search_index.dart';
-import '../services/libation_import_helper.dart';
 import '../widgets/absorb_page_header.dart';
-import '../widgets/libation_book_picker_sheet.dart'
-    as libation_picker
-    show libationPickerSearchKey, showLibationBookPicker;
-import '../widgets/libation_import_card.dart';
 import '../widgets/overlay_toast.dart';
 import '../widgets/stackable_sheet.dart';
 
 typedef UploadFilePicker = Future<List<MediaUploadFile>?> Function();
-typedef UploadDirectoryPicker = Future<String?> Function();
-typedef UploadExecutablePicker = Future<String?> Function();
-typedef LibationDirectoryScanner =
-    Future<List<LibationBookCandidate>> Function(String directoryPath);
-typedef LibationExecutableLauncher =
-    Future<bool> Function(String executablePath);
 typedef UploadPathChecker =
     Future<UploadPathCheckResult> Function(String directory, String folderPath);
 typedef MediaUploader =
@@ -39,8 +25,6 @@ typedef BookMetadataSearcher =
       String? author,
       required String provider,
     });
-typedef LibrarySearcher =
-    Future<Map<String, dynamic>?> Function(String libraryId, String query);
 
 class AdminUploadScreen extends StatefulWidget {
   static const titleFieldKey = Key('adminUploadTitleField');
@@ -54,41 +38,17 @@ class AdminUploadScreen extends StatefulWidget {
   static const chooseFilesKey = Key('adminUploadChooseFiles');
   static const submitKey = Key('adminUploadSubmit');
   static const permissionBannerKey = Key('adminUploadPermissionBanner');
-  static const libationGuideKey = LibationImportCard.guideKey;
-  static const libationFilesKey = LibationImportCard.filesKey;
-  static const libationFolderKey = LibationImportCard.folderKey;
-  static const libationLaunchKey = LibationImportCard.launchKey;
-  static const libationSetAppKey = LibationImportCard.setAppKey;
-  static const libationSetOutputFolderKey =
-      LibationImportCard.setOutputFolderKey;
-  static const libationScanProgressKey = LibationImportCard.scanProgressKey;
-  static const libationScanOutputFolderKey =
-      LibationImportCard.scanOutputFolderKey;
-  static const libationReviewNewKey = LibationImportCard.reviewNewKey;
-  static const libationPickerSearchKey = libation_picker.libationPickerSearchKey;
-  static const libationDuplicateWarningKey =
-      LibationImportCard.duplicateWarningKey;
 
   final List<dynamic> libraries;
   final String? initialLibraryId;
   final ApiService? apiService;
   final bool canUpload;
-  final bool initialLibationExpanded;
   final VoidCallback? onUploadComplete;
   final UploadFilePicker? filePicker;
-  final UploadDirectoryPicker? directoryPicker;
-  final UploadExecutablePicker? executablePicker;
-  final LibationDirectoryScanner? directoryScanner;
-  final LibationExecutableLauncher? executableLauncher;
-  final bool? showDesktopLibationControls;
   final UploadPathChecker? pathChecker;
   final MediaUploader? uploader;
   final BookMetadataSearcher? metadataSearcher;
-  final LibrarySearcher? librarySearcher;
   final VoidCallback? onNavigationGuardChanged;
-
-  /// Overrides "now" for new-download detection in tests.
-  final DateTime Function()? clock;
 
   const AdminUploadScreen({
     super.key,
@@ -96,20 +56,12 @@ class AdminUploadScreen extends StatefulWidget {
     this.initialLibraryId,
     this.apiService,
     this.canUpload = true,
-    this.initialLibationExpanded = false,
     this.onUploadComplete,
     this.filePicker,
-    this.directoryPicker,
-    this.executablePicker,
-    this.directoryScanner,
-    this.executableLauncher,
-    this.showDesktopLibationControls,
     this.pathChecker,
     this.uploader,
     this.metadataSearcher,
-    this.librarySearcher,
     this.onNavigationGuardChanged,
-    this.clock,
   });
 
   @override
@@ -117,7 +69,28 @@ class AdminUploadScreen extends StatefulWidget {
 }
 
 class _AdminUploadScreenState extends State<AdminUploadScreen> {
-  static const _audioExtensions = kLibationAudioExtensions;
+  static const _audioExtensions = <String>{
+    'm4b',
+    'mp3',
+    'm4a',
+    'flac',
+    'opus',
+    'ogg',
+    'oga',
+    'mp4',
+    'aac',
+    'wma',
+    'aiff',
+    'aif',
+    'wav',
+    'webm',
+    'webma',
+    'mka',
+    'awb',
+    'caf',
+    'mpeg',
+    'mpg',
+  };
   static const _ebookExtensions = <String>{
     'epub',
     'pdf',
@@ -143,8 +116,6 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
     ..._ebookExtensions,
     ..._otherExtensions,
   };
-  // Export handoff only: never select Libation account/configuration files.
-  static const _libationExportExtensions = kLibationExportExtensions;
 
   final _formKey = GlobalKey<FormState>();
   final _title = TextEditingController();
@@ -231,31 +202,6 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
   void _clearExistingTarget() {
     setState(() => _existingTarget = null);
   }
-  String? _libationExecutablePath;
-  String? _libationOutputFolderPath;
-  bool _scanning = false;
-  // Author filled in from the last chosen export folder, so choosing another
-  // book replaces it instead of keeping the previous book's author.
-  String _candidateAuthor = '';
-  String _autoSeries = '';
-  LibationImportHistory _history = const LibationImportHistory(
-    importedFolders: <String>{},
-  );
-  // Exports in the saved output folder not yet imported or seen in the picker.
-  int _newExportCount = 0;
-  // The export folder the current files came from, recorded once uploaded.
-  LibationBookCandidate? _activeCandidate;
-  // Title of a matching book already in the selected library, if any.
-  String? _libraryDuplicateTitle;
-  int _duplicateCheckId = 0;
-
-  bool get _busy => _uploading || _scanning;
-
-  DateTime _now() => widget.clock?.call() ?? DateTime.now();
-
-  bool get _desktopLibationEnabled =>
-      widget.showDesktopLibationControls ??
-      (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS));
 
   @override
   void initState() {
@@ -265,36 +211,6 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
       _loadLibrariesFromApi();
     }
     _loadMetadataProviders();
-    _loadLibationState();
-  }
-
-  Future<void> _loadLibationState() async {
-    final history = await LibationImportHistory.load();
-    if (!mounted) return;
-    setState(() => _history = history);
-    if (!_desktopLibationEnabled) return;
-    await _loadLibationPrefs();
-    if (!mounted) return;
-    await _checkForNewExports();
-  }
-
-  /// Quietly scans the saved output folder (file names, sizes and dates only)
-  /// to offer new Libation downloads. Never uploads anything.
-  Future<void> _checkForNewExports() async {
-    final folder = _libationOutputFolderPath;
-    if (folder == null || folder.isEmpty) return;
-    final scanner = widget.directoryScanner ?? scanLibationExportDirectory;
-    try {
-      final candidates = await scanner(folder);
-      if (!mounted) return;
-      final fresh = newLibationExports(
-        candidates,
-        importedFolders: _history.importedFolders,
-        lastSeen: _history.lastSeen,
-        now: _now(),
-      );
-      setState(() => _newExportCount = fresh.length);
-    } catch (_) {}
   }
 
   void _applyInitialLibraries(List<dynamic> rawLibraries) {
@@ -338,23 +254,6 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
       if (!mounted) return;
       setState(() => _loadingLibraries = false);
     }
-  }
-
-  Future<void> _loadLibationPrefs() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final exe = prefs.getString(kLibationExecutablePathPref);
-      final out = prefs.getString(kLibationOutputFolderPref);
-      if (!mounted) return;
-      setState(() {
-        _libationExecutablePath = (exe != null && exe.trim().isNotEmpty)
-            ? exe.trim()
-            : null;
-        _libationOutputFolderPath = (out != null && out.trim().isNotEmpty)
-            ? out.trim()
-            : null;
-      });
-    } catch (_) {}
   }
 
   @override
@@ -433,13 +332,14 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
       _lastMetadataQuery = null;
       _metadataSearching = false;
       _metadataRequestId++;
-      _libraryDuplicateTitle = null;
     });
-    final candidate = _activeCandidate;
-    if (candidate != null) _checkLibraryDuplicate(candidate);
   }
 
-  String _extension(String filename) => libationFileExtension(filename);
+  String _extension(String filename) {
+    final dot = filename.lastIndexOf('.');
+    if (dot < 0 || dot == filename.length - 1) return '';
+    return filename.substring(dot + 1).toLowerCase();
+  }
 
   bool _isSupported(MediaUploadFile file) =>
       _supportedExtensions.contains(_extension(file.name));
@@ -566,28 +466,18 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
 
     setState(() {
       if (matchedTitle.isNotEmpty) _title.text = matchedTitle;
-      if (matchedAuthor.isNotEmpty) {
-        _author.text = matchedAuthor;
-        _candidateAuthor = matchedAuthor; // filled for us, not typed
-      }
-      if (matchedSeries.isNotEmpty) {
-        _series.text = matchedSeries;
-        _autoSeries = matchedSeries;
-      }
+      if (matchedAuthor.isNotEmpty) _author.text = matchedAuthor;
+      if (matchedSeries.isNotEmpty) _series.text = matchedSeries;
       _metadataSearching = false;
       _lastMetadataQuery = _metadataQuery;
     });
   }
 
-  Future<List<MediaUploadFile>?> _pickWithFilePicker({
-    bool exportedOnly = false,
-  }) async {
+  Future<List<MediaUploadFile>?> _pickWithFilePicker() async {
     final result = await FilePicker.platform.pickFiles(
       allowMultiple: true,
       type: FileType.custom,
-      allowedExtensions:
-          (exportedOnly ? _libationExportExtensions : _supportedExtensions)
-              .toList()..sort(),
+      allowedExtensions: _supportedExtensions.toList()..sort(),
       withReadStream: true,
     );
     if (result == null) return null;
@@ -604,24 +494,16 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
         .toList();
   }
 
-  Future<void> _pickFiles({bool exportedOnly = false}) async {
-    if (_busy) return;
+  Future<void> _pickFiles() async {
     final l = AppLocalizations.of(context)!;
     try {
-      final picked = await (widget.filePicker ??
-              () => _pickWithFilePicker(exportedOnly: exportedOnly))();
+      final picked = await (widget.filePicker ?? _pickWithFilePicker)();
       if (picked == null || picked.isEmpty || !mounted) return;
-      final supported = picked.where(
-            (file) => exportedOnly
-                ? _libationExportExtensions.contains(_extension(file.name))
-                : _isSupported(file),
-          ).toList();
+      final supported = picked.where(_isSupported).toList();
       if (supported.length != picked.length) {
         showOverlayToast(
           context,
-          exportedOnly
-              ? l.libationImportUnsupported
-              : l.adminUploadUnsupportedFiles,
+          l.adminUploadUnsupportedFiles,
           icon: Icons.warning_amber_rounded,
         );
       }
@@ -636,18 +518,11 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
       if (newFiles.isEmpty) return;
 
       setState(() {
-        if (_files.isEmpty) {
-          // Hand-picked files start a new book, not the last scanned folder.
-          _activeCandidate = null;
-          _libraryDuplicateTitle = null;
-        }
-        _files = [..._files,...newFiles];
-        final primaryFiles = _files.where(_isPrimaryFile).toList();
-        if (_title.text.trim().isEmpty) {
-          final inferred = inferTitleFromSelectedFiles(primaryFiles);
-          if (inferred != null && inferred.isNotEmpty) {
-            _title.text = inferred;
-          }
+        _files = [..._files, ...newFiles];
+        if (_title.text.trim().isEmpty && _files.length == 1) {
+          final filename = _files.single.name;
+          final dot = filename.lastIndexOf('.');
+          _title.text = dot > 0 ? filename.substring(0, dot) : filename;
         }
       });
       if (_autoFetchMetadata) await _fetchMetadata();
@@ -659,267 +534,6 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
         icon: Icons.error_outline_rounded,
       );
     }
-  }
-
-  Future<void> _pickExportFolder() async {
-    if (_busy) return;
-    final l = AppLocalizations.of(context)!;
-    try {
-      final dirPath =
-          await (widget.directoryPicker ??
-              () => FilePicker.platform.getDirectoryPath())();
-      if (dirPath == null || dirPath.trim().isEmpty || !mounted) return;
-      await _scanAndSelectFromDirectory(dirPath.trim());
-    } catch (_) {
-      if (!mounted) return;
-      showOverlayToast(
-        context,
-        l.adminUploadFilePickerFailed,
-        icon: Icons.error_outline_rounded,
-      );
-    }
-  }
-
-  Future<void> _scanAndSelectFromDirectory(String directoryPath) async {
-    if (_busy) return;
-    final l = AppLocalizations.of(context)!;
-    final scanner = widget.directoryScanner ?? scanLibationExportDirectory;
-    setState(() => _scanning = true);
-    List<LibationBookCandidate> candidates;
-    try {
-      candidates = await scanner(directoryPath);
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _scanning = false);
-      _showError(l.adminUploadFilePickerFailed);
-      return;
-    }
-    if (!mounted) return;
-    setState(() => _scanning = false);
-    if (candidates.isEmpty) {
-      showOverlayToast(
-        context,
-        l.libationImportNoExportedBooks,
-        icon: Icons.folder_off_outlined,
-      );
-      return;
-    }
-
-    final fresh = newLibationExports(
-      candidates,
-      importedFolders: _history.importedFolders,
-      lastSeen: _history.lastSeen,
-      now: _now(),
-    ).map((candidate) => libationFolderKey(candidate.directoryPath)).toSet();
-    await _markExportsSeen(candidates, directoryPath);
-    if (!mounted) return;
-
-    LibationBookCandidate? chosen;
-    if (candidates.length == 1) {
-      chosen = candidates.single;
-    } else {
-      chosen = await _showBookCandidatePicker(candidates, newFolders: fresh);
-    }
-    if (chosen == null || !mounted) return;
-    await _applyBookCandidate(chosen);
-  }
-
-  /// Once exports have been listed for the user they stop counting as new.
-  Future<void> _markExportsSeen(
-    List<LibationBookCandidate> candidates,
-    String directoryPath,
-  ) async {
-    DateTime? newest;
-    for (final candidate in candidates) {
-      final modified = candidate.modified;
-      if (modified != null && (newest == null || modified.isAfter(newest))) {
-        newest = modified;
-      }
-    }
-    if (newest == null) return;
-    // "New" means new in the Libation output folder; browsing some other
-    // folder must not mark those exports as seen.
-    final outputFolder = _libationOutputFolderPath;
-    if (outputFolder != null &&
-        libationFolderKey(outputFolder) != libationFolderKey(directoryPath)) {
-      return;
-    }
-    await LibationImportHistory.markSeen(newest);
-    if (!mounted) return;
-    final previous = _history.lastSeen;
-    setState(() {
-      if (previous == null || newest!.isAfter(previous)) {
-        _history = LibationImportHistory(
-          importedFolders: _history.importedFolders,
-          lastSeen: newest,
-        );
-      }
-      final outputFolder = _libationOutputFolderPath;
-      if (outputFolder != null &&
-          libationFolderKey(outputFolder) == libationFolderKey(directoryPath)) {
-        _newExportCount = 0;
-      }
-    });
-  }
-
-  Future<LibationBookCandidate?> _showBookCandidatePicker(
-    List<LibationBookCandidate> candidates, {
-    Set<String> newFolders = const <String>{},
-  }) => libation_picker.showLibationBookPicker(
-    context,
-    candidates,
-    importedFolders: _history.importedFolders,
-    newFolders: newFolders,
-    formatBytes: _formatBytes,
-  );
-
-  Future<void> _applyBookCandidate(LibationBookCandidate candidate) async {
-    final l = AppLocalizations.of(context)!;
-    if (candidate.skippedFilesCount > 0) {
-      showOverlayToast(
-        context,
-        l.libationImportUnsupported,
-        icon: Icons.warning_amber_rounded,
-      );
-    }
-    setState(() {
-      _files = List<MediaUploadFile>.from(candidate.files);
-      // Adding files to an existing book: its title and author name the
-      // server folder, so leave them as they are.
-      if (_existingTarget == null) {
-        if (candidate.title.trim().isNotEmpty) {
-          _title.text = candidate.title.trim();
-        }
-        final currentAuthor = _author.text.trim();
-        final nextAuthor = candidate.author?.trim() ?? '';
-        // Keep an author the user typed; replace one a previous folder or
-        // metadata search filled.
-        if (currentAuthor.isEmpty || currentAuthor == _candidateAuthor) {
-          _author.text = nextAuthor;
-        }
-        _candidateAuthor = nextAuthor;
-        // A series the previous book's metadata filled in is not this book's.
-        if (_autoSeries.isNotEmpty && _series.text.trim() == _autoSeries) {
-          _series.clear();
-        }
-        _autoSeries = '';
-      }
-      // A search still running for the previous book must not fill this one.
-      _metadataRequestId++;
-      _metadataSearching = false;
-      _lastMetadataQuery = null;
-      _activeCandidate = candidate;
-      _libraryDuplicateTitle = null;
-    });
-    await _checkLibraryDuplicate(candidate);
-    if (!mounted) return;
-    if (_autoFetchMetadata) await _fetchMetadata();
-  }
-
-  /// Warns (without blocking) when the selected library already has this
-  /// book, matched by the ASIN in Libation's folder name or by title.
-  Future<void> _checkLibraryDuplicate(LibationBookCandidate candidate) async {
-    final libraryId = _selectedLibraryId;
-    if (libraryId == null) return;
-    final searcher =
-        widget.librarySearcher ??
-        (widget.apiService == null
-            ? null
-            : (String id, String query) =>
-                  widget.apiService!.searchLibrary(id, query, limit: 10));
-    if (searcher == null) return;
-    final requestId = ++_duplicateCheckId;
-    Map<String, dynamic>? result;
-    try {
-      result = await searcher(libraryId, candidate.title);
-    } catch (_) {
-      return;
-    }
-    if (!mounted || requestId != _duplicateCheckId) return;
-    if (!identical(_activeCandidate, candidate)) return;
-    final match = matchingLibraryBookTitle(result, candidate);
-    if (match == null) return;
-    setState(() => _libraryDuplicateTitle = match);
-  }
-
-  Future<String?> _pickExecutablePath() async {
-    if (widget.executablePicker != null) {
-      return widget.executablePicker!();
-    }
-    final result = await FilePicker.platform.pickFiles(
-      allowMultiple: false,
-      type: Platform.isWindows ? FileType.custom : FileType.any,
-      allowedExtensions: Platform.isWindows ? const <String>['exe'] : null,
-    );
-    return result?.files.firstOrNull?.path;
-  }
-
-  Future<void> _configureLibationExecutable() async {
-    if (_busy) return;
-    final l = AppLocalizations.of(context)!;
-    try {
-      final picked = await _pickExecutablePath();
-      if (picked == null || picked.trim().isEmpty || !mounted) return;
-      final clean = picked.trim();
-      setState(() => _libationExecutablePath = clean);
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString(kLibationExecutablePathPref, clean);
-      } catch (_) {}
-    } catch (_) {
-      if (!mounted) return;
-      _showError(l.adminUploadFilePickerFailed);
-    }
-  }
-
-  Future<void> _launchLibation() async {
-    if (_busy) return;
-    final l = AppLocalizations.of(context)!;
-    var exePath = _libationExecutablePath;
-    if (exePath == null || exePath.isEmpty) {
-      await _configureLibationExecutable();
-      if (!mounted) return;
-      exePath = _libationExecutablePath;
-      if (exePath == null || exePath.isEmpty) return;
-    }
-    final launcher = widget.executableLauncher ?? launchLibationExecutable;
-    final launched = await launcher(exePath);
-    if (!mounted) return;
-    if (!launched) {
-      _showError(l.libationImportLaunchFailed);
-    }
-  }
-
-  Future<void> _configureLibationOutputFolder() async {
-    if (_busy) return;
-    final l = AppLocalizations.of(context)!;
-    try {
-      final picked =
-          await (widget.directoryPicker ??
-              () => FilePicker.platform.getDirectoryPath())();
-      if (picked == null || picked.trim().isEmpty || !mounted) return;
-      final clean = picked.trim();
-      setState(() => _libationOutputFolderPath = clean);
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString(kLibationOutputFolderPref, clean);
-      } catch (_) {}
-    } catch (_) {
-      if (!mounted) return;
-      _showError(l.adminUploadFilePickerFailed);
-    }
-  }
-
-  Future<void> _scanConfiguredOutputFolder() async {
-    if (_busy) return;
-    var outPath = _libationOutputFolderPath;
-    if (outPath == null || outPath.isEmpty) {
-      await _configureLibationOutputFolder();
-      if (!mounted) return;
-      outPath = _libationOutputFolderPath;
-      if (outPath == null || outPath.isEmpty) return;
-    }
-    await _scanAndSelectFromDirectory(outPath);
   }
 
   void _removeFile(int index) {
@@ -946,7 +560,7 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
   }
 
   Future<void> _submit() async {
-    if (_busy) return;
+    if (_uploading) return;
     final l = AppLocalizations.of(context)!;
     if (!widget.canUpload) {
       _showError(l.adminUploadPermissionDenied);
@@ -1097,39 +711,18 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
               file.bytes == null &&
               file.readStream != null,
         );
-      final importedCandidate = result.success ? _activeCandidate : null;
       setState(() {
       if (result.success) {
         _title.clear();
         _author.clear();
         _series.clear();
         _files = [];
-          _candidateAuthor = '';
-          _autoSeries = '';
-          _lastMetadataQuery = null;
-          _activeCandidate = null;
-          _libraryDuplicateTitle = null;
+        _lastMetadataQuery = null;
         _existingTarget = null;
-          if (importedCandidate != null) {
-            _history = LibationImportHistory(
-              importedFolders: {
-                ..._history.importedFolders,
-                libationFolderKey(importedCandidate.directoryPath),
-              },
-              lastSeen: _history.lastSeen,
-            );
-          }
-        } else if (mustReselectFiles) {
+      } else if (mustReselectFiles) {
         _files = [];
       }
     });
-      if (importedCandidate != null) {
-        // Only after Audiobookshelf accepted the upload.
-        await LibationImportHistory.recordImported(
-          importedCandidate.directoryPath,
-        );
-        if (!mounted) return;
-      }
       if (result.success) {
         widget.onUploadComplete?.call();
         showOverlayToast(
@@ -1303,11 +896,7 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
                                   const SizedBox(height: 12),
                                   _detailsCard(cs, tt, l),
                                   const SizedBox(height: 12),
-                                    if (!_isPodcast)...[
-                                      _libationCard(cs, tt, l),
-                                      const SizedBox(height: 12),
-                                    ],
-                                    _filesCard(cs, tt, l),
+                                  _filesCard(cs, tt, l),
                                   const SizedBox(height: 16),
                                   if (_uploading) ...[
                                     LinearProgressIndicator(value: _progress),
@@ -1329,7 +918,7 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
                                   ],
                                   FilledButton.icon(
                                     key: AdminUploadScreen.submitKey,
-                                    onPressed: _busy || _metadataSearching
+                                    onPressed: _uploading || _metadataSearching
                                         ? null
                                         : _submit,
                                     icon: _uploading
@@ -1495,7 +1084,7 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
             Align(
               alignment: Alignment.centerLeft,
               child: OutlinedButton.icon(
-                onPressed: _busy || _selectedLibraryId == null
+                onPressed: _uploading || _selectedLibraryId == null
                     ? null
                     : _pickExistingBook,
                 icon: const Icon(Icons.library_add_rounded, size: 18),
@@ -1691,27 +1280,6 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
     );
   }
 
-  Widget _libationCard(ColorScheme cs, TextTheme tt, AppLocalizations l) {
-    return _card(
-      cs,
-      child: LibationImportCard(
-        initiallyExpanded: widget.initialLibationExpanded,
-        busy: _busy,
-        scanning: _scanning,
-        newExportCount: _newExportCount,
-        duplicateTitle: _libraryDuplicateTitle,
-        showDesktopControls: _desktopLibationEnabled,
-        onChooseFiles: () => _pickFiles(exportedOnly: true),
-        onChooseFolder: _pickExportFolder,
-        onReviewNew: _scanConfiguredOutputFolder,
-        onLaunch: _launchLibation,
-        onSetApp: _configureLibationExecutable,
-        onScanOutputFolder: _scanConfiguredOutputFolder,
-        onSetOutputFolder: _configureLibationOutputFolder,
-      ),
-    );
-  }
-
   Widget _filesCard(ColorScheme cs, TextTheme tt, AppLocalizations l) {
     final totalBytes = _files.fold<int>(0, (total, file) => total + file.size);
     return _card(
@@ -1744,7 +1312,7 @@ class _AdminUploadScreenState extends State<AdminUploadScreen> {
               final chooseButton =
               OutlinedButton.icon(
                 key: AdminUploadScreen.chooseFilesKey,
-                onPressed: _busy ? null : _pickFiles,
+                onPressed: _uploading ? null : _pickFiles,
                 icon: Icon(
                   _files.isEmpty
                       ? Icons.attach_file_rounded

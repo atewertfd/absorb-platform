@@ -28,13 +28,11 @@ import '../screens/app_shell.dart';
 import '../build_info.dart';
 import '../services/update_checker_service.dart';
 import '../services/update_check_policy.dart';
-import '../services/libation_import_helper.dart';
 import '../services/audiobookshelf_update_service.dart';
 import '../widgets/update_dialog.dart';
 import '../widgets/nav_hold_options.dart';
 import '../widgets/now_playing_text_sheet.dart';
 import '../screens/admin_screen.dart';
-import '../screens/admin_upload_screen.dart';
 import '../screens/bookorbit_admin_screen.dart';
 import '../screens/book_requests_screen.dart';
 import '../screens/achievements_screen.dart';
@@ -369,8 +367,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (mounted && on != _bookRequestsOn) setState(() => _bookRequestsOn = on);
   }
   String? _rmabApiToken;
-  // New exports in the saved Libation output folder (0 when none is saved).
-  int _libationNewCount = 0;
   bool _loaded = false;
   int _adminIssueCount = 0;
   AudiobookshelfServerUpdate? _serverUpdate;
@@ -426,15 +422,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _refreshSyncStatus();
     SocketService().addItemsChangedListener(_onServerItemsChanged);
     PlayerSettings.settingsChanged.addListener(_onExternalSettingsChange);
-    _refreshLibationNewCount();
-  }
-
-  /// Cheap listing of the saved Libation output folder (names, sizes, dates;
-  /// no file contents) so the Advanced tile can point at new downloads.
-  Future<void> _refreshLibationNewCount() async {
-    final count = await countNewExportsInSavedLibationFolder();
-    if (!mounted || count == _libationNewCount) return;
-    setState(() => _libationNewCount = count);
   }
 
   // Keep the Server Admin badge current: scans flag items missing/invalid
@@ -4816,24 +4803,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ? _openRmabImportFromSettings
                           : _openRmabSheetFromSettings,
                     ),
-                    const Divider(height: 1, indent: 16, endIndent: 16),
-                    ListTile(
-                      leading: Icon(Icons.file_download_done_rounded, color: cs.primary),
-                      title: Text(l.libationImportTitle),
-                      subtitle: Text(
-                        _libationNewCount > 0
-                            ? l.libationImportNewReady(_libationNewCount)
-                            : l.libationImportSubtitle,
-                        style: tt.bodySmall?.copyWith(
-                          color: _libationNewCount > 0
-                              ? cs.primary
-                              : cs.onSurfaceVariant,
-                        ),
-                      ),
-                      trailing: Icon(Icons.chevron_right_rounded,
-                          color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
-                      onTap: _openLibationImportFromSettings,
-                    ),
                     if (ForkPlatform.supportsTranscription) const Divider(height: 1, indent: 16, endIndent: 16),
                     if (ForkPlatform.supportsTranscription) ListTile(
                       leading: Icon(Icons.record_voice_over_rounded, color: cs.primary),
@@ -5732,28 +5701,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _openRmabImportFromSettings() async {
     await showRmabSearchResultsSheet(context, initialQuery: '');
-  }
-
-  Future<void> _openLibationImportFromSettings() async {
-    final libraryProvider = context.read<LibraryProvider>();
-    final auth = context.read<AuthProvider>();
-    final api = auth.apiService;
-    if (api == null) return;
-    await Navigator.of(context, rootNavigator: true).push(
-      MaterialPageRoute(
-        builder: (_) => AdminUploadScreen(
-          libraries: libraryProvider.libraries,
-          initialLibraryId: auth.defaultLibraryId,
-          canUpload: auth.canUpload,
-          initialLibationExpanded: true,
-          onUploadComplete: () {
-            unawaited(libraryProvider.loadLibraries());
-          },
-          apiService: api,
-        ),
-      ),
-    );
-    unawaited(_refreshLibationNewCount());
   }
 
   void _confirmLogout(BuildContext context) {

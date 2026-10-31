@@ -19,7 +19,7 @@ Start with `git diff --stat HEAD` and `git diff HEAD`, or the range you were giv
 5. **Safety.**
    - No credentials or tokens in logs or `debugPrint`.
    - No upload or server mutation without an explicit user action.
-   - No reading of Libation account/config files.
+   - No reading of other apps' account/config files.
    - No claims of Audible login.
    - No new silent `catch (_) {}` in fork code; sync, download and auth paths must log.
 6. **Duplication.** New private copies of byte, duration or time formatters, or of JSON helpers, instead of `lib/utils/` helpers.

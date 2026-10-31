@@ -72,14 +72,14 @@ All the other dependencies are used. pub reports "133 packages have newer versio
 ## 4. Tests (`test/`, all fork-owned: upstream has no `test/`)
 
 - 47 unit and widget files plus 4 integration files, about 10,000 lines.
-- A local run is **fast**: 326 pass, 4 skipped, in about 12 s (`build/dev-logs/flutter-test-expanded.log`). The skips are 3 integration suites and the `IMPORT_SCREENSHOTS` screenshot test.
+- A local run is **fast**: 326 pass, 4 skipped, in about 12 s (`build/dev-logs/flutter-test-expanded.log`). The skips are 3 integration suites and the `IMPORT_SCREENSHOTS` screenshot test (that test was removed with the Libation import on 2026-10-30).
 - No goldens.
 - Real `HttpServer` loopback is used in `media_upload_api_test` (4), `admin_upload_screen_test` (2), `update_checker_service_test` and `absorb_plus_logo_test`. It's fine, but it's the most timing-sensitive part of the suite.
 
 | Feature | Tests | Gap |
 |---|---|---|
 | UI looks (Standard, Frosted, Midnight, Try it) | ui_theme_* (4 files, about 2,800 lines) | Well covered, arguably over-weighted |
-| Libation and admin upload | admin_upload_screen, media_upload_api, integration/upload | Good |
+| Admin upload (Libation removed 2026-10-30) | admin_upload_screen, media_upload_api, integration/upload | Good |
 | Updates and What's new | update_*, whats_new_* (8 files) | Good |
 | Downloads | download_info, path_names, recovery, telemetry, track_names, queue_download_policy | Policy and naming are covered; the transfer engine isn't |
 | Progress sync | progress_sync_transport, local_session_flush, offline_listening_flush | **`lib/services/sync_logic.dart` (89 lines, pure, and its header says "Extracted so the math can be unit-tested") has no test** |
@@ -178,7 +178,7 @@ Confidence: **H** = verified directly, **M** = strong evidence but not executed,
 
 **N1. `webview_flutter` has no Windows, Linux or web implementation, yet two features call it ungated. (H, static)**
 - The calls:
-  - `book_detail_sheet.dart` `_showAudibleReviews` runs `WebViewController()` (line 2929), reached by tapping the Audible rating or badge whenever an ASIN exists, which is common for Libation imports;
+  - `book_detail_sheet.dart` `_showAudibleReviews` runs `WebViewController()` (line 2929), reached by tapping the Audible rating or badge whenever an ASIN exists, which is common for books with Audible metadata;
   - `app_shell.dart:1523` and `rmab_config_sheet.dart` open `AdminRmabScreen`, which also uses `WebViewController`.
 - The lock contains only `webview_flutter_android` and `webview_flutter_wkwebview`. With no platform instance registered, the controller throws, so on the owner's main platform the tap does nothing and logs an exception (not executed here).
 - Fix (fork hook in upstream files, M merge cost): on non-Android, open the URL with `url_launcher` (`LaunchMode.externalApplication`), or port both to `flutter_inappwebview`, which already has the Windows patch.

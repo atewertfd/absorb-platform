@@ -31,7 +31,7 @@ The biggest Absorb Plus update so far: pick how the app looks, smoother and ligh
 - Desktop keyboard shortcuts no longer eat what you type.
 - Server health check never sticks on "Checking", and doesn't over-report failures.
 - Updater: cancel works, portable copies are handled, and it says when it couldn't reach GitHub.
-- Libation import: one book's details no longer leak into the next upload.
+- The Libation import from Beta 10 is gone. You can still upload files to your server from Manage › Upload.
 - Failures in sync, downloads and sign-in now show up in the log (when logging is on), so problems are easier to track down. Tokens and passwords are never logged.
 - The upstream author's "Support the Dev" card is hidden.
 

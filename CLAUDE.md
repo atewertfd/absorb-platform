@@ -99,9 +99,8 @@ Claude is the main and only developer of Absorb Plus, a fork of [pounat/absorb](
 - **Performance work is stability-first:** rebuild scope, lifecycle, bounded caches. Measure with `/perf-measure`. Never break playback, downloads, sync, scrolling, Android or web to improve Windows.
 - Absorb is a client of the user's own Audiobookshelf server.
   - Credentials are entered by the user and never logged.
-  - Never search the machine for passwords, tokens or account files. Never read Libation's account or config files (permission-denied).
+  - Never search the machine for passwords, tokens or account files, and never read other apps' account or config files (some are permission-denied).
   - Never upload, modify or delete server data without an explicit user action, and never claim success unless the server response proves it.
-  - Libation support imports **exported files** only. It is not an Audible login and doesn't bypass DRM; say so honestly.
   - Never test against the owner's server or NAS. Use fixtures or the throwaway Docker test server.
 
 ## Owner preferences
@@ -113,5 +112,4 @@ Claude is the main and only developer of Absorb Plus, a fork of [pounat/absorb](
 - **Updates:** never forced. Show "update available" and let the user choose.
 - **Release assets:** no SHA256SUMS files.
 - **NAS / local-server discovery work** (`codex-local/feature/local-server-discovery`): paused until the owner says go.
-- **Libation docs:** [getting started](https://github.com/rmcrackan/Libation/blob/master/docs/getting-started.md), [CLI](https://github.com/rmcrackan/Libation/blob/master/docs/advanced/command-line-interface.md).
 - **Git:** small logical commits. Never `reset --hard` or overwrite uncommitted work.

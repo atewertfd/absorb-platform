@@ -7043,44 +7043,7 @@
       }
     }
   },
-  "libationImportTitle": "Import Libation exports",
-  "libationImportSubtitle": "Add exported audiobook files to Audiobookshelf",
-  "libationImportSteps": "1. Download the audiobook in Libation first. Libation is a separate app that you install and sign in to yourself.\n2. Choose the exported book folder (or Libation's output folder, newest download first), or pick the audio files and cover directly.\n3. Review the title, author, library, and destination above, then select Upload below. After Audiobookshelf scans the files, refresh your library to listen or download for offline use.",
-  "libationImportPrivacy": "Only import files you are authorized to use. Absorb Plus does not sign in to Audible or Libation, read account/configuration files, or convert protected files. Selecting files does not upload them.",
-  "libationImportChooseFiles": "Choose exported files",
-  "libationImportUnsupported": "Only exported audio and cover images were added. Account files, metadata/configuration files, and unsupported protected formats were skipped.",
   "adminUploadPermissionDenied": "Your Audiobookshelf account does not have upload permission. Ask a server administrator to enable upload access for your account.",
-  "libationImportChooseFolder": "Choose exported folder",
-  "libationImportNoExportedBooks": "No exported audiobook files were found in that folder.",
-  "libationImportSelectBookTitle": "Choose exported audiobook",
-  "libationImportSelectBookSubtitle": "Select one exported audiobook folder to review before uploading.",
-  "libationImportLaunchApp": "Launch Libation",
-  "libationImportSetApp": "Set Libation app",
-  "libationImportSetOutputFolder": "Set output folder",
-  "libationImportScanOutputFolder": "Scan output folder",
-  "libationImportLaunchFailed": "Couldn't launch the selected Libation executable.",
-  "libationImportDesktopHint": "Libation must be installed and signed in separately. Optional: set your Libation app and output folder to launch Libation or scan completed exports from here.",
-  "libationImportNewReady": "{count, plural, =1{1 new Libation download ready to import} other{{count} new Libation downloads ready to import}}",
-  "@libationImportNewReady": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
-  "libationImportReviewNew": "Review new downloads",
-  "libationImportTagNew": "New",
-  "libationImportTagImported": "Imported",
-  "libationImportSearchHint": "Search exported books",
-  "libationImportNoSearchMatches": "No exported books match your search.",
-  "libationImportAlreadyInLibrary": "\"{title}\" is already in this library. Uploading it again creates a duplicate.",
-  "@libationImportAlreadyInLibrary": {
-    "placeholders": {
-      "title": {
-        "type": "String"
-      }
-    }
-  },
   "uiThemeLabel": "UI theme",
   "uiThemePickerTitle": "Choose a look",
   "uiThemePickerIntro": "You can change this any time in Settings > Appearance > UI theme.",
