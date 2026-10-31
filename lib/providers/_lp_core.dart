@@ -2036,6 +2036,44 @@ mixin _CoreMixin on ChangeNotifier, _StateMixin {
     }
   }
 
+  void _registerSectionEntities(List<dynamic> sections) {
+    for (final section in sections) {
+      for (final e in (section['entities'] as List<dynamic>? ?? [])) {
+        if (e is Map<String, dynamic>) {
+          final id = e['id'] as String?;
+          final ts = e['updatedAt'] as num?;
+          if (id != null && ts != null) registerUpdatedAt(id, ts.toInt());
+          if (id != null) {
+            final coverPath = (e['media'] as Map<String, dynamic>?)?['coverPath'] as String?;
+            registerHasCover(id, coverPath != null && coverPath.isNotEmpty);
+          }
+        }
+      }
+    }
+  }
+
+  /// Cold start: paint Home from the last load's shelves while the server
+  /// answers (see HomeShelfSnapshot). Skipped if the answer came first.
+  Future<void> _showHomeSnapshot() async {
+    final libraryId = _selectedLibraryId;
+    if (libraryId == null) return;
+    final snapshot = await HomeShelfSnapshot.instance
+        .load(UserAccountService().activeScopeKey, libraryId);
+    if (snapshot == null ||
+        snapshot.isEmpty ||
+        _personalizedSections.isNotEmpty ||
+        _selectedLibraryId != libraryId ||
+        isOffline) {
+      return;
+    }
+    _personalizedSections = _withoutJustHidden(snapshot);
+    _registerSectionEntities(_personalizedSections);
+    _injectDownloadedSection();
+    _isLoading = false;
+    notifyListeners();
+    StartupTiming.mark('home from saved copy');
+  }
+
   Future<void> _doLoadPersonalizedView() async {
     if (_api == null || _selectedLibraryId == null) return;
 
@@ -2048,28 +2086,27 @@ mixin _CoreMixin on ChangeNotifier, _StateMixin {
     if (!hadData) {
       _isLoading = true;
       notifyListeners();
+      unawaited(_showHomeSnapshot());
     }
 
     try {
-      await _refreshProgress();
-      _personalizedSections = _withoutJustHidden(await _api!.getPersonalizedView(
-            _selectedLibraryId!,
-            include: const ['numEpisodesIncomplete'],
-          ) ??
-          []);
-      for (final section in _personalizedSections) {
-        for (final e in (section['entities'] as List<dynamic>? ?? [])) {
-          if (e is Map<String, dynamic>) {
-            final id = e['id'] as String?;
-            final ts = e['updatedAt'] as num?;
-            if (id != null && ts != null) registerUpdatedAt(id, ts.toInt());
-            if (id != null) {
-              final coverPath = (e['media'] as Map<String, dynamic>?)?['coverPath'] as String?;
-              registerHasCover(id, coverPath != null && coverPath.isNotEmpty);
-            }
-          }
-        }
+      final libraryId = _selectedLibraryId!;
+      // Progress and shelves load side by side (one round trip, not two).
+      final progress = _refreshProgress();
+      final List<dynamic> view;
+      try {
+        view = await _api!.getPersonalizedView(
+              libraryId,
+              include: const ['numEpisodesIncomplete'],
+            ) ??
+            [];
+      } finally {
+        await progress;
       }
+      _personalizedSections = _withoutJustHidden(view);
+      _registerSectionEntities(_personalizedSections);
+      unawaited(HomeShelfSnapshot.instance
+          .save(UserAccountService().activeScopeKey, libraryId, view));
       // Playlists and collections load straight away: they came last, and a
       // podcast-only step below that threw skipped them (GH #413).
       loadPlaylists();
