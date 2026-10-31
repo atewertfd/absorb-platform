@@ -13282,6 +13282,12 @@ class AppLocalizationsDe extends AppLocalizations {
       'Ask a question on the Absorb Plus GitHub';
 
   @override
+  String get githubProjectTitle => 'Absorb Plus on GitHub';
+
+  @override
+  String get githubProjectSubtitle => 'Releases, source code and project news';
+
+  @override
   String get supportSaveLogsSubtitle =>
       'Save the log file to attach to a GitHub issue';
 

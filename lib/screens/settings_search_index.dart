@@ -163,7 +163,7 @@ List<SettingSearchEntry> settingsSearchEntries(BuildContext context) {
     SettingSearchEntry('Issues & Support', l.sectionIssuesAndSupport, l.showTipsAgain, [l.showTipsAgainSubtitle]),
     SettingSearchEntry('Issues & Support', l.sectionIssuesAndSupport, l.bugsAndFeatureRequests, [l.bugsAndFeatureRequestsSubtitle]),
     if (ForkBranding.showUpstreamDiscord) SettingSearchEntry('Issues & Support', l.sectionIssuesAndSupport, l.joinDiscord, [l.joinDiscordSubtitle]),
-    SettingSearchEntry('Issues & Support', l.sectionIssuesAndSupport, l.contact, [l.supportContactSubtitle]),
+    SettingSearchEntry('Issues & Support', l.sectionIssuesAndSupport, l.githubProjectTitle, [l.githubProjectSubtitle, 'GitHub']),
     SettingSearchEntry('Issues & Support', l.sectionIssuesAndSupport, l.enableLogging, [l.enableLoggingOnSubtitle, l.enableLoggingOffSubtitle]),
     SettingSearchEntry('Issues & Support', l.sectionIssuesAndSupport, l.sendLogs, [l.sendLogsSubtitle]),
     SettingSearchEntry('Issues & Support', l.sectionIssuesAndSupport, l.clearLogs, const []),

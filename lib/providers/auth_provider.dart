@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/startup_timing.dart';
 import '../services/api_service.dart';
 import '../services/bookorbit_admin.dart';
 import '../services/auth_tokens.dart';
@@ -676,6 +677,7 @@ class AuthProvider extends ChangeNotifier {
       _serverReachable = false;
     }
 
+    if (isAuthenticated) StartupTiming.mark('signed in');
     debugPrint(
       '[Auth] tryRestoreSession done, isAuthenticated=$isAuthenticated (${sw.elapsedMilliseconds}ms)',
     );

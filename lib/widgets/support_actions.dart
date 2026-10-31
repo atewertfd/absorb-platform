@@ -50,6 +50,10 @@ abstract final class SupportActions {
     await ForkPlatform.openExternal(Uri.parse(ForkBranding.issuesUrl));
   }
 
+  static Future<void> openProject() async {
+    await ForkPlatform.openExternal(Uri.parse(ForkBranding.repoUrl));
+  }
+
   /// Device details put at the top of a log report.
   static String reportHeader({String? serverVersion, DateTime? now}) {
     final buf = StringBuffer()

@@ -12,6 +12,10 @@ abstract final class ForkBranding {
   static const String issuesUrl =
       'https://github.com/atewertfd/absorb-plus/issues';
 
+  /// The project page, linked from Settings > Issues & Support in place of
+  /// upstream's Contact email (owner, 2026-10-30).
+  static const String repoUrl = 'https://github.com/atewertfd/absorb-plus';
+
   /// Upstream's Discord is for the original Absorb, so it's hidden.
   static const bool showUpstreamDiscord = false;
 

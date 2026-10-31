@@ -44,6 +44,7 @@ import 'services/quick_actions_service.dart';
 import 'services/startup_task_coordinator.dart';
 import 'services/setup_link_service.dart';
 import 'services/wording.dart';
+import 'services/startup_timing.dart';
 import 'screens/login_screen.dart';
 import 'screens/app_shell.dart';
 import 'widgets/auth_loading_screen.dart';
@@ -248,6 +249,7 @@ Future<void> applyOrientationLock() async {
 }
 
 void main() async {
+  StartupTiming.markMain();
   HttpOverrides.global = _CertOverrides();
   final widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
   bool smoothWheel() =>
@@ -338,6 +340,8 @@ void main() async {
     FlutterNativeSplash.remove();
   } catch (_) {}
 
+  WidgetsBinding.instance
+      .addPostFrameCallback((_) => StartupTiming.markFirstFrame());
   runApp(
     MultiProvider(
       providers: [

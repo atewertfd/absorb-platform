@@ -7198,6 +7198,8 @@
   "windowsTaskbarRewind": "Rewind",
   "windowsTaskbarForward": "Fast-forward",
   "supportContactSubtitle": "Ask a question on the Absorb Plus GitHub",
+  "githubProjectTitle": "Absorb Plus on GitHub",
+  "githubProjectSubtitle": "Releases, source code and project news",
   "supportSaveLogsSubtitle": "Save the log file to attach to a GitHub issue",
   "supportSaveLogsDialogTitle": "Save Absorb Plus logs",
   "supportLogsSaved": "Logs saved to {path}",

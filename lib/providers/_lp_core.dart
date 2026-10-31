@@ -2082,6 +2082,7 @@ mixin _CoreMixin on ChangeNotifier, _StateMixin {
       // Snapshot after injection so a tab flip restores the full shelf set.
       _sectionsByLibrary[_selectedLibraryId!] = _personalizedSections;
       _sectionsFetchedAt[_selectedLibraryId!] = DateTime.now();
+      StartupTiming.markHomeReady();
       SiriService().scheduleCatalogUpdate();
 
       if (isPodcastLibrary) {

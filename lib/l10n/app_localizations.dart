@@ -22365,6 +22365,18 @@ abstract class AppLocalizations {
   /// **'Ask a question on the Absorb Plus GitHub'**
   String get supportContactSubtitle;
 
+  /// No description provided for @githubProjectTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Absorb Plus on GitHub'**
+  String get githubProjectTitle;
+
+  /// No description provided for @githubProjectSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Releases, source code and project news'**
+  String get githubProjectSubtitle;
+
   /// No description provided for @supportSaveLogsSubtitle.
   ///
   /// In en, this message translates to:

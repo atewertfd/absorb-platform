@@ -222,6 +222,23 @@ bool TaskbarUsesLightTheme() {
   return value != 0;
 }
 
+// Milliseconds since this process was created, for the startup timing line
+// in the log (lib/services/startup_timing.dart); -1 if Windows won't say.
+int64_t ProcessAgeMs() {
+  FILETIME created, exited, kernel, user, now;
+  if (!GetProcessTimes(GetCurrentProcess(), &created, &exited, &kernel,
+                       &user)) {
+    return -1;
+  }
+  GetSystemTimeAsFileTime(&now);
+  ULARGE_INTEGER c, n;
+  c.LowPart = created.dwLowDateTime;
+  c.HighPart = created.dwHighDateTime;
+  n.LowPart = now.dwLowDateTime;
+  n.HighPart = now.dwHighDateTime;
+  return static_cast<int64_t>((n.QuadPart - c.QuadPart) / 10000);
+}
+
 }  // namespace
 
 WindowsShell::WindowsShell(Win32Window* window,
@@ -771,6 +788,12 @@ void WindowsShell::HandleShellCall(
     std::unique_ptr<flutter::MethodResult<EncodableValue>> result) {
   const std::string& method = call.method_name();
   const EncodableValue* args = call.arguments();
+  // Asked during startup, before Dart can take part in the quit flow, so it
+  // must not mark Dart as ready.
+  if (method == "processAgeMs") {
+    result->Success(EncodableValue(ProcessAgeMs()));
+    return;
+  }
   dart_ready_ = true;
   const bool enabled = BoolArg(args, "enabled").value_or(false);
 

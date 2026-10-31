@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import '../services/scoped_prefs.dart';
+import '../services/startup_timing.dart';
 import '../services/audio_player_service.dart';
 import 'auth_provider.dart';
 import '../services/api_service.dart';

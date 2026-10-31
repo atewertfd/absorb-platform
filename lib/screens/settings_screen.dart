@@ -4565,14 +4565,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     const Divider(height: 1, indent: 16, endIndent: 16),
                     ListTile(
-                      leading: Icon(Icons.email_outlined, color: cs.primary),
-                      title: Text(l.contact),
-                      subtitle: Text(l.supportContactSubtitle,
+                      leading: Icon(Icons.code_rounded, color: cs.primary),
+                      title: Text(l.githubProjectTitle),
+                      subtitle: Text(l.githubProjectSubtitle,
                         style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
-                      trailing: const Icon(Icons.chevron_right_rounded),
-                      onTap: () {
-                        SupportActions.openIssues();
-                      },
+                      trailing: Icon(Icons.open_in_new_rounded,
+                          size: 18, color: cs.onSurfaceVariant),
+                      onTap: SupportActions.openProject,
                     ),
                     const Divider(height: 1, indent: 16, endIndent: 16),
                     SwitchListTile(

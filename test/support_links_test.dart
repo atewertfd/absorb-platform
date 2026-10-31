@@ -15,7 +15,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // Owner decision (2026-10-30): support rows go to the Absorb Plus GitHub
-// issues, upstream's Discord is hidden, and "Send logs" saves a file on
+// issues, the project page replaces Contact, upstream's Discord is hidden, and "Send logs" saves a file on
 // desktop. Nothing here contacts a real server or browser.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -82,19 +82,21 @@ void main() {
     await settle(tester);
   }
 
-  testWidgets('Contact opens the Absorb Plus issues; Discord is hidden',
+  testWidgets('GitHub opens the Absorb Plus project; Contact and Discord are gone',
       variant: TargetPlatformVariant.only(TargetPlatform.windows),
       (tester) async {
     await pumpSettings(tester);
     await openSection(tester, 'Issues & Support');
 
     expect(find.text('Join Discord', skipOffstage: false), findsNothing);
-    final contact = find.text('Contact');
-    await tester.scrollUntilVisible(contact, 200,
+    expect(find.text('Contact', skipOffstage: false), findsNothing);
+    final github = find.text('Absorb Plus on GitHub');
+    await tester.scrollUntilVisible(github, 200,
         scrollable: find.byType(Scrollable).first);
-    await tester.tap(contact);
+    await tester.tap(github);
     await tester.pump();
-    expect(opened.single.toString(), ForkBranding.issuesUrl);
+    expect(opened.single.toString(), ForkBranding.repoUrl);
+    expect(ForkBranding.repoUrl, endsWith('atewertfd/absorb-plus'));
     expect(ForkBranding.issuesUrl, contains('atewertfd/absorb-plus'));
   });
 

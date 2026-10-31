@@ -7,11 +7,10 @@ import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 import '../services/backup_service.dart';
-import '../services/log_service.dart';
+import '../widgets/support_actions.dart';
 import '../services/oidc_service.dart';
 import '../services/server_backend.dart';
 import '../services/settings_sync_service.dart';
@@ -1028,35 +1027,9 @@ class _LoginScreenState extends State<LoginScreen>
         Text(l.loginBookOrbitPreview, style: tt.bodySmall?.copyWith(color: cs.error, height: 1.4)),
         Wrap(children: [
           TextButton.icon(
-            onPressed: () => launchUrl(
-              Uri.parse('https://github.com/pounat/absorb'),
-              mode: LaunchMode.externalApplication,
-            ),
+            onPressed: SupportActions.openIssues,
             icon: const Icon(Icons.code_rounded, size: 16),
             label: const Text('GitHub'),
-            style: TextButton.styleFrom(
-              foregroundColor: cs.error,
-              visualDensity: VisualDensity.compact,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-            ),
-          ),
-          TextButton.icon(
-            onPressed: () => LogService().contactEmail(),
-            icon: const Icon(Icons.email_outlined, size: 16),
-            label: Text(l.contact),
-            style: TextButton.styleFrom(
-              foregroundColor: cs.error,
-              visualDensity: VisualDensity.compact,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-            ),
-          ),
-          TextButton.icon(
-            onPressed: () => launchUrl(
-              Uri.parse('https://discord.gg/bwH6hdvzZ4'),
-              mode: LaunchMode.externalApplication,
-            ),
-            icon: const Icon(Icons.discord, size: 16),
-            label: Text(l.joinDiscord),
             style: TextButton.styleFrom(
               foregroundColor: cs.error,
               visualDensity: VisualDensity.compact,
