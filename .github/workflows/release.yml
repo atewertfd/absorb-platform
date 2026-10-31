@@ -3,8 +3,12 @@ name: Release
 # Push a tag vX.Y.Z-N matching pubspec.yaml (X.Y.Z+N) to publish Absorb Plus:
 # Windows installer + portable ZIP, Linux tar.gz + .deb, web ZIP, Android APKs.
 # Odd patch = beta (pre-release); even patch = stable. One workflow creates and
-# fills one release, so jobs never race each other. No checksum files (owner's
-# preference). Release notes are replaced afterwards by the /release skill.
+# fills one release, so jobs never race each other. The release starts as a
+# draft (invisible to users and to the in-app update check) and is published
+# by the last job only after every platform build is attached; a failed run
+# leaves a draft to fix and re-run, never a half-empty public release.
+# No checksum files (owner's preference). Release notes are replaced by the
+# /release skill, ideally while the release is still a draft.
 
 on:
   push:
@@ -36,7 +40,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           ref: ${{ inputs.tag || github.ref }}
-      - name: Resolve version and create the release
+      - name: Resolve version and create the draft release
         id: v
         shell: bash
         env:
@@ -62,10 +66,12 @@ jobs:
             NOTES="Release notes follow once all builds are attached."
             FLAGS=()
           fi
+          # gh finds drafts by tag too. A re-run keeps the existing release
+          # (draft or published) and its notes; only the title is refreshed.
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release edit "$TAG" --title "$TITLE"
           else
-            gh release create "$TAG" --verify-tag --title "$TITLE" --notes "$NOTES" "${FLAGS[@]}"
+            gh release create "$TAG" --draft --verify-tag --title "$TITLE" --notes "$NOTES" "${FLAGS[@]}"
           fi
           {
             echo "tag=$TAG"
@@ -155,6 +161,10 @@ jobs:
       - run: flutter pub get
       - run: python3 tool/ci/patch_webview_linux.py
       - run: flutter build linux --release --no-pub
+      # Depends: GTK 3 (the runner), WebKitGTK 4.1 (desktop_webview_window
+      # 0.2.3 links webkit2gtk-4.1 only) and libmpv (media_kit opens
+      # libmpv.so.2 or .so.1 at run time). StartupWMClass = APPLICATION_ID in
+      # linux/CMakeLists.txt, so docks match the window to this launcher.
       - name: Package Linux files
         env:
           NAME: ${{ needs.prepare.outputs.name }}
@@ -169,6 +179,7 @@ jobs:
           Priority: optional
           Architecture: amd64
           Maintainer: Absorb Plus contributors
+          Depends: libgtk-3-0 | libgtk-3-0t64, libwebkit2gtk-4.1-0, libmpv2 | libmpv1
           Description: Cross-platform Audiobookshelf client
           EOF
           cat > build/linux/deb/usr/share/applications/absorb-plus.desktop <<'EOF'
@@ -180,6 +191,7 @@ jobs:
           Terminal=false
           Type=Application
           Categories=AudioVideo;Audio;Player;
+          StartupWMClass=com.barnabas.absorb
           EOF
           tar -C build/linux/x64/release -czf "build/linux/release/$NAME-linux-x64.tar.gz" bundle
           dpkg-deb --build --root-owner-group build/linux/deb "build/linux/release/$NAME-linux-amd64.deb"
@@ -239,6 +251,13 @@ jobs:
             /usr/local/lib/android/sdk/cmake/3.22.1
             /usr/local/lib/android/sdk/platforms/android-33
           key: android-sdk-${{ hashFiles('.flutter-version', 'android/app/build.gradle.kts', 'packages/whisper_ggml_plus/android/build.gradle') }}
+      # Reuses compiled Whisper C++ objects between release builds (CMake
+      # picks up the *_COMPILER_LAUNCHER variables set on the build step).
+      # Every ABI is built here, so it doesn't share ci.yml's arm64 cache.
+      - uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: android-ccache-release
+          max-size: 1G
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -269,7 +288,11 @@ jobs:
           storeFile=$KEYSTORE
           EOF
       - name: Build Android APKs
-        run: bash scripts/build-github-apks
+        env:
+          CMAKE_C_COMPILER_LAUNCHER: ccache
+          CMAKE_CXX_COMPILER_LAUNCHER: ccache
+        # Arguments pass through to both flutter build apk calls.
+        run: bash scripts/build-github-apks --no-pub
       - name: Verify APKs carry the permanent signing key
         run: python3 tool/ci/verify_apk_signature.py build/app/outputs/apk/github/release/*.apk
       - name: Package and upload Android files
@@ -289,3 +312,25 @@ jobs:
             cp "$apk" "build/android/release/$NAME-android-$kind.apk"
           done
           gh release upload "$TAG" build/android/release/* --clobber
+
+  publish:
+    name: Publish the release
+    needs: [prepare, windows, linux, web, android]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Publish the draft now that every build is attached
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          set -euo pipefail
+          # The pre-release flag set by prepare stays as it is. An already
+          # published release (a re-run) is left unchanged.
+          if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = "true" ]; then
+            gh release edit "$TAG" --draft=false
+          fi
+          gh release view "$TAG" --json name,isDraft,isPrerelease,assets \
+            --jq '"\(.name): draft=\(.isDraft) prerelease=\(.isPrerelease) assets=\(.assets | length)"'
