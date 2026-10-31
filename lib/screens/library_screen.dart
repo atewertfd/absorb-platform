@@ -1328,9 +1328,12 @@ class LibraryScreenState extends State<LibraryScreen>
     } else {
       if (_page == 0) _loadedCount = 0;
       // Each size divides the count loaded so far (20, 40, 80, 160, ...),
-      // which is what a page*limit offset needs.
-      final limit =
-          _loadedCount < 40 ? 20 : (_loadedCount < 80 ? 40 : _pageSize);
+      // which is what a page*limit offset needs. A wide window shows more
+      // than 20 covers at once, so it starts at 40 (one request, not two).
+      final wide = MediaQuery.sizeOf(context).width >= 900;
+      final limit = _loadedCount < 40
+          ? (wide ? 40 : 20)
+          : (_loadedCount < 80 ? 40 : _pageSize);
       final pageIndex = _loadedCount ~/ limit;
       debugPrint('[LibPage] request page=$pageIndex limit=$limit loaded=$_loadedCount');
       final sw = Stopwatch()..start();
