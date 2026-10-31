@@ -76,6 +76,7 @@ Claude is the main and only developer of Absorb Plus, a fork of [pounat/absorb](
 - **Never dump raw tool output.**
   - Filter with `tail`, `grep`, `Select-String` or `--json ... --jq`.
   - Run builds, CI watches (`gh run watch`) and long tests in the background, and read only the summary.
+- **Read the area's code map first.** `docs/audit/` has a map of every file per area (playback, server/sync, downloads, app core, screens, widgets, native/CI) with entry points and traps, plus the audit's open findings; `docs/audit/README.md` indexes them (audit of 2026-10-30).
 - **Don't read giant files whole.** `audio_player_service.dart`, `ebook_reader_view.dart`, `settings_screen.dart`, `api_service.dart` and `_lp_core.dart` run 4,000–8,000 lines. Grep for the symbol, then read a window around it.
 - **Delegate broad searches and audits** to `Explore` or `general-purpose` subagents, and big reviews to `reviewer`. Keep only their conclusions.
 - **One session per task.** `CLAUDE.md`, memory and the SessionStart hook bring a new session up to speed. Before a long session ends, update `docs/ARCHITECTURE.md` and memory so nothing lives only in the conversation.
