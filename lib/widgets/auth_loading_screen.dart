@@ -19,7 +19,7 @@ class AuthLoadingScreen extends StatelessWidget {
             AbsorbWaveIcon(size: 48, color: primary),
             const SizedBox(height: 20),
             Text(
-              'A B S O R B',
+              'A B S O R B   P L U S',
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                 color: primary,
                 letterSpacing: 6,

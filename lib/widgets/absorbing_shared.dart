@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -8,6 +7,7 @@ import '../providers/library_provider.dart';
 import '../services/download_service.dart';
 import '../services/playback_history_service.dart';
 import '../services/player_settings.dart';
+import 'absorb_plus_logo.dart';
 import 'overlay_toast.dart';
 
 String dateLabel(DateTime dt, [AppLocalizations? l]) {
@@ -395,56 +395,9 @@ class AbsorbingWave extends StatefulWidget {
   @override State<AbsorbingWave> createState() => _AbsorbingWaveState();
 }
 
-class _AbsorbingWaveState extends State<AbsorbingWave> with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-
+class _AbsorbingWaveState extends State<AbsorbingWave> {
+  // The logo's drop with its bars moving (absorb_plus_logo.dart).
   @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))..repeat();
-  }
-
-  @override
-  void dispose() { _ctrl.dispose(); super.dispose(); }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _ctrl,
-      builder: (_, __) {
-        return CustomPaint(
-          size: const Size(24, 24),
-          painter: _WavePainter(phase: _ctrl.value, color: widget.color),
-        );
-      },
-    );
-  }
-}
-
-class _WavePainter extends CustomPainter {
-  final double phase;
-  final Color color;
-  _WavePainter({required this.phase, required this.color});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 2.5
-      ..strokeCap = StrokeCap.round
-      ..style = PaintingStyle.stroke;
-
-    final midY = size.height / 2;
-    final path = Path();
-    final waveLength = size.width;
-    path.moveTo(0, midY);
-    for (double x = 0; x <= size.width; x += 0.5) {
-      final y = midY + 6 * math.sin((x / waveLength * 2 * math.pi) + (phase * 2 * math.pi));
-      path.lineTo(x, y);
-    }
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(_WavePainter old) => old.phase != phase;
+  Widget build(BuildContext context) =>
+      AnimatedAbsorbDrop(size: 24, animating: true, color: widget.color);
 }

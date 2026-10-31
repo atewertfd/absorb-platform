@@ -2,9 +2,11 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:absorb/services/player_settings.dart';
+import 'package:absorb/services/wording.dart';
 import 'package:absorb/widgets/absorb_plus_logo.dart';
 import 'package:absorb/widgets/absorb_wave_icon.dart';
 import 'package:absorb/widgets/absorbing_nav_icon.dart';
+import 'package:absorb/widgets/absorbing_shared.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
@@ -239,6 +241,52 @@ void main() {
       ).colorScheme;
       expect(drop.color, cs.primary);
       expect(_framesPending, isFalse);
+    });
+  });
+
+  group('Absorb buttons', () {
+    tearDown(() => classicWordingNotifier.value = false);
+
+    Future<void> pump(WidgetTester tester, Widget child) => tester.pumpWidget(
+          MaterialApp(home: Scaffold(body: Center(child: child))),
+        );
+
+    testWidgets('play button shows the drop, or a play arrow with Plain wording', (
+      tester,
+    ) async {
+      await pump(tester, const AbsorbActionIcon(size: 24));
+      expect(find.byType(AbsorbPlusMark), findsOneWidget);
+      expect(find.byIcon(Icons.play_arrow_rounded), findsNothing);
+
+      classicWordingNotifier.value = true;
+      await pump(tester, const AbsorbActionIcon(size: 24, color: Colors.white));
+      expect(find.byType(AbsorbPlusMark), findsNothing);
+      expect(find.byIcon(Icons.play_arrow_rounded), findsOneWidget);
+    });
+
+    testWidgets('Absorb again shows the replay drop, or the replay icon with Plain wording', (
+      tester,
+    ) async {
+      await pump(tester, const AbsorbReplayIcon(size: 24));
+      expect(find.byIcon(Icons.replay_rounded), findsNothing);
+      expect(tester.takeException(), isNull);
+
+      classicWordingNotifier.value = true;
+      await pump(tester, const AbsorbReplayIcon(size: 24));
+      expect(find.byIcon(Icons.replay_rounded), findsOneWidget);
+    });
+
+    testWidgets('watch icon paints the drop without errors', (tester) async {
+      await pump(tester, const AbsorbWatchIcon(size: 18));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('the starting animation is the moving drop', (tester) async {
+      await pump(tester, const AbsorbingWave(color: Colors.white));
+      final drop = tester.widget<AnimatedAbsorbDrop>(find.byType(AnimatedAbsorbDrop));
+      expect(drop.animating, isTrue);
+      expect(drop.color, Colors.white);
+      await tester.pumpWidget(const SizedBox());
     });
   });
 }

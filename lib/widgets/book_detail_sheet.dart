@@ -1069,7 +1069,7 @@ class _BookDetailSheetContentState extends State<_BookDetailSheetContent> {
                               ? Icon(Icons.download_rounded, size: 24, color: onAccent)
                               : isFinished
                                   ? AbsorbReplayIcon(size: 24, color: onAccent)
-                                  : Icon(Icons.waves_rounded, size: 24, color: onAccent),
+                                  : AbsorbActionIcon(size: 24, color: onAccent),
                       const SizedBox(width: 8),
                       Text(
                         showAbsorbingState
@@ -2103,7 +2103,7 @@ class _BookDetailSheetContentState extends State<_BookDetailSheetContent> {
                         ? Icon(Icons.download_rounded, size: 16, color: onAccent)
                         : isFinished
                             ? AbsorbReplayIcon(size: 16, color: onAccent)
-                            : Icon(Icons.waves_rounded, size: 16, color: onAccent),
+                            : AbsorbActionIcon(size: 16, color: onAccent),
                 const SizedBox(width: 8),
                 Flexible(child: Text(
                   showAbsorbingState

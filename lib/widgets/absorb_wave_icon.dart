@@ -1,5 +1,6 @@
 import 'dart:math' as dart_math;
 import 'package:flutter/material.dart';
+import '../services/wording.dart';
 import 'absorb_plus_logo.dart';
 
 /// The Absorb Plus logo mark (the drop with sound bars, see
@@ -17,7 +18,21 @@ class AbsorbWaveIcon extends StatelessWidget {
       AbsorbPlusMark(size: size, color: color);
 }
 
-/// The wave on a watch face, with the band stubs above and below - for a
+/// The icon on "Absorb" (play) buttons: the drop, or a plain play arrow when
+/// Plain wording ("Play" / "Now Playing") is on.
+class AbsorbActionIcon extends StatelessWidget {
+  final double size;
+  final Color? color;
+
+  const AbsorbActionIcon({super.key, this.size = 24, this.color});
+
+  @override
+  Widget build(BuildContext context) => classicWordingNotifier.value
+      ? Icon(Icons.play_arrow_rounded, size: size, color: color)
+      : AbsorbPlusMark(size: size, color: color);
+}
+
+/// The drop on a watch face, with the band stubs above and below - for a
 /// session that came from the Wear OS app.
 class AbsorbWatchIcon extends StatelessWidget {
   final double size;
@@ -39,9 +54,6 @@ class _AbsorbWatchPainter extends CustomPainter {
   final Color color;
 
   _AbsorbWatchPainter({required this.color});
-
-  static const _barHeights = [0.35, 0.6, 1.0, 0.6, 0.35];
-  static const _barCount = 5;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -75,27 +87,16 @@ class _AbsorbWatchPainter extends CustomPainter {
       ..style = PaintingStyle.stroke;
     canvas.drawCircle(center, s * 0.33, facePaint);
 
-    // The wave, small enough to sit inside the face.
-    final barPaint = Paint()
-      ..color = color
-      ..strokeWidth = strokeW * 0.8
-      ..strokeCap = StrokeCap.round;
-    final totalWidth = s * 0.34;
-    final startX = (s - totalWidth) / 2;
-    final spacing = totalWidth / (_barCount - 1);
-    final maxHalf = s * 0.19;
-    for (int i = 0; i < _barCount; i++) {
-      final x = startX + spacing * i;
-      final half = maxHalf * _barHeights[i];
-      canvas.drawLine(Offset(x, center.dy - half), Offset(x, center.dy + half), barPaint);
-    }
+    // The drop, small enough to sit inside the face.
+    AbsorbPlusGeometry.paint(canvas, size, color, heightShare: 0.46);
   }
 
   @override
   bool shouldRepaint(_AbsorbWatchPainter old) => old.color != color;
 }
 
-/// Wave icon with a circular rewind arrow around it - for "Absorb Again".
+/// The drop with a circular rewind arrow around it - for "Absorb Again"
+/// (the plain replay icon when Plain wording is on).
 class AbsorbReplayIcon extends StatelessWidget {
   final double size;
   final Color? color;
@@ -104,6 +105,9 @@ class AbsorbReplayIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (classicWordingNotifier.value) {
+      return Icon(Icons.replay_rounded, size: size, color: color);
+    }
     final c = color ?? Theme.of(context).colorScheme.primary;
     return CustomPaint(
       size: Size(size, size),
@@ -116,9 +120,6 @@ class _AbsorbReplayPainter extends CustomPainter {
   final Color color;
 
   _AbsorbReplayPainter({required this.color});
-
-  static const _barHeights = [0.35, 0.6, 1.0, 0.6, 0.35];
-  static const _barCount = 5;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -170,23 +171,8 @@ class _AbsorbReplayPainter extends CustomPainter {
       arrowPaint,
     );
 
-    // Wave bars in the center (scaled down to fit inside the circle)
-    final barPaint = Paint()
-      ..color = color
-      ..strokeWidth = strokeW * 0.85
-      ..strokeCap = StrokeCap.round;
-
-    final totalWidth = size.width * 0.42;
-    final startX = (size.width - totalWidth) / 2;
-    final spacing = totalWidth / (_barCount - 1);
-    final midY = size.height / 2;
-    final maxHalf = size.height * 0.26;
-
-    for (int i = 0; i < _barCount; i++) {
-      final x = startX + spacing * i;
-      final half = maxHalf * _barHeights[i];
-      canvas.drawLine(Offset(x, midY - half), Offset(x, midY + half), barPaint);
-    }
+    // The drop in the center, scaled down to fit inside the circle.
+    AbsorbPlusGeometry.paint(canvas, size, color, heightShare: 0.52);
   }
 
   static double cos(double radians) => _cos(radians);
