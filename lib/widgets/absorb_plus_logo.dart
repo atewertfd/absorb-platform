@@ -1,7 +1,7 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 
 import '../services/player_settings.dart';
 import '../utils/app_motion.dart';
@@ -197,12 +197,22 @@ class AnimatedAbsorbDrop extends StatefulWidget {
   State<AnimatedAbsorbDrop> createState() => _AnimatedAbsorbDropState();
 }
 
-class _AnimatedAbsorbDropState extends State<AnimatedAbsorbDrop>
-    with SingleTickerProviderStateMixin {
-  late final Ticker _ticker = createTicker(_onTick);
+class _AnimatedAbsorbDropState extends State<AnimatedAbsorbDrop> {
+  /// The motion runs at a steady 15 updates a second instead of every display
+  /// frame: at 24 px it looks the same, and the app doesn't redraw at 60-144
+  /// fps for the whole time audio plays.
+  static const _step = Duration(milliseconds: 66);
+  Timer? _timer;
   final _motion = _DropMotion();
   bool _reduced = false;
-  double _lastTick = 0;
+  double _time = 0;
+
+  bool get _running => _timer != null;
+
+  void _stopTimer() {
+    _timer?.cancel();
+    _timer = null;
+  }
 
   bool get _wantsMotion => widget.animating && !_reduced;
 
@@ -228,29 +238,29 @@ class _AnimatedAbsorbDropState extends State<AnimatedAbsorbDrop>
   void _sync() {
     if (_reduced) {
       // Snap to the static logo; no fade-out frames.
-      if (_ticker.isActive) _ticker.stop();
+      _stopTimer();
       _motion.set(0, 0);
       return;
     }
-    if (_wantsMotion && !_ticker.isActive) {
-      _lastTick = 0;
-      _ticker.start();
+    if (_wantsMotion && !_running) {
+      _time = 0;
+      _timer = Timer.periodic(_step, (_) => _onTick());
     }
     // When motion is no longer wanted, the running ticker fades the bars back
     // to the logo heights and stops itself (see _onTick).
   }
 
-  void _onTick(Duration elapsed) {
-    final t = elapsed.inMicroseconds / Duration.microsecondsPerSecond;
-    final dt = t - _lastTick;
-    _lastTick = t;
-    final step = dt / AnimatedAbsorbDrop.rampSeconds;
+  void _onTick() {
+    const dt = 66 / 1000;
+    _time += dt;
+    final t = _time;
+    const step = dt / AnimatedAbsorbDrop.rampSeconds;
     final envelope = (_motion.envelope + (_wantsMotion ? step : -step)).clamp(
       0.0,
       1.0,
     );
     if (!_wantsMotion && envelope == 0) {
-      _ticker.stop();
+      _stopTimer();
       _motion.set(0, 0);
       return;
     }
@@ -259,7 +269,7 @@ class _AnimatedAbsorbDropState extends State<AnimatedAbsorbDrop>
 
   @override
   void dispose() {
-    _ticker.dispose();
+    _stopTimer();
     _motion.dispose();
     super.dispose();
   }

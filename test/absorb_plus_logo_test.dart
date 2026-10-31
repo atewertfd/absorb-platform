@@ -143,7 +143,7 @@ void main() {
       await tester.pumpWidget(
         _host(const AnimatedAbsorbDrop(size: 48, animating: true, color: _ink)),
       );
-      expect(_framesPending, isTrue);
+      // A steady 15 updates a second (not every display frame).
       await tester.pump(const Duration(milliseconds: 600));
       final (a, _) = await _capture(tester);
       await tester.pump(const Duration(milliseconds: 270));
@@ -159,8 +159,8 @@ void main() {
           const AnimatedAbsorbDrop(size: 48, animating: false, color: _ink),
         ),
       );
-      // Fade-out frames, then the ticker stops by itself.
-      for (var i = 0; i < 30; i++) {
+      // Fade-out updates, then the timer stops by itself.
+      for (var i = 0; i < 45; i++) {
         await tester.pump(const Duration(milliseconds: 16));
       }
       expect(_framesPending, isFalse);
@@ -190,13 +190,14 @@ void main() {
       const drop = AnimatedAbsorbDrop(size: 24, animating: true, color: _ink);
       await tester.pumpWidget(_host(drop));
       await tester.pump(const Duration(milliseconds: 200));
-      expect(_framesPending, isTrue);
       await tester.pumpWidget(_host(drop, disableAnimations: true));
-      // The ticker had already asked for the next frame before it stopped;
-      // after that one frame nothing more is scheduled.
-      expect(SchedulerBinding.instance.transientCallbackCount, 0);
-      await tester.pump();
+      // The timer stopped: time passing schedules nothing more.
+      await tester.pump(const Duration(milliseconds: 300));
       expect(_framesPending, isFalse);
+      final (still, _) = await _capture(tester);
+      await tester.pump(const Duration(milliseconds: 300));
+      final (later, _) = await _capture(tester);
+      expect(still.buffer.asUint8List(), equals(later.buffer.asUint8List()));
     });
 
     testWidgets('stays static in e-ink mode', (tester) async {
