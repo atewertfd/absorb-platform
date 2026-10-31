@@ -17,6 +17,8 @@ import 'library_item_snapshot.dart';
 import '../ui_themes/ui_theme_hooks.dart';
 import '../utils/local_path.dart';
 import 'desktop_input.dart';
+import 'stable_cached_network_image.dart';
+import '../utils/cover_cache.dart';
 
 class BookCard extends StatelessWidget {
   final Map<String, dynamic> item;
@@ -173,6 +175,7 @@ class BookCard extends StatelessWidget {
       showBookDetailSheet(
         context,
         itemId,
+        initialItem: item,
         sourcePlaylistId: sourcePlaylistId,
         sourceCollectionId: sourceCollectionId,
         sourceCollectionName: sourceCollectionName,
@@ -530,14 +533,14 @@ class _CoverImage extends StatelessWidget {
     return EinkCoverTone(child: BlurPaddedCover(
       enabled: isSquare,
       blurChild: CachedNetworkImage(
-        imageUrl: coverUrl!,
+        imageUrl: coverUrl!, cacheKey: stableCoverCacheKey(coverUrl!), cacheManager: coverCacheManager,
         fit: BoxFit.cover,
         httpHeaders: httpHeaders,
         memCacheWidth: themedCoverDecodeWidth(context, 32),
               errorWidget: (_, __, ___) => const SizedBox.shrink(),
       ),
       child: CachedNetworkImage(
-        imageUrl: coverUrl!,
+        imageUrl: coverUrl!, cacheKey: stableCoverCacheKey(coverUrl!), cacheManager: coverCacheManager,
         fit: effectiveFit,
         httpHeaders: httpHeaders,
         memCacheWidth: decodeWidth,

@@ -42,6 +42,9 @@ import '../ui_themes/ui_theme_hooks.dart';
 import '../widgets/text_scale_room.dart';
 import '../utils/local_path.dart';
 import '../widgets/desktop_input.dart';
+import '../widgets/stable_cached_network_image.dart';
+import '../utils/cover_cache.dart';
+import '../utils/cover_palette.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -922,7 +925,7 @@ class _ContinueListeningCardState extends State<_ContinueListeningCard> {
             errorBuilder: (_, __, ___) => fallback);
       }
       return CachedNetworkImage(
-        imageUrl: coverUrl,
+        imageUrl: coverUrl, cacheKey: stableCoverCacheKey(coverUrl), cacheManager: coverCacheManager,
         fit: fit,
         httpHeaders: headers,
         fadeInDuration: Duration.zero,
@@ -968,9 +971,9 @@ class _ContinueListeningCardState extends State<_ContinueListeningCard> {
     if (isLocalCoverPath(coverUrl)) {
       provider = FileImage(File(coverUrl));
     } else {
-      provider = CachedNetworkImageProvider(coverUrl, headers: widget.lib.mediaHeaders);
+      provider = CachedNetworkImageProvider(coverUrl, cacheKey: stableCoverCacheKey(coverUrl), cacheManager: coverCacheManager, headers: widget.lib.mediaHeaders);
     }
-    PaletteGenerator.fromImageProvider(provider, maximumColorCount: 16)
+    PaletteGenerator.fromImageProvider(paletteSource(provider), maximumColorCount: 16)
         .then((palette) {
           final picked = accentFromCoverPalette(palette);
           if (picked == null) return;
@@ -1100,7 +1103,7 @@ class _ContinueListeningCardState extends State<_ContinueListeningCard> {
           EpisodeListSheet.show(context, item);
         }
       } else {
-        showBookDetailSheet(context, itemId);
+        showBookDetailSheet(context, itemId, initialItem: item);
       }
     }
 

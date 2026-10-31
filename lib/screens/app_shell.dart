@@ -82,6 +82,7 @@ import '../utils/local_path.dart';
 import '../utils/fork_platform.dart';
 import 'rebuild_snapshots.dart';
 import 'stats_tab_refresh.dart';
+import '../utils/cover_palette.dart';
 
 class AppShell extends StatefulWidget {
   final bool startOnAbsorbing;
@@ -593,7 +594,7 @@ class _AppShellState extends State<AppShell>
     }
 
     final brightness = Theme.of(context).brightness;
-    PaletteGenerator.fromImageProvider(provider, maximumColorCount: 16)
+    PaletteGenerator.fromImageProvider(paletteSource(provider), maximumColorCount: 16)
         .then((palette) {
           final seedColor = accentFromCoverPalette(palette);
           if (seedColor == null) {

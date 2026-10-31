@@ -30,6 +30,7 @@ import 'stable_cached_network_image.dart';
 import 'text_scale_room.dart';
 import '../utils/local_path.dart';
 import 'item_download_watch.dart';
+import '../utils/cover_cache.dart';
 
 class AbsorbingCard extends StatefulWidget {
   final Map<String, dynamic> item;
@@ -508,7 +509,7 @@ class AbsorbingCardState extends State<AbsorbingCard> with AutomaticKeepAliveCli
       provider = CachedNetworkImageProvider(
         coverUrl,
         headers: headers,
-        cacheKey: coverIdentity,
+        cacheKey: coverIdentity, cacheManager: coverCacheManager,
       );
     }
     _onCoverLoaded(provider, coverIdentity);
@@ -720,7 +721,7 @@ class AbsorbingCardState extends State<AbsorbingCard> with AutomaticKeepAliveCli
                     })
                   : StableCachedNetworkImage(
                       imageUrl: coverUrl,
-                      cacheKey: coverIdentity,
+                      cacheKey: coverIdentity, cacheManager: coverCacheManager,
                       fit: BoxFit.cover,
                       httpHeaders: mediaHeaders,
                       imageBuilder: (_, provider) {
@@ -955,10 +956,10 @@ class AbsorbingCardState extends State<AbsorbingCard> with AutomaticKeepAliveCli
                                             enabled: !_rectangleCovers, child: Image.file(File(coverUrl), fit: _rectangleCovers ? BoxFit.cover : BoxFit.contain,
                                             gaplessPlayback: true,
                                             errorBuilder: (_, __, ___) => CoverPlaceholder(title: _title, author: _author)))
-                                        : BlurPaddedCover(blurChild: StableCachedNetworkImage(imageUrl: coverUrl, cacheKey: coverIdentity, fit: BoxFit.cover,
+                                        : BlurPaddedCover(blurChild: StableCachedNetworkImage(imageUrl: coverUrl, cacheKey: coverIdentity, cacheManager: coverCacheManager, fit: BoxFit.cover,
                                               httpHeaders: mediaHeaders,
                                               errorWidget: (_, __, ___) => const SizedBox.shrink()),
-                                            enabled: !_rectangleCovers, child: StableCachedNetworkImage(imageUrl: coverUrl, cacheKey: coverIdentity,
+                                            enabled: !_rectangleCovers, child: StableCachedNetworkImage(imageUrl: coverUrl, cacheKey: coverIdentity, cacheManager: coverCacheManager,
                                               fit: _rectangleCovers ? BoxFit.cover : BoxFit.contain,
                                               httpHeaders: mediaHeaders,
                                               imageBuilder: (_, provider) {

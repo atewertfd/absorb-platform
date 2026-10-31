@@ -68,12 +68,30 @@ import '../utils/duration_format.dart';
 import '../utils/share_origin.dart';
 import '../utils/local_path.dart';
 import '../utils/fork_platform.dart';
+import 'stable_cached_network_image.dart';
+import '../utils/cover_cache.dart';
+import '../utils/cover_palette.dart';
 
 // ─── BOOK DETAIL BOTTOM SHEET ───────────────────────────────
 
+/// Full items from recent opens, shown at once when the same book opens
+/// again (the server copy still replaces it a moment later).
+final _recentDetailItems = <String, Map<String, dynamic>>{};
+
+void _rememberDetailItem(String itemId, Map<String, dynamic> item) {
+  _recentDetailItems.remove(itemId);
+  _recentDetailItems[itemId] = item;
+  if (_recentDetailItems.length > 40) {
+    _recentDetailItems.remove(_recentDetailItems.keys.first);
+  }
+}
+
+/// Pass [initialItem] (the tile's library-item map) so the sheet paints at
+/// once instead of showing a spinner until the server answers.
 void showBookDetailSheet(
   BuildContext context,
   String itemId, {
+  Map<String, dynamic>? initialItem,
   String? sourcePlaylistId,
   String? sourceCollectionId,
   String? sourceCollectionName,
@@ -86,6 +104,7 @@ void showBookDetailSheet(
     builder: (ctx, sc) => _BookDetailSheetContent(
       itemId: itemId,
       scrollController: sc,
+      initialItem: _recentDetailItems[itemId] ?? initialItem,
       sourcePlaylistId: sourcePlaylistId,
       sourceCollectionId: sourceCollectionId,
       sourceCollectionName: sourceCollectionName,
@@ -492,6 +511,7 @@ class _BookDetailSheetContentState extends State<_BookDetailSheetContent> {
           }
 
           setState(() { _item = finalItem; _isLoading = false; });
+          _rememberDetailItem(widget.itemId, finalItem);
           unawaited(_probeNarration());
           _loadCoverShape();
           if (BookDockInfo.of(finalItem)?.isWorking ?? false) {
@@ -628,11 +648,11 @@ class _BookDetailSheetContentState extends State<_BookDetailSheetContent> {
       provider = FileImage(File(url));
     } else {
       final lib = context.read<LibraryProvider>();
-      provider = CachedNetworkImageProvider(url, headers: lib.mediaHeaders);
+      provider = CachedNetworkImageProvider(url, cacheKey: stableCoverCacheKey(url), cacheManager: coverCacheManager, headers: lib.mediaHeaders);
     }
     final t0 = DateTime.now();
     debugPrint('[BookDetail] _deriveCoverScheme start url=$url');
-    PaletteGenerator.fromImageProvider(provider, maximumColorCount: 16)
+    PaletteGenerator.fromImageProvider(paletteSource(provider), maximumColorCount: 16)
         .then((palette) {
       debugPrint('[BookDetail] PaletteGenerator ok in ${DateTime.now().difference(t0).inMilliseconds}ms');
       final seedColor = accentFromCoverPalette(palette);
@@ -808,19 +828,19 @@ class _BookDetailSheetContentState extends State<_BookDetailSheetContent> {
                       )
                     : BlurPaddedCover(
                         blurChild: CachedNetworkImage(
-                          imageUrl: _coverUrl!, fit: BoxFit.cover,
+                          imageUrl: _coverUrl!, cacheKey: stableCoverCacheKey(_coverUrl!), cacheManager: coverCacheManager, fit: BoxFit.cover,
                           httpHeaders: lib.mediaHeaders,
                           errorWidget: (_, __, ___) => const SizedBox.shrink(),
                         ),
                         child: CachedNetworkImage(
-                          imageUrl: _coverUrl!, fit: BoxFit.contain,
+                          imageUrl: _coverUrl!, cacheKey: stableCoverCacheKey(_coverUrl!), cacheManager: coverCacheManager, fit: BoxFit.contain,
                           httpHeaders: lib.mediaHeaders,
                           placeholder: (_, __) => const SizedBox(),
                           errorWidget: (_, __, ___) => const SizedBox(),
                         ),
                       ))
                 : CachedNetworkImage(
-                    imageUrl: _coverUrl!, fit: BoxFit.contain,
+                    imageUrl: _coverUrl!, cacheKey: stableCoverCacheKey(_coverUrl!), cacheManager: coverCacheManager, fit: BoxFit.contain,
                     httpHeaders: lib.mediaHeaders,
                     placeholder: (_, __) => const SizedBox(),
                     errorWidget: (_, __, ___) => const SizedBox(),
@@ -1570,7 +1590,7 @@ class _BookDetailSheetContentState extends State<_BookDetailSheetContent> {
               child: url == null
                   ? blank
                   : CachedNetworkImage(
-                      imageUrl: url,
+                      imageUrl: url, cacheKey: stableCoverCacheKey(url), cacheManager: coverCacheManager,
                       httpHeaders: lib.mediaHeaders,
                       fit: BoxFit.cover,
                       placeholder: (_, __) => Container(color: cs.surfaceContainerHighest),
@@ -2052,7 +2072,7 @@ class _BookDetailSheetContentState extends State<_BookDetailSheetContent> {
       img = Image.file(File(url), fit: BoxFit.cover,
         errorBuilder: (_, __, ___) => Container(color: cs.surfaceContainerHighest));
     } else {
-      img = CachedNetworkImage(imageUrl: url, fit: BoxFit.cover, httpHeaders: headers,
+      img = CachedNetworkImage(imageUrl: url, cacheKey: stableCoverCacheKey(url), cacheManager: coverCacheManager, fit: BoxFit.cover, httpHeaders: headers,
         placeholder: (_, __) => Container(color: cs.surfaceContainerHighest),
         errorWidget: (_, __, ___) => Container(color: cs.surfaceContainerHighest));
     }
@@ -2351,7 +2371,7 @@ class _BookDetailSheetContentState extends State<_BookDetailSheetContent> {
           ),
           clipBehavior: Clip.antiAlias,
           child: CachedNetworkImage(
-            imageUrl: _coverUrl!, fit: BoxFit.contain,
+            imageUrl: _coverUrl!, cacheKey: stableCoverCacheKey(_coverUrl!), cacheManager: coverCacheManager, fit: BoxFit.contain,
             httpHeaders: lib.mediaHeaders,
             placeholder: (_, __) => const SizedBox(width: 140),
             errorWidget: (_, __, ___) => Container(
@@ -4063,7 +4083,7 @@ class _FullCoverViewerState extends State<_FullCoverViewer> {
                 },
                 child: Center(
                   child: CachedNetworkImage(
-                    imageUrl: widget.url,
+                    imageUrl: widget.url, cacheKey: stableCoverCacheKey(widget.url), cacheManager: coverCacheManager,
                     httpHeaders: widget.headers,
                     fit: BoxFit.contain,
                     placeholder: (_, __) => const CircularProgressIndicator(strokeWidth: 2),

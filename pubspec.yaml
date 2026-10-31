@@ -25,6 +25,7 @@ dependencies:
   
   # Image caching
   cached_network_image: ^3.3.0
+  flutter_cache_manager: ^3.4.1 # cover disk cache size (lib/utils/cover_cache.dart)
 
   # Audio playback
   just_audio:

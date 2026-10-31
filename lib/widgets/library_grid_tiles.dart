@@ -20,6 +20,8 @@ import 'author_books_sheet.dart';
 import 'library_item_snapshot.dart';
 import '../utils/local_path.dart';
 import 'desktop_input.dart';
+import 'stable_cached_network_image.dart';
+import '../utils/cover_cache.dart';
 
 // ═══════════════════════════════════════════════════════════════
 // Grid book tile (cover + title + author)
@@ -120,7 +122,7 @@ class _GridBookTileState extends State<GridBookTile> {
           if (lib.isPodcastItem(widget.item)) {
             EpisodeListSheet.show(context, widget.item);
           } else {
-            showBookDetailSheet(context, itemId);
+            showBookDetailSheet(context, itemId, initialItem: widget.item);
           }
         }
       },
@@ -338,7 +340,7 @@ class _GridBookTileState extends State<GridBookTile> {
             cacheWidth: decodeWidth,
             errorBuilder: (_, __, ___) => placeholder);
       }
-      return CachedNetworkImage(imageUrl: coverUrl, fit: BoxFit.cover,
+      return CachedNetworkImage(imageUrl: coverUrl, cacheKey: stableCoverCacheKey(coverUrl), cacheManager: coverCacheManager, fit: BoxFit.cover,
           httpHeaders: headers, memCacheWidth: decodeWidth,
           placeholder: (_, __) => placeholder,
           errorWidget: (_, __, ___) => placeholder);
@@ -358,11 +360,11 @@ class _GridBookTileState extends State<GridBookTile> {
       ]);
     }
     return Stack(fit: StackFit.expand, children: [
-      CachedNetworkImage(imageUrl: coverUrl, fit: BoxFit.cover,
+      CachedNetworkImage(imageUrl: coverUrl, cacheKey: stableCoverCacheKey(coverUrl), cacheManager: coverCacheManager, fit: BoxFit.cover,
           httpHeaders: headers, memCacheWidth: 32,
           errorWidget: (_, __, ___) => const SizedBox.shrink()),
       Container(color: Colors.black.withValues(alpha: 0.15)),
-      CachedNetworkImage(imageUrl: coverUrl, fit: BoxFit.contain,
+      CachedNetworkImage(imageUrl: coverUrl, cacheKey: stableCoverCacheKey(coverUrl), cacheManager: coverCacheManager, fit: BoxFit.contain,
           httpHeaders: headers, memCacheWidth: decodeWidth,
           placeholder: (_, __) => placeholder,
           errorWidget: (_, __, ___) => placeholder),
@@ -510,7 +512,7 @@ class _StackedCovers extends StatelessWidget {
           cacheWidth: decodeWidth,
           errorBuilder: (_, __, ___) => _placeholder());
     }
-    return CachedNetworkImage(imageUrl: url, fit: BoxFit.cover,
+    return CachedNetworkImage(imageUrl: url, cacheKey: stableCoverCacheKey(url), cacheManager: coverCacheManager, fit: BoxFit.cover,
         httpHeaders: mediaHeaders, memCacheWidth: decodeWidth,
         placeholder: (_, __) => _placeholder(),
         errorWidget: (_, __, ___) => _placeholder());
@@ -957,7 +959,7 @@ class GridAuthorTile extends StatelessWidget {
                   child: imageUrl != null
                       ? ClipOval(
                           child: CachedNetworkImage(
-                            imageUrl: imageUrl,
+                            imageUrl: imageUrl, cacheKey: stableCoverCacheKey(imageUrl), cacheManager: coverCacheManager,
                             fit: BoxFit.cover,
                             httpHeaders: headers,
                             memCacheWidth: coverGridDecodeWidth(context),

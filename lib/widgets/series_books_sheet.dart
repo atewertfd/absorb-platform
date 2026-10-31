@@ -31,6 +31,9 @@ import '../utils/duration_format.dart';
 import '../utils/series_number_match.dart';
 import '../utils/local_path.dart';
 import 'desktop_input.dart';
+import 'stable_cached_network_image.dart';
+import '../utils/cover_cache.dart';
+import '../utils/cover_palette.dart';
 
 /// Show a bottom sheet with all books in a series, sorted by sequence.
 /// Can be called from any screen.
@@ -127,8 +130,8 @@ class _SeriesBooksSheetState extends State<SeriesBooksSheet> {
     final brightness = Theme.of(context).brightness;
     final ImageProvider provider = isLocalCoverPath(url)
         ? FileImage(File(url))
-        : CachedNetworkImageProvider(url, headers: context.read<LibraryProvider>().mediaHeaders);
-    PaletteGenerator.fromImageProvider(provider, maximumColorCount: 16).then((palette) {
+        : CachedNetworkImageProvider(url, cacheKey: stableCoverCacheKey(url), cacheManager: coverCacheManager, headers: context.read<LibraryProvider>().mediaHeaders);
+    PaletteGenerator.fromImageProvider(paletteSource(provider), maximumColorCount: 16).then((palette) {
       final seed = accentFromCoverPalette(palette);
       if (seed == null || !mounted) return;
       setState(() => _coverScheme = ColorScheme.fromSeed(seedColor: seed, brightness: brightness));
@@ -1045,7 +1048,7 @@ class _SeriesBooksSheetState extends State<SeriesBooksSheet> {
     if (url == null || url.isEmpty) return const ColoredBox(color: Colors.black26);
     if (isLocalCoverPath(url)) return Image.file(File(url), fit: BoxFit.cover);
     return CachedNetworkImage(
-      imageUrl: url,
+      imageUrl: url, cacheKey: stableCoverCacheKey(url), cacheManager: coverCacheManager,
       httpHeaders: lib.mediaHeaders,
       fit: BoxFit.cover,
       errorWidget: (_, __, ___) => const ColoredBox(color: Colors.black26),
@@ -1613,7 +1616,7 @@ class _SeriesBooksSheetState extends State<SeriesBooksSheet> {
                               ? Image.file(File(coverUrl), fit: BoxFit.cover,
                                   errorBuilder: (_, __, ___) => _placeholder(cs))
                               : CachedNetworkImage(
-                                  imageUrl: coverUrl, fit: BoxFit.cover,
+                                  imageUrl: coverUrl, cacheKey: stableCoverCacheKey(coverUrl), cacheManager: coverCacheManager, fit: BoxFit.cover,
                                   httpHeaders: lib.mediaHeaders,
                                   placeholder: (_, __) => _placeholder(cs),
                                   errorWidget: (_, __, ___) => _placeholder(cs)))

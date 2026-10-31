@@ -383,6 +383,9 @@ class BookStatsService {
     await ScopedPrefs.setString(s.cacheKey, payload);
   }
 
+  /// Server requests run this many at a time in the admin scan.
+  static const _parallelFetches = 4;
+
   Future<void> _loadServerWide(BookStats s, ApiService api) async {
     s.serverLoading = true;
     s.bump();
@@ -392,13 +395,23 @@ class BookStatsService {
       // reused when that person's progress hasn't moved since.
       final cached = {for (final u in s.users) u.username: u};
       final found = <String, BookUserStat>{};
-      for (final entry in userList) {
-        if (entry is! Map) continue;
-        final id = entry['id'] as String?;
-        if (id == null) continue;
-        // The users list is deliberately minimal server-side and carries no
-        // progress at all - only the single-user endpoint returns it.
-        final u = await api.getUser(id);
+      final ids = [
+        for (final entry in userList)
+          if (entry is Map && entry['id'] is String) entry['id'] as String,
+      ];
+      // The users list is deliberately minimal server-side and carries no
+      // progress at all - only the single-user endpoint returns it. Fetched
+      // a few at a time rather than one after another.
+      final fetched = <String, Map<String, dynamic>?>{};
+      for (var i = 0; i < ids.length; i += _parallelFetches) {
+        final batch = ids.skip(i).take(_parallelFetches).toList();
+        final users = await Future.wait(batch.map(api.getUser));
+        for (var j = 0; j < batch.length; j++) {
+          fetched[batch[j]] = users[j];
+        }
+      }
+      for (final id in ids) {
+        final u = fetched[id];
         if (u == null) continue;
         for (final p in (u['mediaProgress'] as List<dynamic>? ?? const [])) {
           if (p is! Map) continue;
@@ -428,7 +441,7 @@ class BookStatsService {
       s.scanDone = 0;
       s.scanTotal = pending.length;
       s.bump();
-      for (final entry in pending.entries) {
+      Future<void> scan(MapEntry<String, BookUserStat> entry) async {
         final payload =
             await api.getUserListeningSessions(entry.key, itemsPerPage: 1000);
         final sessions = (payload?['sessions'] as List<dynamic>?) ?? const [];
@@ -442,6 +455,10 @@ class BookStatsService {
         entry.value.seconds = total;
         s.scanDone++;
         s.bump();
+      }
+      final entries = pending.entries.toList();
+      for (var i = 0; i < entries.length; i += _parallelFetches) {
+        await Future.wait(entries.skip(i).take(_parallelFetches).map(scan));
       }
       debugPrint('[BookStats] item=${s.itemId} users=${userList.length} '
           'withProgress=${found.length} rescanned=${pending.length}');
