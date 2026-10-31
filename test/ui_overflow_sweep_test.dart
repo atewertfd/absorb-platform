@@ -830,6 +830,19 @@ Future<Set<String>> _openEverySection(WidgetTester tester) async {
 }
 
 void main() {
+  // Measuring with the square test font would chase false overflows, so
+  // without the SDK's Roboto (run `flutter precache` once) the sweep is
+  // skipped with a reason instead of failing.
+  if (_materialFontsDir() == null) {
+    test(
+      'overflow sweep',
+      () {},
+      skip:
+          'Flutter material fonts not found (looked under FLUTTER_ROOT and '
+          'next to ${Platform.resolvedExecutable}); run `flutter precache`.',
+    );
+    return;
+  }
   late _Sweep sweep;
 
   setUpAll(() async {
