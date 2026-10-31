@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show File, Platform;
+import 'dart:io' show File; // web-safe Platform below
+import '../utils/web_safe_platform.dart';
 import 'package:audio_service/audio_service.dart';
 
 import 'package:flutter/foundation.dart';

@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io';
+import '../utils/web_safe_platform.dart'; // web-safe Platform
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:just_audio/just_audio.dart' as ja;
 import 'native_ios_audio_player.dart';

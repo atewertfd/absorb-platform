@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:io';
+import '../utils/web_safe_platform.dart'; // web-safe Platform
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';

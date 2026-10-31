@@ -1,4 +1,4 @@
-import 'dart:io';
+import '../utils/web_safe_platform.dart'; // web-safe Platform
 import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../services/chromecast_service.dart';

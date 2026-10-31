@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io';
+import '../utils/web_safe_platform.dart'; // web-safe Platform
 import 'dart:ui' show Locale, PlatformDispatcher;
 
 import 'package:flutter/foundation.dart';

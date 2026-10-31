@@ -1,5 +1,6 @@
 import 'dart:convert';
-import 'dart:io';
+import 'dart:io' hide Platform; // web-safe Platform below
+import '../utils/web_safe_platform.dart';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';

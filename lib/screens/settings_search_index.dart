@@ -1,4 +1,4 @@
-import 'dart:io' show Platform;
+import '../utils/web_safe_platform.dart'; // web-safe Platform
 import 'package:flutter/widgets.dart';
 import '../l10n/app_localizations.dart';
 import '../services/wording.dart';
