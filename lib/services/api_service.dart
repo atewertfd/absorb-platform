@@ -661,8 +661,16 @@ class ApiService {
 
   String get _cleanBaseUrl => normalizeServerUrl(baseUrl);
 
-  Future<http.Response> _get(Uri url, {Map<String, String>? headers}) {
-    return (_httpClient ?? _sharedClient).get(url, headers: headers);
+  Future<http.Response> _get(Uri url, {Map<String, String>? headers}) async {
+    final client = _httpClient ?? _sharedClient;
+    try {
+      return await client.get(url, headers: headers);
+    } on http.ClientException {
+      // A reused keep-alive connection can be dropped (by the server, a
+      // proxy or a network change) just as it's picked. A GET is safe to
+      // send again, on a fresh connection.
+      return client.get(url, headers: headers);
+    }
   }
 
   Future<http.Response> _post(Uri url, {Map<String, String>? headers, Object? body}) {

@@ -2056,13 +2056,15 @@ mixin _CoreMixin on ChangeNotifier, _StateMixin {
   /// answers (see HomeShelfSnapshot). Skipped if the answer came first.
   Future<void> _showHomeSnapshot() async {
     final libraryId = _selectedLibraryId;
-    if (libraryId == null) return;
-    final snapshot = await HomeShelfSnapshot.instance
-        .load(UserAccountService().activeScopeKey, libraryId);
+    final api = _api;
+    final scope = UserAccountService().activeScopeKey;
+    if (libraryId == null || scope.isEmpty) return;
+    final snapshot = await HomeShelfSnapshot.instance.load(scope, libraryId);
     if (snapshot == null ||
         snapshot.isEmpty ||
         _personalizedSections.isNotEmpty ||
         _selectedLibraryId != libraryId ||
+        !identical(_api, api) ||
         isOffline) {
       return;
     }
@@ -2091,11 +2093,13 @@ mixin _CoreMixin on ChangeNotifier, _StateMixin {
 
     try {
       final libraryId = _selectedLibraryId!;
+      final api = _api!;
+      final scope = UserAccountService().activeScopeKey;
       // Progress and shelves load side by side (one round trip, not two).
       final progress = _refreshProgress();
       final List<dynamic> view;
       try {
-        view = await _api!.getPersonalizedView(
+        view = await api.getPersonalizedView(
               libraryId,
               include: const ['numEpisodesIncomplete'],
             ) ??
@@ -2103,10 +2107,13 @@ mixin _CoreMixin on ChangeNotifier, _StateMixin {
       } finally {
         await progress;
       }
+      // Signed out or switched account meanwhile: the answer isn't theirs.
+      if (!identical(_api, api)) return;
       _personalizedSections = _withoutJustHidden(view);
       _registerSectionEntities(_personalizedSections);
-      unawaited(HomeShelfSnapshot.instance
-          .save(UserAccountService().activeScopeKey, libraryId, view));
+      if (scope.isNotEmpty) {
+        unawaited(HomeShelfSnapshot.instance.save(scope, libraryId, view));
+      }
       // Playlists and collections load straight away: they came last, and a
       // podcast-only step below that threw skipped them (GH #413).
       loadPlaylists();

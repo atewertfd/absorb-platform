@@ -49,6 +49,7 @@ import '../services/progress_sync_service.dart';
 import '../services/metadata_override_service.dart';
 import '../services/socket_service.dart';
 import '../services/scoped_prefs.dart';
+import '../services/user_account_service.dart';
 import '../main.dart' show rootNavigatorKey, colorSourceNotifier, useColorEverywhereNotifier, manualSeedNotifier, manualColorScheme;
 import '../screens/app_shell.dart';
 import '../screens/book_edit_screen.dart';
@@ -74,16 +75,32 @@ import '../utils/cover_palette.dart';
 
 // ─── BOOK DETAIL BOTTOM SHEET ───────────────────────────────
 
-/// Full items from recent opens, shown at once when the same book opens
-/// again (the server copy still replaces it a moment later).
+/// Full items from recent opens, per account (item ids are shared between
+/// users of one server, local overrides aren't), shown at once when the same
+/// book opens again. The server copy still replaces it a moment later.
 final _recentDetailItems = <String, Map<String, dynamic>>{};
 
+String _recentDetailKey(String itemId) =>
+    '${UserAccountService().activeScopeKey}|$itemId';
+
 void _rememberDetailItem(String itemId, Map<String, dynamic> item) {
-  _recentDetailItems.remove(itemId);
-  _recentDetailItems[itemId] = item;
+  final key = _recentDetailKey(itemId);
+  _recentDetailItems.remove(key);
+  _recentDetailItems[key] = item;
   if (_recentDetailItems.length > 40) {
     _recentDetailItems.remove(_recentDetailItems.keys.first);
   }
+}
+
+/// The recent full copy, unless the tile's map is newer.
+Map<String, dynamic>? _initialDetailItem(
+    String itemId, Map<String, dynamic>? tile) {
+  final recent = _recentDetailItems[_recentDetailKey(itemId)];
+  if (recent == null) return tile;
+  if (tile == null) return recent;
+  final recentTs = (recent['updatedAt'] as num?) ?? 0;
+  final tileTs = (tile['updatedAt'] as num?) ?? 0;
+  return tileTs > recentTs ? tile : recent;
 }
 
 /// Pass [initialItem] (the tile's library-item map) so the sheet paints at
@@ -104,7 +121,7 @@ void showBookDetailSheet(
     builder: (ctx, sc) => _BookDetailSheetContent(
       itemId: itemId,
       scrollController: sc,
-      initialItem: _recentDetailItems[itemId] ?? initialItem,
+      initialItem: _initialDetailItem(itemId, initialItem),
       sourcePlaylistId: sourcePlaylistId,
       sourceCollectionId: sourceCollectionId,
       sourceCollectionName: sourceCollectionName,
@@ -495,10 +512,15 @@ class _BookDetailSheetContentState extends State<_BookDetailSheetContent> {
     final lib = context.read<LibraryProvider>();
     final api = auth.apiService;
 
+    // Online with no item back: don't keep showing a tile or cached copy of
+    // a book the server no longer returns (cleared below, as before).
+    var answeredEmpty = false;
+
     // Try server first
     if (api != null && !lib.isOffline) {
       try {
         final item = await api.getLibraryItem(widget.itemId);
+        answeredEmpty = item == null;
         debugPrint('[BookDetail] server fetch done in ${DateTime.now().difference(loadStart).inMilliseconds}ms (item=${item != null ? "ok" : "null"})');
         if (item != null && mounted) {
           // Apply local metadata overrides
@@ -512,6 +534,8 @@ class _BookDetailSheetContentState extends State<_BookDetailSheetContent> {
 
           setState(() { _item = finalItem; _isLoading = false; });
           _rememberDetailItem(widget.itemId, finalItem);
+          final updatedAt = finalItem['updatedAt'] as num?;
+          if (updatedAt != null) lib.registerUpdatedAt(widget.itemId, updatedAt.toInt());
           unawaited(_probeNarration());
           _loadCoverShape();
           if (BookDockInfo.of(finalItem)?.isWorking ?? false) {
@@ -626,7 +650,12 @@ class _BookDetailSheetContentState extends State<_BookDetailSheetContent> {
       return;
     }
 
-    if (mounted) setState(() => _isLoading = false);
+    if (mounted) {
+      setState(() {
+        if (answeredEmpty) _item = null;
+        _isLoading = false;
+      });
+    }
   }
 
   void _deriveCoverScheme() {
