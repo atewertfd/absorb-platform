@@ -12,8 +12,8 @@ const int kAbsorbImageCacheMaximumBytes = 64 * 1024 * 1024;
 /// Maximum number of decoded image entries retained by Flutter's shared cache.
 const int kAbsorbImageCacheMaximumEntries = 500;
 
-/// Flutter's own [ImageCache] defaults, used by looks that keep them
-/// ([AbsorbLook.defaultImageCache], e.g. Classic).
+/// Flutter's own [ImageCache] defaults, kept while the "Full-quality covers"
+/// look detail is on ([AbsorbLook.defaultImageCache], see [LookDetails]).
 const int kFlutterDefaultImageCacheMaximumBytes = 100 << 20;
 const int kFlutterDefaultImageCacheMaximumEntries = 1000;
 
@@ -21,8 +21,8 @@ ImageCache? _configuredCache;
 bool _followingUiTheme = false;
 
 /// Applies Absorb's conservative decoded-image cache limits, or Flutter's
-/// defaults when the active UI theme asks for them. The limits follow later
-/// UI theme changes.
+/// defaults when the saved look details ask for them. The limits follow later
+/// changes ([uiThemeNotifier] also notifies on look detail changes).
 ///
 /// The cache evicts its oldest eligible entries as it crosses either limit.
 /// Live images are not cleared here, so this does not interrupt images that
