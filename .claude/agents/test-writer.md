@@ -14,7 +14,7 @@ You write tests for Absorb Plus, a Flutter app. Tests live in `test/` and are na
   - `DownloadService.forTesting(...)` (`test/download_recovery_test.dart`);
   - `ApiService(httpClient: MockClient(...))` from `package:http/testing.dart` (`test/api_service_test.dart`, `test/media_upload_api_test.dart`).
 - **Preferences:** call `SharedPreferences.setMockInitialValues({...})` at the start of each test.
-- **Mocks:** `mocktail` is available in dev_dependencies.
+- **Mocks:** there is no mocking package; write small fakes (implement the interface or pass a function), as the existing tests do.
 - **Pure logic** such as helpers and policies gets plain `test()` (see `test/update_policy_test.dart` and `test/memory_policy_test.dart`).
 - **Avoid `pumpAndSettle()` when a progress indicator is spinning,** because it never settles. Use `tester.pump(const Duration(milliseconds: 500))`.
 - **Tapping inside dialogs:** scope finders with `find.descendant(of: find.byType(AlertDialog), ...)` when a label also appears behind the dialog.

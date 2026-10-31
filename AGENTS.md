@@ -1,6 +1,6 @@
 # Repository Guidelines
 
-Absorb Plus is a Flutter Audiobookshelf client, maintained as a fork of [pounat/absorb](https://github.com/pounat/absorb). **`CLAUDE.md` is the authoritative guide**: build, release, version and safety rules plus owner preferences. `docs/ARCHITECTURE.md` maps the code. This file is the short version for any coding agent.
+Absorb Plus is a Flutter Audiobookshelf client, maintained as a fork of [pounat/absorb](https://github.com/pounat/absorb). **`CLAUDE.md` is the authoritative guide**: build, release, version and safety rules plus owner preferences. `docs/ARCHITECTURE.md` maps the code, and `docs/audit/` has detailed per-area code maps. This file is the short version for any coding agent.
 
 ## Structure
 
@@ -13,7 +13,7 @@ Absorb Plus is a Flutter Audiobookshelf client, maintained as a fork of [pounat/
 ```powershell
 .\tool\dev.ps1 check      # pub get, analyze, tests
 .\tool\dev.ps1 build      # Windows release into build\windows\x64\runner\Release
-.\tool\dev.ps1 bump       # next build number + beta number, in pubspec.yaml and lib/build_info.dart
+.\tool\dev.ps1 bump       # next build number in pubspec.yaml (bump -NextBeta also raises kBetaNumber in lib/build_info.dart, after a beta is published)
 ```
 
 ## Style

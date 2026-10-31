@@ -26,7 +26,8 @@
              that server, credentials from tool/test-server/.env; never part
              of check
 
-  Every command leaves the generated plugin registrant files as committed.
+  The committed */flutter/generated_plugin* files match what `pub get`
+  writes; if a pubspec change alters them, commit the regenerated files.
 
 .EXAMPLE
   .\tool\dev.ps1 check
@@ -62,18 +63,6 @@ if ((Test-Path $wingetLinks) -and ($env:Path -notlike "*$wingetLinks*")) {
   $env:Path = "$env:Path;$wingetLinks"
 }
 
-$generated = @(
-  'linux/flutter/generated_plugin_registrant.cc',
-  'linux/flutter/generated_plugin_registrant.h',
-  'linux/flutter/generated_plugins.cmake',
-  'windows/flutter/generated_plugin_registrant.cc',
-  'windows/flutter/generated_plugin_registrant.h',
-  'windows/flutter/generated_plugins.cmake'
-)
-function Restore-Generated {
-  # Only after building: a --no-pub build needs the locally regenerated list.
-  git restore --source=HEAD -- @generated 2>$null
-}
 # Full tool output goes to build\dev-logs\; the console gets one line per step
 # (and the tail of the log only when a step fails). Keeps Claude's context
 # small. Pass -Full to stream everything.
@@ -214,11 +203,9 @@ function Get-PubspecVersion {
 
 switch ($Command) {
   'check' {
-    try {
-      Invoke-Flutter pub get
-      Invoke-Flutter analyze --no-pub --no-fatal-infos
-      Invoke-Flutter test --no-pub --reporter expanded
-    } finally { Restore-Generated }
+    Invoke-Flutter pub get
+    Invoke-Flutter analyze --no-pub --no-fatal-infos
+    Invoke-Flutter test --no-pub --reporter expanded
     Invoke-Step -Name 'tool-tests' -Run { python -m unittest discover -s tool/tests } `
       -SummaryPattern '^Ran \d+ tests'
     Invoke-Step -Name 'removed-paths' -Run { python tool/check_fork_removed.py } -SummaryPattern '^OK'
@@ -249,10 +236,8 @@ switch ($Command) {
     if (-not (Get-Command nuget -ErrorAction SilentlyContinue)) {
       throw 'NuGet CLI not found. Install it with: winget install Microsoft.NuGet'
     }
-    try {
-      Invoke-Flutter pub get
-      Invoke-Flutter build windows --release --no-pub --dart-define=GITHUB_BUILD=true
-    } finally { Restore-Generated }
+    Invoke-Flutter pub get
+    Invoke-Flutter build windows --release --no-pub --dart-define=GITHUB_BUILD=true
     $expected = Get-PubspecVersion
     $actual = (Get-Item $exe).VersionInfo.ProductVersion
     if ($actual -ne $expected) { throw "absorb.exe reports $actual but pubspec.yaml says $expected" }
@@ -272,12 +257,8 @@ switch ($Command) {
         throw 'No signing setup on this PC: the owner runs tool\android-signing-setup.ps1 once.'
       }
       Invoke-Step -Name 'flutter-pub-get' -Run { & $flutter pub get }
-      try {
-        Invoke-Step -Name 'apk-local' -Run {
-          & $flutter build apk --release --no-pub --flavor github --target-platform android-arm64 --dart-define=GITHUB_BUILD=true
-        }
-      } finally {
-        Restore-Generated
+      Invoke-Step -Name 'apk-local' -Run {
+        & $flutter build apk --release --no-pub --flavor github --target-platform android-arm64 --dart-define=GITHUB_BUILD=true
       }
       $apk = Get-ChildItem 'build\app\outputs\flutter-apk' -Filter '*github-release*.apk' |
         Sort-Object LastWriteTime -Descending | Select-Object -First 1
@@ -386,11 +367,9 @@ switch ($Command) {
     } else {
       Write-Host 'No tool/test-server/.env: tests will skip (run server up, then server seed).' -ForegroundColor Yellow
     }
-    try {
-      Invoke-Step -Name 'flutter-itest' `
-        -Run { & $flutter test --no-pub --tags abs-server --run-skipped --concurrency=1 --reporter expanded test/integration } `
-        -SummaryPattern '^\d+:\d+ \+\d+.*(passed|skipped|failed)'
-    } finally { Restore-Generated }
+    Invoke-Step -Name 'flutter-itest' `
+      -Run { & $flutter test --no-pub --tags abs-server --run-skipped --concurrency=1 --reporter expanded test/integration } `
+      -SummaryPattern '^\d+:\d+ \+\d+.*(passed|skipped|failed)'
   }
 
   'footprint' {

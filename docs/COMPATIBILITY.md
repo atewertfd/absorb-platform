@@ -8,9 +8,9 @@ downloads working when optional platform features are unavailable.
 
 | Surface | Status | Notes |
 | --- | --- | --- |
-| Windows | Primary | Native audio output, resizable desktop window, keyboard shortcuts, and installer build. |
+| Windows | Primary | Native audio output, resizable desktop window, keyboard shortcuts, optional tray, taskbar controls, and installer build. |
 | Android | Supported | Audio focus, notifications, downloads, and background playback are supported. |
-| Linux | Supported build | Desktop audio and MPRIS depend on the desktop environment. |
+| Linux | Supported build | Desktop audio and MPRIS depend on the desktop environment. The `.deb` depends on GTK 3, WebKitGTK 4.1 and libmpv. |
 | Web/PWA | Supported build | Installable in Chromium-based browsers; background download behavior is browser-controlled. |
 | iOS/macOS | Not built | Apple platforms were removed from Absorb Plus; use upstream Absorb. |
 
@@ -31,15 +31,20 @@ downloads working when optional platform features are unavailable.
 Before publishing, run:
 
 ```text
-flutter analyze --no-pub
+flutter analyze --no-pub --no-fatal-infos
 flutter test --no-pub
 flutter build web --release --no-pub
-flutter build windows --release --no-pub
+flutter build windows --release --no-pub --dart-define=GITHUB_BUILD=true
 ```
 
-The GitHub Actions workflows run the analyzer/tests, web build, and desktop
-builds. The all-platform release workflow also publishes a Windows installer,
-portable archive, and SHA-256 checksums alongside the mobile artifacts.
+On Windows, `tool/dev.ps1 check` and `tool/dev.ps1 build` run these.
+
+GitHub Actions runs the analyzer and tests on every code push, and builds web
+and Linux on `main`, pull requests and manual runs (Windows is built locally
+for every change). A `v*` tag runs `release.yml`, which publishes the Windows
+installer and portable ZIP, the Linux tar.gz and .deb, the web ZIP and the
+Android APKs in one release. The release stays a draft until every build is
+attached. No checksum files are published.
 
 Known limits: physical media keys, browser background execution, and real
 Audiobookshelf playback/stat synchronization still require verification on the

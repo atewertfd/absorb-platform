@@ -15,7 +15,7 @@
   <a href="LICENSE"><img alt="License: GPL v3" src="https://img.shields.io/badge/license-GPLv3-101014"></a>
 </p>
 
-Absorb Plus is an unofficial edition of [Absorb](https://github.com/pounat/absorb), the card-based Audiobookshelf client. It keeps everything Absorb does and brings it to the desktop and the browser, with its own looks, keyboard control and a long list of reliability fixes.
+Absorb Plus is an unofficial edition of [Absorb](https://github.com/pounat/absorb), the card-based Audiobookshelf client. It keeps everything Absorb does and brings it to the desktop and the browser, with its own logo and looks, keyboard control and a long list of reliability fixes.
 
 ## Download
 
@@ -31,7 +31,8 @@ Releases marked **pre-release** are betas. The app checks for updates and tells 
 ## What Plus adds
 
 - **Windows, Linux and web.** The full app runs on the desktop with native audio, a resizable window, and Windows media controls (Linux uses MPRIS).
-- **Choose your look.** Absorb Plus (today's look), Classic (the first Windows version), or Frosted (soft frosted-glass panels) with three glass strengths. Every choice shows a live preview of the real app, and **Try it** lets you walk around in a look before keeping it. Pick in *Settings › Appearance › UI theme*.
+- **At home on Windows.** Closing the window saves your place and quits, or keeps Absorb Plus in the tray if you turn on *Close to tray*. Also in *Settings › Windows Settings*: start with Windows (optionally minimized), always on top, and keeping the PC awake while playing or downloading. The taskbar button shows playback progress and has rewind, play/pause and fast-forward buttons, <kbd>F11</kbd> switches to full screen, and opening the app again brings back the window that's already running.
+- **Choose your look.** Standard (today's look), Frosted (soft frosted-glass panels, in three glass strengths) or Midnight (true black with thin outlines). *Look details* switches bring back touches of the first Windows version. Every choice shows a live preview of the real app, and **Try it** lets you walk around in a look before keeping it. Pick in *Settings › Appearance › UI theme*.
 - **Keyboard first on desktop.** Play, seek, speed, search and navigation all have shortcuts (below), and the header controls work with Tab and Enter.
 - **Smooth scrolling** with a mouse wheel, without changing how touch scrolling feels.
 - **Libation import.** Upload books you exported with [Libation](https://github.com/rmcrackan/Libation) straight to your server (details below).
@@ -56,6 +57,7 @@ Some of these are Android-only because they depend on Android itself: Android Au
 | <kbd>Ctrl</kbd>+<kbd>F</kbd> | Search |
 | <kbd>Ctrl</kbd>+<kbd>L</kbd> | Library |
 | <kbd>Ctrl</kbd>+<kbd>N</kbd> | Now playing |
+| <kbd>F11</kbd> | Full screen (Windows) |
 
 Shortcuts without <kbd>Ctrl</kbd> only act when you're not typing in a text field.
 

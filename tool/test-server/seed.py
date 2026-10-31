@@ -5,11 +5,16 @@ Standard library only. Idempotent: run it as often as you like.
   1. waits for the server on 127.0.0.1:13378 (and refuses any other host);
   2. initializes the root user when the server is new, with generated test
      credentials saved to tool/test-server/.env (git-ignored);
-  3. generates two short test books with the container's own ffmpeg:
-     a three-file MP3 book and a single M4B with two chapters;
-  4. creates the "Absorb Test Books" library over /audiobooks and scans it;
+  3. generates short test media with the container's own ffmpeg:
+     a three-file MP3 book, a single M4B with two chapters, a one-file MP3
+     book with non-ASCII metadata, and a two-episode podcast;
+  4. creates the "Absorb Test Books" library over /audiobooks and the
+     "Absorb Test Podcasts" library over /podcasts, and scans them;
   5. creates a second, non-admin account for multi-account tests;
-  6. waits until both books are in the library.
+  6. waits until every book and the podcast are in their libraries.
+
+/podcasts lives in the container only (the compose file mounts no volume
+for it), so after `server down`/`up` the next `server seed` recreates it.
 
 Never point this at a real server: it only talks to the loopback port the
 compose file publishes.
@@ -34,6 +39,17 @@ LIBRARY_NAME = "Absorb Test Books"
 LIBRARY_FOLDER = "/audiobooks"
 AUTHOR = "Absorb Test Author"
 BOOKS = ("Multi File Book", "Chaptered Book")
+# Odd metadata on purpose: accents, CJK, Greek, an astral-plane emoji, a
+# narrator and a genre whose standard base64 contains "+".
+UNICODE_AUTHOR = "Ünïcødé Àuthör"
+UNICODE_TITLE = ("Ünïcødé Bøøk 日本語 "
+                 "Ελληνικά \U0001f3a7")
+UNICODE_NARRATOR = "Slavoj Žižek"
+UNICODE_GENRE = "Fiction > Fantasy"
+ALL_BOOKS = BOOKS + (UNICODE_TITLE,)
+PODCAST_LIBRARY_NAME = "Absorb Test Podcasts"
+PODCAST_FOLDER = "/podcasts"
+PODCAST_TITLE = "Absorb Test Podcast"
 ROOT_USER = "absorb-root"
 LISTENER_USER = "absorb-listener"
 
@@ -79,6 +95,32 @@ EOF
     -c:a aac -b:a 32k -f ipod "$out.tmp"
   mv "$out.tmp" "$out"
 fi
+udir="{LIBRARY_FOLDER}/{UNICODE_AUTHOR}/{UNICODE_TITLE}"
+mkdir -p "$udir"
+out="$udir/Track.mp3"
+if [ ! -s "$out" ]; then
+  ffmpeg -nostdin -loglevel error -y \\
+    -f lavfi -i "sine=frequency=440:duration=12" \\
+    -c:a libmp3lame -b:a 32k \\
+    -metadata title="{UNICODE_TITLE}" -metadata album="{UNICODE_TITLE}" \\
+    -metadata artist="{UNICODE_AUTHOR}" -metadata composer="{UNICODE_NARRATOR}" \\
+    -metadata genre="{UNICODE_GENRE}" \\
+    -f mp3 "$out.tmp"
+  mv "$out.tmp" "$out"
+fi
+pdir="{PODCAST_FOLDER}/{PODCAST_TITLE}"
+mkdir -p "$pdir"
+for i in 1 2; do
+  out="$pdir/Episode $i.mp3"
+  [ -s "$out" ] && continue
+  ffmpeg -nostdin -loglevel error -y \\
+    -f lavfi -i "sine=frequency=$((500 + i * 50)):duration=$((8 + i * 2))" \\
+    -c:a libmp3lame -b:a 32k \\
+    -metadata title="Episode $i" -metadata album="{PODCAST_TITLE}" \\
+    -metadata artist="{AUTHOR}" -metadata track="$i" \\
+    -f mp3 "$out.tmp"
+  mv "$out.tmp" "$out"
+done
 echo media-ok
 """
 
@@ -189,23 +231,24 @@ def generate_media() -> None:
     if result.returncode != 0 or "media-ok" not in out:
         err = result.stderr.decode(errors="replace").strip()
         fail(f"generating test media failed: {err or out.strip()}")
-    log("test media ready (3-file MP3 book, 2-chapter M4B)")
+    log("test media ready (3-file MP3 book, 2-chapter M4B, unicode MP3 book, 2-episode podcast)")
 
 
-def ensure_library(token: str) -> str:
+def ensure_library(token: str, name: str = LIBRARY_NAME,
+                   folder: str = LIBRARY_FOLDER, media_type: str = "book") -> str:
     status, payload = request("GET", "/api/libraries", token=token)
     if status != 200 or not isinstance(payload, dict):
         fail(f"GET /api/libraries failed (HTTP {status})")
     for lib in payload.get("libraries", []):
-        if lib.get("name") == LIBRARY_NAME:
+        if lib.get("name") == name:
             log(f"library exists ({lib['id']})")
             return lib["id"]
     status, payload = request("POST", "/api/libraries", {
-        "name": LIBRARY_NAME,
-        "folders": [{"fullPath": LIBRARY_FOLDER}],
-        "icon": "audiobookshelf",
-        "mediaType": "book",
-        "provider": "google",
+        "name": name,
+        "folders": [{"fullPath": folder}],
+        "icon": "audiobookshelf" if media_type == "book" else "podcast",
+        "mediaType": media_type,
+        "provider": "google" if media_type == "book" else "itunes",
     }, token=token)
     if status != 200 or not isinstance(payload, dict):
         fail(f"creating the library failed (HTTP {status}): {payload}")
@@ -231,7 +274,8 @@ def ensure_listener(token: str, env: dict[str, str]) -> None:
     log(f"created second account {env['ABS_TEST_USER2']}")
 
 
-def scan_and_wait(token: str, library_id: str, timeout_s: float = 120) -> None:
+def scan_and_wait(token: str, library_id: str, titles: tuple[str, ...] = ALL_BOOKS,
+                  timeout_s: float = 120) -> None:
     request("POST", f"/api/libraries/{library_id}/scan", token=token)
     deadline = time.time() + timeout_s
     found: set[str] = set()
@@ -241,11 +285,13 @@ def scan_and_wait(token: str, library_id: str, timeout_s: float = 120) -> None:
         if status == 200 and isinstance(payload, dict):
             found = {r.get("media", {}).get("metadata", {}).get("title")
                      for r in payload.get("results", [])}
-            if all(b in found for b in BOOKS):
-                log(f"library has both test books ({payload.get('total')} items)")
+            if all(b in found for b in titles):
+                log(f"library has all {len(titles)} expected titles ({payload.get('total')} items)")
                 return
         time.sleep(2)
-    fail(f"scan did not find both books within {timeout_s:.0f}s (found {sorted(t for t in found if t)})")
+    # ascii(): a redirected Windows stdout may not take the non-ASCII titles.
+    fail(f"scan did not find {ascii(titles)} within {timeout_s:.0f}s "
+         f"(found {ascii(sorted(t for t in found if t))})")
 
 
 def main() -> None:
@@ -270,6 +316,8 @@ def main() -> None:
     ensure_listener(token, env)
     write_env(env)
     scan_and_wait(token, library_id)
+    podcast_library_id = ensure_library(token, PODCAST_LIBRARY_NAME, PODCAST_FOLDER, "podcast")
+    scan_and_wait(token, podcast_library_id, (PODCAST_TITLE,))
     log(f"done; credentials in {ENV_FILE.relative_to(HERE.parent.parent)}")
 
 

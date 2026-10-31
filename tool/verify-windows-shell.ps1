@@ -4,6 +4,9 @@
 # its window is closed, and runs the shell checks (minimum size, full screen,
 # always on top, keep awake, taskbar, tray, single instance, start with Windows).
 # Never point this at the real app: it would use the owner's data.
+# The probe is built into the usual Release folder, so -Build always rebuilds
+# the normal app at the end with dev.ps1 build's flags (GITHUB_BUILD=true).
+# Close a running Release absorb.exe first; the owner's beta copy is untouched.
 #
 #   .\tool\verify-windows-shell.ps1 -Build      # build probe, run, rebuild app
 #   .\tool\verify-windows-shell.ps1             # run against an existing probe build
@@ -154,8 +157,6 @@ function Clear-ProbeState {
 Push-Location $root
 try {
   if ($Build) {
-    # Regenerates the plugin list for this machine (the committed one names
-    # jni, which a --no-pub build cannot find); restored again at the end.
     & $Flutter pub get
     if ($LASTEXITCODE -ne 0) { throw 'flutter pub get failed.' }
     & $Flutter build windows --release --no-pub -t tool/windows_shell_probe.dart
@@ -173,7 +174,6 @@ try {
     # Never leave the probe binary in place of the regular application.
     & $Flutter build windows --release --no-pub --dart-define=GITHUB_BUILD=true -t lib/main.dart
     if ($LASTEXITCODE -ne 0) { Write-Warning 'Restoring the normal application build failed; do not distribute this output.' }
-    git restore --source=HEAD -- linux/flutter/generated_plugin* windows/flutter/generated_plugin*
   }
   Pop-Location
 }

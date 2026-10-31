@@ -1,4 +1,11 @@
-param([string]$Flutter = 'flutter')
+# Native audio smoke test (tool/desktop_audio_smoke.dart) for the libmpv
+# backend; no server, no account data. The smoke target is built into the
+# usual Release folder, so the normal app is always rebuilt at the end with the
+# same flags as `dev.ps1 build` (GITHUB_BUILD=true: update checker on). Close a
+# running Release absorb.exe first. The owner's beta copy is not touched.
+param([string]$Flutter = $(if ($env:FLUTTER) { $env:FLUTTER }
+    elseif (Test-Path 'C:\Users\pc\develop\flutter\bin\flutter.bat') { 'C:\Users\pc\develop\flutter\bin\flutter.bat' }
+    else { 'flutter' }))
 
 $ErrorActionPreference = 'Stop'
 $projectDirectory = Split-Path $PSScriptRoot -Parent
@@ -31,8 +38,9 @@ try {
             $testProcess.Kill()
             $testProcess.WaitForExit()
         }
-        # Never leave the smoke-test binary in place of the regular application.
-        & $Flutter build windows --release -t lib/main.dart
+        # Never leave the smoke-test binary in place of the regular application,
+        # and rebuild it in the same flavor as dev.ps1 build.
+        & $Flutter build windows --release --dart-define=GITHUB_BUILD=true -t lib/main.dart
         if ($LASTEXITCODE -ne 0) { throw 'Restoring the normal application build failed; do not distribute this output.' }
     } finally {
         Pop-Location

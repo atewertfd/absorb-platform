@@ -9,7 +9,7 @@ Claude is the main and only developer of Absorb Plus, a fork of [pounat/absorb](
 | Platform | Who tests it | So Claude must |
 |---|---|---|
 | Windows | The owner, the most | Build after every change; `dev.ps1 build` refreshes `Desktop\Absorb Plus Beta\Windows` |
-| Android | The owner's phone, often but less | After meaningful changes, `dev.ps1 apk` (background) puts a signed APK in `Desktop\Absorb Plus Beta\Android` |
+| Android | The owner's phone, often but less | Batched: after a few phone-relevant changes, `dev.ps1 apk` (background) puts a signed APK in `Desktop\Absorb Plus Beta\Android` |
 | Web | Nobody by hand | Check it through CI builds and the Pages deploy |
 | Linux | Never by hand | Cover it through CI builds and checks |
 
@@ -42,10 +42,10 @@ Claude is the main and only developer of Absorb Plus, a fork of [pounat/absorb](
   - Every change is also pushed to `fork`. Releases stay batched.
 - **After every app change (standing owner OK, 2026-10-30):**
   - run `dev.ps1 bump` and `dev.ps1 build -CloseRunning`;
-  - that closes the beta copy even when it's hidden in the tray, refreshes `Windows\` and "What's new", then push;
+  - `-CloseRunning` asks a running beta copy to quit (it saves progress first, and it works even when Close to tray hid it), refreshes `Windows\` and "What's new", then push;
   - for changes that affect the phone, also run `dev.ps1 apk` in the background, **batched** (one APK per few changes) and **untracked**: don't wait on it or report it; update the phone download page when it lands. Build it right away only when the owner asks for the phone update (owner, 2026-10-30).
 - `origin` is upstream; **never push to it** (hook- and permission-enforced). `fork` is where everything is pushed. `codex-local` is the old Codex checkout under `C:\Users\pc\Documents\Codex\2026-09-29\`, kept read-only as a backup; don't build or commit there.
-- A `v*` tag on the fork publishes a pre-release through CI. Pushing `main` redeploys the web build to GitHub Pages.
+- A `v*` tag on the fork builds a release through CI. It stays a draft until every platform build is attached, then publishes (as a pre-release for betas). Pushing `main` redeploys the web build to GitHub Pages; doc-only pushes (`docs/`, top-level `*.md`, `.claude/`) skip CI.
 
 ## Tooling (use it)
 
@@ -54,19 +54,20 @@ Claude is the main and only developer of Absorb Plus, a fork of [pounat/absorb](
   - `/build-verify`: check, build and verify the Release folder;
   - `/release`: publish a beta following the policy;
   - `/perf-measure`: RAM and CPU numbers before any performance claim;
-  - `/fork-feature`: where new code goes.
+  - `/fork-feature`: where new code goes;
+  - `/upstream-merge`: bring in upstream changes.
 - **Subagents** (`.claude/agents`):
   - `reviewer`: read-only diff review before commits;
   - `upstream-merger`: conflict resolution during upstream merges;
   - `test-writer`: tests using the project's fakes.
 - **Hooks** (`tool/claude_hooks.py`, wired in `.claude/settings.json`). They block pushes to upstream, `git reset --hard`, recursive deletes through junctions, `dart format` on upstream files, edits to generated or removed files, and they ask before deleting releases or tags and before stable tags. They regenerate localizations after `.arb` edits and print the repo state at session start. Their tests: `python -m unittest discover -s tool/tests`.
 - **Where things are built:**
-  - Windows: locally, into the owner's Release folder.
+  - Windows: locally, into `build\windows\x64\runner\Release`, then copied to the beta folder; release builds also run in `release.yml`.
   - Android, Linux and web: GitHub Actions. It's free (public repo) and runs in the background, and Android gets the permanent signing key there.
-  - A signed phone-test APK: run `gh workflow run ci.yml --ref <branch>` and download the `absorb-android-apk` artifact.
+  - A signed phone-test APK: CI builds it only on manual runs (`dev.ps1 apk`, or `gh workflow run ci.yml --ref <branch>` and download the `absorb-android-apk` artifact), never on push.
   - **Local APKs (owner OK, 2026-10-30):** the Android SDK is installed at `%LOCALAPPDATA%\Android\Sdk` (JDK 21 from `JAVA_HOME`). `dev.ps1 apk -Local` builds the signed arm64 test APK here, checks its signature and copies it to the beta folder. It needs `android\key.properties` (git-ignored), which **the owner** creates once with `tool\android-signing-setup.ps1`. Never read, print or copy `key.properties` or the key folder's `password.txt`. Without it, `dev.ps1 apk` builds on CI as before.
 - **Scripts:**
-  - `tool/dev.ps1` (check, build, bump, footprint, merge);
+  - `tool/dev.ps1` (check, build, beta-sync, apk, bump, footprint, merge, server, itest);
   - `tool/align_with_upstream.py` (undo formatting churn);
   - `tool/measure-windows-usage.ps1`.
 
@@ -85,9 +86,10 @@ Claude is the main and only developer of Absorb Plus, a fork of [pounat/absorb](
 
 - **Never recursively delete a Flutter tree** with `robocopy /MIR`, `Remove-Item -Recurse` or `rm -rf`. `*/flutter/ephemeral/.plugin_symlinks` are junctions into the shared Pub cache, and a delete through them once emptied 23 cached packages. Remove the links first (`cmd /c rmdir <link>`), or use `git worktree remove`.
   - **Repair:** find empty folders under `%LOCALAPPDATA%\Pub\Cache\hosted\pub.dev`, `rmdir` them, then run `flutter pub get`.
-- **Generated plugin files** (`*/flutter/generated_plugin*`): restore them only **after** building. The committed list names `jni`, which this machine's Flutter drops, so restoring before a `--no-pub` build breaks CMake. `dev.ps1` handles this.
+- **Generated plugin files** (`*/flutter/generated_plugin*`) must match what `pub get` writes. They once kept a stale `jni` entry (gone from `pubspec.lock` since Apple was removed), so every `pub get` dirtied them and `dev.ps1` had to restore them after building. When a pubspec change alters them, commit the regenerated files; never edit them by hand.
 - **NuGet is required for Windows builds** (WebView2 plugin). If CMake cached `NUGET-NOTFOUND`, delete `build\windows\x64\CMakeCache.txt`.
-- **Closing Absorb's window only hides it to the tray.** For refreshing the beta folder, the owner allows `-CloseRunning`, which quits it gracefully. Without that flag, `build` and `beta-sync` leave an open copy alone and only refresh "What's new".
+- **Closing the window quits Absorb after saving progress**, unless the user turned on the optional Close to tray (off by default; `lib/services/windows_shell.dart`, `windows/runner/windows_shell.cpp`). `-CloseRunning` sends the runner's `AbsorbPlus.QuitRequest` message, which quits even a tray-hidden copy, then waits up to 15 s. Without that flag, `build` and `beta-sync` leave an open copy alone and only refresh "What's new".
+- **The verify scripts** (`tool/verify-desktop-audio.ps1`, `tool/verify-windows-shell.ps1 -Build`) build a probe into the Release folder and rebuild the normal app (`GITHUB_BUILD=true`) at the end. Run `dev.ps1 build` afterwards if one was interrupted.
 - **Bash heredocs on this machine collapse `\\`.** Write scripts containing backslashes or regexes to a file with the Write tool.
 - **Never `dart format` existing upstream files**: it rewraps hundreds of lines into future conflicts.
 

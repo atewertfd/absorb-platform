@@ -8,7 +8,7 @@ description: Measure Absorb Plus RAM and CPU on Windows with fixed scenarios, be
 Never claim a speed or memory improvement without numbers from this procedure.
 
 1. Build the version to measure (use the `build-verify` skill) and note its version.
-2. Start `build\windows\x64\runner\Release\absorb.exe`. Sign in to the **throwaway test server** (`test-server` skill), never the owner's real server. Wait 30 seconds after launch.
+2. Start `build\windows\x64\runner\Release\absorb.exe`. Sign in to the **throwaway test server** (`.\tool\dev.ps1 server up`, then `server seed`; credentials in `tool/test-server/.env`), never the owner's real server. Wait 30 seconds after launch.
 3. Run each scenario for 60 seconds and record its output:
    ```powershell
    .\tool\measure-windows-usage.ps1 -Seconds 60 -Label "idle on Home"

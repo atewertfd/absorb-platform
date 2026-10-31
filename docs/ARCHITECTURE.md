@@ -1,13 +1,13 @@
 # Code map
 
-How Absorb Plus is put together and where to look. The layout under `lib/` is upstream's ([pounat/absorb](https://github.com/pounat/absorb)). It stays as is so upstream merges stay clean; see "Fork rules" at the end.
+How Absorb Plus is put together and where to look. The layout under `lib/` is upstream's ([pounat/absorb](https://github.com/pounat/absorb)). It stays as is so upstream merges stay clean; see "Fork rules" at the end. For a file-by-file map of each area (entry points, data flow, traps) and the open findings, see [`docs/audit/`](audit/README.md).
 
 ## Start-up and navigation
 
 | Where | What |
 |---|---|
 | `lib/main.dart` | `main()` sets up certificates, image cache limits and read-along, then `MultiProvider` (`AuthProvider`, `LibraryProvider`). `_initServices` starts audio first, then optional services in the background through `StartupTaskCoordinator` (fork). |
-| `lib/screens/app_shell.dart` | The main window after sign-in. Its tabs are 0 Home, 1 Library, 2 Absorbing (now playing and queue), 3 Stats and 4 Settings. Pages are built lazily and kept alive. It also hosts the expanded player, the desktop sidebar and keyboard shortcuts, the nav hold menu and update checks. |
+| `lib/screens/app_shell.dart` | The main window after sign-in. Its tabs are 0 Home, 1 Library, 2 Absorbing (now playing and queue), 3 Stats and 4 Settings. Pages are built lazily and kept alive. It also hosts the expanded player, keyboard shortcuts, the nav hold menu and update checks. There is no desktop sidebar: desktop uses the same bottom navigation. |
 | `lib/screens/login_screen.dart`, `lib/models/auth_session.dart` | Sign-in, including OIDC and multiple accounts. |
 
 ## State (providers)
@@ -18,14 +18,14 @@ How Absorb Plus is put together and where to look. The layout under `lib/` is up
   - `_lp_core.dart`: loading libraries and shelves, progress, offline mode, downloaded shelves.
   - `_lp_absorbing.dart`: the Absorbing queue.
 
-  Widgets usually `context.select` a small slice. For example, cards use `LibraryItemSnapshot` (fork) to avoid rebuilding on every notification.
+  Most widgets `context.watch` the whole provider (about 50 places), so any notification rebuilds them; only a few use `context.select`. Cards use `LibraryItemSnapshot` (fork) to avoid rebuilding on every notification.
 
 ## Services (`lib/services/`, about 120 files)
 
 | Area | Main files |
 |---|---|
 | Server API | `api_service.dart` (Audiobookshelf REST: items, progress, uploads, search, admin), `bookorbit_api_service.dart` and `bookorbit_*` (BookOrbit backend), `server_backend.dart` (which backend is active), `socket_service.dart` (live server events) |
-| Playback | `audio_player_service.dart` (the player and media session; very large), `_audio_player.dart` (just_audio wrapper), `desktop_audio*.dart` (fork: libmpv on desktop), `chromecast_service.dart`, `carplay_service.dart`, `android_auto_service.dart`, `sleep_timer_service.dart`, `equalizer_service.dart` |
+| Playback | `audio_player_service.dart` (the player and media session; very large), `_audio_player.dart` (just_audio wrapper), `desktop_audio*.dart` (fork: libmpv on desktop), `chromecast_service.dart`, `android_auto_service.dart`, `carplay_service.dart` and `siri_service.dart` (no-op stubs: Apple was removed; listed in `tool/fork-overrides.txt`), `sleep_timer_service.dart`, `equalizer_service.dart` |
 | Progress and sync | `progress_sync_service.dart`, `local_session_service.dart`, `sync_logic.dart`, `settings_sync_service.dart` |
 | Downloads and offline | `download_service.dart` (queue, files, recovery), `queue_download_policy.dart`, `library_cache.dart`, `session_cache.dart` |
 | Reader and read-along | `narration_*`, `read_along_script.dart`, `read_listen_sync.dart`, `ebook_*`, `foliate_book_server.dart`, `transcription_service.dart` |
@@ -57,19 +57,19 @@ How Absorb Plus is put together and where to look. The layout under `lib/` is up
 
 | What | Where | Use |
 |---|---|---|
-| Everyday commands | `tool/dev.ps1` | `check`, `build`, `bump`, `footprint`, `server`, `itest` |
+| Everyday commands | `tool/dev.ps1` | `check`, `build [-CloseRunning]`, `beta-sync`, `apk [-Local]`, `bump [-NextBeta]`, `footprint`, `merge`, `server`, `itest` |
 | Throwaway test server | `tool/test-server/` (`docker-compose.yml`, `seed.py`; `data/` and `.env` git-ignored) | Audiobookshelf 2.37.2 on `127.0.0.1:13378` only, never a real server. `dev.ps1 server up`, `server seed` (root + second account with generated test credentials in `.env`, a 3-file MP3 book and a 2-chapter M4B made by the container's ffmpeg, library scan; idempotent), `server down`, `server reset` (deletes only `tool/test-server/data`) |
 | Integration tests | `test/integration/*_test.dart`, tag `abs-server`; `dart_test.yaml` skips the tag so `check` never loads them | `dev.ps1 itest` (`--tags abs-server --run-skipped`): the real `ApiService` for login, token refresh, libraries/items, progress, two accounts, a playback session, admin and Libation uploads. Plain `test()` only (the widget binding blocks real HTTP); suites skip with a reason when `.env` or the server is missing |
 | UI overflow sweep | `test/ui_overflow_sweep_test.dart` (runs in plain `flutter test` / `check`, ~40 s) | Pumps the app shell, Home, Library (all five tabs), Absorbing (cards and empty), Stats, Settings (every section opened; plain pass in Plain wording + Frosted), Downloads, Bookmarks, Achievements, the look picker (both steps), What's new, welcome and book detail sheets with fake providers, a `MockClient` API and fixtures full of very long titles/names, at 360x640, 390x844, 768x1024, 1024x640, 1280x800 and 1920x1080, text scale 1.0/1.3 (2.0 on the small phone), light and dark. Fails on any FlutterError (RenderFlex overflow, unbounded constraints...) and on text laid out shorter than its own lines (silently cut). Measures with Roboto from the Flutter SDK cache, not the square test font. `--dart-define=SWEEP_VERBOSE=true` prints timings and full errors. Fixes use `lib/widgets/text_scale_room.dart` (`textScaleRoom`, `LabelRoomGridDelegate`, `linesThatFit`) |
 | Undo formatting churn | `tool/align_with_upstream.py` | `python tool/align_with_upstream.py [--apply] FILE...` |
 | RAM/CPU sampling | `tool/measure-windows-usage.ps1` | Read-only process counters for a running build |
 | Frame/rebuild diagnostics | `lib/utils/scroll_diagnostics.dart` | Start the app with `ABSORB_SCROLL_DIAG=1`; logs wheel input, frame timings, redraws per frame and rebuild sources to `%TEMP%\absorb-scroll-diag.txt`. Debug builds also log which widget starts each frame's rebuild and, at 15–17 s, the stacks that marked widgets dirty. Found the idle redraw loop in `AbsorbingScreen._loadQueueMode`. |
-| Desktop audio smoke test | `tool/verify-desktop-audio.ps1`, `tool/desktop_audio_smoke.dart` | Checks the libmpv backend without a server |
+| Desktop audio smoke test | `tool/verify-desktop-audio.ps1`, `tool/desktop_audio_smoke.dart` | Checks the libmpv backend without a server. Builds the smoke target into the Release folder, then rebuilds the normal app (`GITHUB_BUILD=true`) |
 | Claude Code guards | `tool/claude_hooks.py` (tests in `tool/tests/`), wired in `.claude/settings.json` | Blocks upstream pushes, junction-following deletes, upstream reformatting and generated-file edits; asks before release/tag deletion |
-| Claude Code procedures | `.claude/skills/*/SKILL.md` | `/status`, `/build-verify`, `/release`, `/perf-measure`, `/fork-feature` |
+| Claude Code procedures | `.claude/skills/*/SKILL.md` | `/status`, `/build-verify`, `/release`, `/perf-measure`, `/fork-feature`, `/upstream-merge` |
 | Claude Code subagents | `.claude/agents/*.md` | `reviewer`, `upstream-merger`, `test-writer` |
 | Fork-only lints | `tool/fork_lints.py` (tests in `tool/tests/`) | `use_build_context_synchronously` stays off in `analysis_options.yaml` (75 upstream hits); this runs one extra `dart analyze` on a lint-on mirror in `build/fork_lints/` and fails only for hits in files missing from upstream's tree. `--all` also lists upstream hits. Part of `dev.ps1 check` and CI |
-| CI | `.github/workflows/_checks.yml` (analyze, tests, tool tests, removed-paths check, fork lints; reused), `ci.yml` (every push; web + Linux builds and Pages deploy on `main`), `release.yml` (`v*` tags: one release with Windows, Linux, web, Android) | |
+| CI | `.github/workflows/_checks.yml` (material fonts precache, analyze, tests, tool tests, removed-paths check, fork lints; reused), `ci.yml` (every push and PR except doc-only ones (`docs/**`, top-level `*.md`, `.claude/**`); web + Linux builds on `main`, PRs and manual runs; Pages deploy on `main` pushes; the signed arm64 phone-test APK on manual runs only), `release.yml` (`v*` tags: one draft release filled by Windows, Linux (tar.gz + .deb with `Depends:`), web and Android jobs, published by a last job once all succeed; no checksum files) | Flutter version from `.flutter-version` (keep it equal to the local SDK) |
 | Upstream merges | `tool/upstream_merge.py` (`dev.ps1 merge`), `tool/fork-removed-paths.txt`, `tool/fork-overrides.txt`, `tool/check_fork_removed.py` | `/upstream-merge` skill |
 
 ## Strings

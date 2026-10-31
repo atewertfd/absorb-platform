@@ -29,6 +29,11 @@ jobs:
           channel: stable
           flutter-version-file: .flutter-version
           cache: true
+      # The UI overflow sweep measures text with Roboto from
+      # bin/cache/artifacts/material_fonts, which a fresh runner doesn't have
+      # (the test then skips). Only the platform-neutral artifacts are needed.
+      - name: Download Flutter's material fonts
+        run: flutter precache --universal --no-android --no-ios --no-linux --no-windows --no-macos --no-web
       - run: flutter pub get
       - name: Analyze
         run: flutter analyze --no-pub --no-fatal-infos

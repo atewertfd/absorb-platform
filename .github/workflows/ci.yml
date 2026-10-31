@@ -2,11 +2,23 @@ name: CI
 
 # Every push and pull request: checks. On main, pull requests and manual runs:
 # also the web and Linux builds. On pushes to main: deploy the web build to GitHub Pages.
+# Manual runs only (dev.ps1 apk): the signed phone-test APK. Phone APKs are
+# batched, and releases build their own, so pushes don't pay ~10 minutes each.
+# Pushes and pull requests that change only docs, top-level Markdown or the
+# Claude Code config skip CI entirely (nothing in them reaches a build).
 
 on:
   push:
     branches: ['**']
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
+      - '.claude/**'
   pull_request:
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
+      - '.claude/**'
   workflow_dispatch:
 
 concurrency:
@@ -69,10 +81,11 @@ jobs:
 
   android:
     name: Android APK (signed, for phone testing)
+    # Manual runs only (dev.ps1 apk, or gh workflow run ci.yml --ref <branch>).
     # Runs alongside checks to save time: an APK from a run whose checks
     # failed is never handed out for testing (the run shows red).
     # Needs the signing secrets, which pull requests don't get.
-    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
