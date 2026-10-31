@@ -22,6 +22,7 @@ import '../l10n/app_localizations.dart';
 import '../main.dart' show rootNavigatorKey;
 import '../widgets/overlay_toast.dart';
 import '../utils/server_url.dart';
+import '../utils/unmetered_network.dart';
 
 class AuthProvider extends ChangeNotifier {
   String? _accessToken;
@@ -1222,7 +1223,7 @@ class AuthProvider extends ChangeNotifier {
     _useLocalServer = false;
     if (_localServerEnabled && _localServerUrl.isNotEmpty) {
       final connectivity = await Connectivity().checkConnectivity();
-      if (connectivity.contains(ConnectivityResult.wifi)) {
+      if (isWifiOrEthernet(connectivity)) {
         final localReachable = await ApiService.pingServer(
           _localServerUrl,
           customHeaders: _customHeaders,

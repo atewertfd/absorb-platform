@@ -16,6 +16,7 @@ import '../main.dart' show rootNavigatorKey;
 import '../widgets/overlay_toast.dart';
 import 'api_service.dart';
 import 'audio_player_service.dart';
+import 'desktop_download_folder.dart';
 import 'download_track_names.dart';
 import 'ebook_cache.dart';
 import 'narrated_books.dart';
@@ -23,6 +24,8 @@ import 'narration_service.dart';
 import 'offline_source.dart';
 import 'server_backend.dart';
 import '../utils/percent_escapes.dart';
+import '../utils/fork_platform.dart';
+import '../utils/unmetered_network.dart';
 import 'user_account_service.dart';
 
 enum DownloadStatus { none, downloading, downloaded, error }
@@ -569,6 +572,9 @@ class DownloadService extends ChangeNotifier {
   /// to use internal storage. This is the only custom-location mechanism now;
   /// the old raw-path approach (MANAGE_EXTERNAL_STORAGE) is gone.
   String? _customDownloadUri;
+  /// Windows/Linux: the folder new downloads go to, or null for the default
+  /// (see [DesktopDownloadFolder]). Existing downloads keep their own paths.
+  String? _desktopDownloadDir;
   /// Downloaded items still pointing at raw external paths from before the SAF
   /// switch. Unreadable without the dropped storage permission, so they're kept
   /// listed for the user to re-download rather than silently deleted.
@@ -658,8 +664,31 @@ class DownloadService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Windows/Linux: the picked download folder, or null for the default.
+  String? get desktopDownloadDir => _desktopDownloadDir;
+
+  /// The folder downloads go to on Windows/Linux when none is picked.
+  Future<String> get defaultDesktopDownloadDir => _internalBasePath;
+
+  /// Windows/Linux: set the folder for new downloads (null = default).
+  /// Existing downloads stay where they are.
+  Future<void> setDesktopDownloadDir(String? path) async {
+    _desktopDownloadDir = (path == null || path.trim().isEmpty) ? null : path;
+    final prefs = await SharedPreferences.getInstance();
+    if (_desktopDownloadDir != null) {
+      await prefs.setString(DesktopDownloadFolder.prefKey, _desktopDownloadDir!);
+    } else {
+      await prefs.remove(DesktopDownloadFolder.prefKey);
+    }
+    notifyListeners();
+  }
+
   /// Get a human-readable label for the current download location.
   Future<String> get downloadLocationLabel async {
+    if (ForkPlatform.supportsDesktopDownloadFolder) {
+      return DesktopDownloadFolder.displayPath(
+          DesktopDownloadFolder.activeRoot(_desktopDownloadDir) ?? await _internalBasePath);
+    }
     final uri = _customDownloadUri;
     if (uri != null && uri.isNotEmpty) return _friendlySafLabel(uri);
     return 'App Internal Storage (Default)';
@@ -1217,6 +1246,7 @@ class DownloadService extends ChangeNotifier {
   Future<void> _initialize() async {
     final prefs = await SharedPreferences.getInstance();
     _customDownloadUri = prefs.getString('custom_download_uri');
+    _desktopDownloadDir = prefs.getString(DesktopDownloadFolder.prefKey);
     // Legacy raw-path custom folders can't be converted to a SAF content URI
     // without a fresh user pick, and we no longer hold the storage permission
     // to write them. Drop the old setting so new downloads use SAF or internal.
@@ -1707,6 +1737,8 @@ class DownloadService extends ChangeNotifier {
         if (entry.value.status != DownloadStatus.downloaded) continue;
         // Legacy external entries are kept for re-download, not validated away.
         if (_legacyExternalIds.contains(entry.key)) continue;
+        // Desktop: a book on an unplugged drive is kept, not forgotten.
+        if (entry.value.localPaths.any(DesktopDownloadFolder.isOnMissingDrive)) continue;
         bool allExist = true;
         for (final path in entry.value.localPaths) {
           // No cheap existence check for a SAF content URI; assume present and
@@ -1987,7 +2019,7 @@ class DownloadService extends ChangeNotifier {
     if (wifiOnly) {
       final connectivity = await Connectivity().checkConnectivity();
       if (shouldStart?.call() == false) return null;
-      if (!connectivity.contains(ConnectivityResult.wifi)) {
+      if (!isWifiOrEthernet(connectivity)) {
         return 'Downloads are set to Wi-Fi only. Connect to Wi-Fi or change this in Settings.';
       }
     }
@@ -2068,7 +2100,7 @@ class DownloadService extends ChangeNotifier {
       final connectivity = await Connectivity().checkConnectivity();
       // Not on WiFi: skip silently - the in-app catch-up still sees the
       // episode as new and downloads it on the next open.
-      if (!connectivity.contains(ConnectivityResult.wifi)) return;
+      if (!isWifiOrEthernet(connectivity)) return;
     }
     await _executeDownload(
       api: api,
@@ -2335,9 +2367,12 @@ class DownloadService extends ChangeNotifier {
         nestedName = '$nestedName (${folderIdSuffix(itemId)})';
       }
       String? relDir; // Android: relative to applicationDocuments
+      final desktopRoot = DesktopDownloadFolder.activeRoot(_desktopDownloadDir);
       if (Platform.isIOS) {
         final basePath = await downloadBasePath;
         bookDir = Directory('$basePath/$nestedName');
+      } else if (desktopRoot != null) {
+        bookDir = Directory(DesktopDownloadFolder.bookDirPath(desktopRoot, nestedName, itemId));
       } else {
         final appDir = await getApplicationDocumentsDirectory();
         relDir = 'downloads/$nestedName';
@@ -2434,7 +2469,7 @@ class DownloadService extends ChangeNotifier {
       for (int i = 0; i < files.length; i++) {
         final meta = jsonEncode({'itemId': itemId, 'i': i, 'n': files.length});
         final Task task;
-        if (Platform.isIOS) {
+        if (Platform.isIOS || desktopRoot != null) {
           task = DownloadTask(
             taskId: _taskId(itemId, i),
             url: files[i].url,
@@ -2535,8 +2570,11 @@ class DownloadService extends ChangeNotifier {
       }
       final Directory bookDir;
       String? relDir;
+      final desktopRoot = DesktopDownloadFolder.activeRoot(_desktopDownloadDir);
       if (Platform.isIOS) {
         bookDir = Directory('${await downloadBasePath}/$nestedName');
+      } else if (desktopRoot != null) {
+        bookDir = Directory(DesktopDownloadFolder.bookDirPath(desktopRoot, nestedName, itemId));
       } else {
         final appDir = await getApplicationDocumentsDirectory();
         relDir = 'downloads/$nestedName';
@@ -2610,7 +2648,7 @@ class DownloadService extends ChangeNotifier {
       final errorNotif = TaskNotification(l?.downloadNotifFailedTitle ?? 'Download Failed', title);
       final meta = jsonEncode({'itemId': itemId, 'i': 0, 'n': 1});
       final DownloadTask task;
-      if (Platform.isIOS) {
+      if (Platform.isIOS || desktopRoot != null) {
         task = DownloadTask(
           taskId: _taskId(itemId, 0),
           url: url,
@@ -3533,7 +3571,8 @@ class DownloadService extends ChangeNotifier {
       if (dir.existsSync()) {
         dir.deleteSync(recursive: true);
         final parent = dir.parent;
-        if (parent.existsSync() && parent.listSync().isEmpty) parent.deleteSync();
+        if (parent.existsSync() && parent.listSync().isEmpty &&
+            !DesktopDownloadFolder.isRoot(parent.path, _desktopDownloadDir)) parent.deleteSync();
       }
     } catch (_) {}
   }
@@ -3782,7 +3821,8 @@ class DownloadService extends ChangeNotifier {
         Directory(dirPath).deleteSync(recursive: true);
         // Clean up empty parent (Author folder) if it's now empty
         final parent = Directory(dirPath).parent;
-        if (parent.existsSync() && parent.listSync().isEmpty) {
+        if (parent.existsSync() && parent.listSync().isEmpty &&
+            !DesktopDownloadFolder.isRoot(parent.path, _desktopDownloadDir)) {
           parent.deleteSync();
         }
       } else {

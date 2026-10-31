@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../services/audio_player_service.dart';
 import '../services/sleep_timer_service.dart';
+import '../utils/fork_platform.dart';
 
 // ─── SHARED SLEEP TIMER SHEET ─────────────────────────────────
 void showSleepTimerSheet(BuildContext context, Color accent) {
@@ -162,6 +163,7 @@ class _SleepTimerSheetState extends State<SleepTimerSheet> {
                 // Rewind on sleep
                 _buildRewindSection(accent, tt, l),
 
+                if (ForkPlatform.supportsShakeToReset) ...[
                 const SizedBox(height: 12),
                 Container(
                     height: 0.5, color: cs.onSurface.withValues(alpha: 0.08)),
@@ -169,6 +171,7 @@ class _SleepTimerSheetState extends State<SleepTimerSheet> {
 
                 // Shake toggle
                 _buildShakeToggle(accent, tt, l),
+                ],
               ],
             ]),
           ),
@@ -281,10 +284,12 @@ class _SleepTimerSheetState extends State<SleepTimerSheet> {
       Container(height: 0.5, color: cs.onSurface.withValues(alpha: 0.08)),
       const SizedBox(height: 12),
       _buildRewindSection(accent, tt, l),
+      if (ForkPlatform.supportsShakeToReset) ...[
       const SizedBox(height: 12),
       Container(height: 0.5, color: cs.onSurface.withValues(alpha: 0.08)),
       const SizedBox(height: 12),
       _buildShakeToggle(accent, tt, l),
+      ],
     ]);
   }
 

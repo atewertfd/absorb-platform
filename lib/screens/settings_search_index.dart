@@ -39,7 +39,7 @@ List<SettingSearchEntry> settingsSearchEntries(BuildContext context) {
     SettingSearchEntry('Appearance', l.sectionAppearance, l.rectangleBookCovers, [l.rectangleBookCoversOnSubtitle, l.rectangleBookCoversOffSubtitle]),
     SettingSearchEntry('Appearance', l.sectionAppearance, l.coverSize, [l.coverSizeSubtitle, l.coverSizeSmall, l.coverSizeMedium, l.coverSizeLarge]),
     SettingSearchEntry('Appearance', l.sectionAppearance, l.cardButtonFill, [l.cardButtonFillSubtitle, l.cardButtonFillClear, l.cardButtonFillSubtle, l.cardButtonFillSolid]),
-    if (!(Platform.isIOS && MediaQuery.sizeOf(context).shortestSide >= 600))
+    if (ForkPlatform.supportsOrientationLock && !(Platform.isIOS && MediaQuery.sizeOf(context).shortestSide >= 600))
       SettingSearchEntry('Appearance', l.sectionAppearance, 'Lock rotation', const ['Screen stays in portrait', 'Screen can rotate with the device']),
 
     // ── Customize Stats ──
@@ -77,8 +77,10 @@ List<SettingSearchEntry> settingsSearchEntries(BuildContext context) {
     SettingSearchEntry('Playback', l.sectionPlayback, l.rewindOnSessionStart, [l.autoRewindOffSubtitle]),
 
     // ── Media Controls ──
+    if (ForkPlatform.hasMediaNotification)
     SettingSearchEntry('Media Controls', l.sectionMediaControls, l.chapterProgressInNotification, [l.chapterProgressInNotificationIos, l.chapterProgressOnSubtitle, l.chapterProgressOnSubtitleIos, l.chapterProgressOffSubtitle]),
     SettingSearchEntry('Media Controls', l.sectionMediaControls, l.nowPlayingText, [l.nowPlayingTextSubtitle, l.nowPlayingPiecePercent, l.nowPlayingPieceTimeLeft, l.nowPlayingPieceNarrator, l.nowPlayingPieceSeries]),
+    if (ForkPlatform.hasMediaNotification)
     SettingSearchEntry('Media Controls', l.sectionMediaControls, l.lockSeekBar, [l.lockSeekBarOnSubtitle, l.lockSeekBarOffSubtitle]),
     if (Platform.isAndroid) ...[
       SettingSearchEntry('Media Controls', l.sectionMediaControls, 'Duck brief interruptions', const ['Notifications and prompts lower the volume instead of pausing', 'Notifications and prompts pause playback']),
@@ -86,6 +88,7 @@ List<SettingSearchEntry> settingsSearchEntries(BuildContext context) {
     ],
 
     // ── Car ──
+    if (ForkPlatform.hasCarMode) ...[
     SettingSearchEntry('Car', Platform.isIOS ? l.sectionCarIos : l.sectionCar,
         Platform.isIOS ? l.carConnectAutoplayIos : l.carConnectAutoplay,
         [l.carConnectAutoplayOnSubtitle, l.carConnectAutoplayOffSubtitle]),
@@ -94,6 +97,7 @@ List<SettingSearchEntry> settingsSearchEntries(BuildContext context) {
     SettingSearchEntry('Car', Platform.isIOS ? l.sectionCarIos : l.sectionCar, l.carBookOrderReverse, [l.carBookOrderReverseSubtitle]),
     SettingSearchEntry('Car', Platform.isIOS ? l.sectionCarIos : l.sectionCar, l.carPodcastOrder, [l.title, l.dateAdded]),
     SettingSearchEntry('Car', Platform.isIOS ? l.sectionCarIos : l.sectionCar, l.carEpisodesOldestFirst, [l.carEpisodesOldestFirstSubtitle]),
+    ],
 
     // ── Siri ──
     if (Platform.isIOS) ...[
@@ -102,9 +106,13 @@ List<SettingSearchEntry> settingsSearchEntries(BuildContext context) {
     ],
 
     // ── Sleep Timer ──
+    if (ForkPlatform.supportsShakeToReset) ...[
     SettingSearchEntry('Sleep Timer', l.sectionSleepTimer, l.shakeDuringSleepTimer, [l.shakeOff, l.shakeAddTime, l.shakeReset]),
     SettingSearchEntry('Sleep Timer', l.sectionSleepTimer, l.shakeSensitivity, [l.shakeSensitivityVeryLow, l.shakeSensitivityLow, l.shakeSensitivityMedium, l.shakeSensitivityHigh, l.shakeSensitivityVeryHigh]),
+    ],
+    if (ForkPlatform.supportsHeadsetSleepButton)
     SettingSearchEntry('Sleep Timer', l.sectionSleepTimer, l.buttonDuringSleepTimer, [l.shakeOff, l.shakeAddTime, l.shakeReset, l.buttonDuringSleepTimerHint]),
+    if (ForkPlatform.supportsShakeToReset || ForkPlatform.supportsHeadsetSleepButton)
     SettingSearchEntry('Sleep Timer', l.sectionSleepTimer, l.sleepAddAmount, const []),
     SettingSearchEntry('Sleep Timer', l.sectionSleepTimer, l.resetTimerOnPause, [l.resetTimerOnPauseOnSubtitle, l.resetTimerOnPauseOffSubtitle]),
     SettingSearchEntry('Sleep Timer', l.sectionSleepTimer, l.sleepTimerSheetRewindOnSleep, const []),
@@ -144,6 +152,7 @@ List<SettingSearchEntry> settingsSearchEntries(BuildContext context) {
     SettingSearchEntry('Library', l.sectionLibrary, l.currentLibrarySkipForward, const []),
 
     // ── Permissions ──
+    if (ForkPlatform.hasPermissionSettings)
     SettingSearchEntry('Permissions', l.sectionPermissions, l.notifications, [l.notificationsSubtitle]),
     if (Platform.isAndroid) ...[
       SettingSearchEntry('Permissions', l.sectionPermissions, l.settingsEpisodeNotifs, [l.settingsEpisodeNotifsDesc]),

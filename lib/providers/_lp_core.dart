@@ -3040,7 +3040,7 @@ mixin _CoreMixin on ChangeNotifier, _StateMixin {
     final wifiOnly = await PlayerSettings.getWifiOnlyDownloads();
     if (wifiOnly) {
       final connectivity = await Connectivity().checkConnectivity();
-      if (!connectivity.contains(ConnectivityResult.wifi)) {
+      if (!isWifiOrEthernet(connectivity)) {
         debugPrint('[Subscription] Skipping download (not on WiFi) - will retry on WiFi');
         return false;
       }
@@ -3147,7 +3147,7 @@ mixin _CoreMixin on ChangeNotifier, _StateMixin {
     final wifiOnly = await PlayerSettings.getWifiOnlyDownloads();
     if (wifiOnly) {
       final connectivity = await Connectivity().checkConnectivity();
-      if (!connectivity.contains(ConnectivityResult.wifi)) return;
+      if (!isWifiOrEthernet(connectivity)) return;
     }
 
     for (final seriesOrShowId in _rollingDownloadSeries.toList()) {
@@ -3579,7 +3579,7 @@ mixin _CoreMixin on ChangeNotifier, _StateMixin {
       if (wifiOnly) {
         final connectivity = await Connectivity().checkConnectivity();
         if (stop('check connectivity')) return;
-        if (!connectivity.contains(ConnectivityResult.wifi)) {
+        if (!isWifiOrEthernet(connectivity)) {
           debugPrint(
               '[QueueDL] stop: wifi-only downloads on, not on wifi ($connectivity)');
           return;
